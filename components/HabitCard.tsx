@@ -4,23 +4,38 @@ import { Check, Trash2, Flame } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti"; // Import konfetti
 
 type HabitCardProps = {
-
     id: string;
     name: string;
     streak: number;
+    completedDates: string[]; // Historia dat z bazy
     defaultCompleted?: boolean;
 };
 
-export default function HabitCard({ id, name, streak, defaultCompleted = false }: HabitCardProps) {
-    const supabase = createClient();
+export default function HabitCard({ id, name, streak, completedDates, defaultCompleted = false }: HabitCardProps) {
     const router = useRouter();
+    const supabase = createClient();
     const [isCompleted, setIsCompleted] = useState(defaultCompleted);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Funkcja wywołująca konfetti
+    const triggerConfetti = () => {
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
-    const currentStreak = isCompleted ? streak : streak;
+        const interval = window.setInterval(() => {
+            const timeLeft = 500; // Czas trwania animacji
+            // ...skrócona logika konfetti dla efektu "wybuchu"
+        }, 250);
+
+        confetti({
+            origin: { y: 0.7 },
+            particleCount: 100,
+            spread: 70,
+        });
+    };
 
     const toggleHabit = async () => {
         if (isLoading) return;
@@ -28,6 +43,11 @@ export default function HabitCard({ id, name, streak, defaultCompleted = false }
 
         const newState = !isCompleted;
         setIsCompleted(newState);
+
+        // Jeśli odhaczamy (robimy na zielono), strzelamy konfetti!
+        if (newState) {
+            triggerConfetti();
+        }
 
         const today = new Date().toISOString().split('T')[0];
 
@@ -57,49 +77,90 @@ export default function HabitCard({ id, name, streak, defaultCompleted = false }
         if (!error) router.refresh();
     };
 
+    // --- LOGIKA HEATMAPY (Ostatnie 7 dni) ---
+    // Generujemy tablicę ostatnich 7 dni, żeby narysować krateczki
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i)); // Odwracamy kolejność: 6 dni temu -> dzisiaj
+        return d.toISOString().split('T')[0];
+    });
+
+    // Dodajemy "dzisiaj" do listy wykonanych, jeśli właśnie kliknęliśmy (dla szybkiego UI)
+    const allCompletedDates = isCompleted
+        ? [...completedDates, new Date().toISOString().split('T')[0]]
+        : completedDates.filter(d => d !== new Date().toISOString().split('T')[0]);
+
     return (
         <div
             onClick={toggleHabit}
             className={`
-        group flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 cursor-pointer select-none relative overflow-hidden
+        group flex flex-col p-4 rounded-2xl border transition-all duration-200 cursor-pointer select-none relative overflow-hidden
         ${isCompleted
-                    ? "bg-green-900/20 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.2)]"
+                    ? "bg-green-900/10 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
                     : "bg-gray-900 border-gray-800 hover:border-gray-600 hover:bg-gray-800/80"
                 }
       `}
         >
-            <div className="flex items-center gap-4 z-10 overflow-hidden">
-                <div
-                    className={`
-            flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300
-            ${isCompleted
-                            ? "bg-green-500 border-green-500 scale-110"
-                            : "border-gray-600 group-hover:border-gray-400"
-                        }
-          `}
-                >
-                    {isCompleted && <Check size={18} className="text-black stroke-[3]" />}
+            {/* GÓRA KARTY: Checkbox i Nazwa */}
+            <div className="flex items-center justify-between w-full z-10">
+                <div className="flex items-center gap-4">
+                    <div
+                        className={`
+              flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300
+              ${isCompleted
+                                ? "bg-green-500 border-green-500 scale-110"
+                                : "border-gray-600 group-hover:border-gray-400"
+                            }
+            `}
+                    >
+                        {isCompleted && <Check size={18} className="text-black stroke-[3]" />}
+                    </div>
+
+                    <div className="flex flex-col">
+                        <span className={`text-lg font-medium transition-colors ${isCompleted ? "text-green-100 line-through decoration-green-500/50" : "text-gray-200"}`}>
+                            {name}
+                        </span>
+                    </div>
                 </div>
 
-                <div className="flex flex-col">
-                    <span className={`text-lg font-medium transition-colors truncate ${isCompleted ? "text-green-100 line-through decoration-green-500/50" : "text-gray-200"}`}>
-                        {name}
-                    </span>
-
-
-                    <div className={`text-xs font-mono flex items-center gap-1 ${currentStreak > 0 ? "text-orange-400" : "text-gray-600"}`}>
-                        <Flame size={12} className={currentStreak > 0 ? "fill-orange-400" : ""} />
-                        {currentStreak} dni serii
+                {/* IKONY PO PRAWEJ: Streak i Kosz */}
+                <div className="flex items-center gap-3">
+                    <div className={`text-xs font-mono flex items-center gap-1 ${streak > 0 ? "text-orange-400" : "text-gray-600"}`}>
+                        <Flame size={14} className={streak > 0 ? "fill-orange-400" : ""} />
+                        <span className="text-sm">{streak}</span>
                     </div>
+
+                    <button
+                        onClick={deleteHabit}
+                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    >
+                        <Trash2 size={18} />
+                    </button>
                 </div>
             </div>
 
-            <button
-                onClick={deleteHabit}
-                className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-20"
-            >
-                <Trash2 size={20} />
-            </button>
+            {/* DÓŁ KARTY: Heatmapa (Krateczki) */}
+            <div className="mt-4 flex gap-1.5 ml-12">
+                {last7Days.map((date, index) => {
+                    const isDone = allCompletedDates.includes(date);
+                    const isToday = index === 6; // Ostatni element to dzisiaj
+
+                    return (
+                        <div
+                            key={date}
+                            className={`
+                w-2.5 h-2.5 rounded-sm transition-all
+                ${isDone
+                                    ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                                    : "bg-gray-800"
+                                }
+                ${isToday ? "ring-1 ring-gray-500" : ""}
+              `}
+                            title={date} // Po najechaniu pokaże datę
+                        />
+                    );
+                })}
+            </div>
         </div>
     );
 }
