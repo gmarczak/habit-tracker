@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import HabitCard from "@/components/HabitCard";
 import AddHabitButton from "@/components/AddHabitButton";
 import { CalendarDays } from "lucide-react";
-import { calculateStreak } from "@/utils/streakCalculator";
+import { calculateStreakFromLogs } from "@/utils/streakCalculator";
 
 // To wyłącza cache, żebyś zawsze widział aktualne dane po odświeżeniu
 export const revalidate = 0;
@@ -41,16 +41,24 @@ export default async function Home() {
   // 3. Pobieramy historię logów (do heatmapy i streaka)
   const { data: allLogs } = await supabase
     .from("habit_logs")
-    .select("habit_id, completed_date");
+    .select("habit_id, completed_date, status, note");
 
   // 4. Grupujemy logi według nawyków
-  const logsByHabit: Record<string, string[]> = {};
+  const doneDatesByHabit: Record<string, string[]> = {};
+  const skipDatesByHabit: Record<string, string[]> = {};
+  const logsByHabit: Record<string, Array<{ completed_date: string; status?: "done" | "skip" | null }>> = {};
 
   allLogs?.forEach((log: any) => {
-    if (!logsByHabit[log.habit_id]) {
-      logsByHabit[log.habit_id] = [];
+    if (!logsByHabit[log.habit_id]) logsByHabit[log.habit_id] = [];
+    logsByHabit[log.habit_id].push({ completed_date: log.completed_date, status: log.status ?? "done" });
+
+    if ((log.status ?? "done") === "skip") {
+      if (!skipDatesByHabit[log.habit_id]) skipDatesByHabit[log.habit_id] = [];
+      skipDatesByHabit[log.habit_id].push(log.completed_date);
+    } else {
+      if (!doneDatesByHabit[log.habit_id]) doneDatesByHabit[log.habit_id] = [];
+      doneDatesByHabit[log.habit_id].push(log.completed_date);
     }
-    logsByHabit[log.habit_id].push(log.completed_date);
   });
 
   const today = getTodayDate();
@@ -72,10 +80,12 @@ export default async function Home() {
 
         {/* LISTA KART */}
         <section className="flex flex-col gap-3 pb-24">
-          {habits?.map((habit: any) => {
-            const habitDates = logsByHabit[habit.id] || [];
-            const streak = calculateStreak(habitDates);
-            const isCompletedToday = habitDates.includes(todayISO);
+          {habits?.filter((h: any) => !h?.archived)?.map((habit: any) => {
+            const habitDoneDates = doneDatesByHabit[habit.id] || [];
+            const habitSkipDates = skipDatesByHabit[habit.id] || [];
+            const habitLogs = logsByHabit[habit.id] || [];
+            const streak = calculateStreakFromLogs(habitLogs);
+            const isCompletedToday = habitDoneDates.includes(todayISO);
 
             return (
               <HabitCard
@@ -83,7 +93,10 @@ export default async function Home() {
                 id={habit.id}
                 name={habit.name}
                 streak={streak}
-                completedDates={habitDates} // Przekazujemy historię do heatmapy
+                completedDates={habitDoneDates} // 'done'
+                skippedDates={habitSkipDates} // 'skip'
+                tags={habit.tags ?? []}
+                archived={habit.archived ?? false}
                 defaultCompleted={isCompletedToday}
               />
             );

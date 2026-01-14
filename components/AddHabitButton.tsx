@@ -21,7 +21,12 @@ export default function AddHabitButton() {
 
         const { error } = await supabase
             .from("habits")
-            .insert({ name });
+            .insert({
+                name,
+                archived: false,
+                tags: [],
+                schedule_type: "daily",
+            });
 
         setIsLoading(false);
 

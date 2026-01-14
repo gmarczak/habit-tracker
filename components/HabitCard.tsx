@@ -11,10 +11,13 @@ type HabitCardProps = {
     name: string;
     streak: number;
     completedDates: string[]; // Historia dat z bazy
+    skippedDates?: string[];
+    tags?: string[];
+    archived?: boolean;
     defaultCompleted?: boolean;
 };
 
-export default function HabitCard({ id, name, streak, completedDates, defaultCompleted = false }: HabitCardProps) {
+export default function HabitCard({ id, name, streak, completedDates, skippedDates = [], tags = [], archived = false, defaultCompleted = false }: HabitCardProps) {
     const router = useRouter();
     const supabase = createClient();
     const [isCompleted, setIsCompleted] = useState(defaultCompleted);
@@ -56,7 +59,13 @@ export default function HabitCard({ id, name, streak, completedDates, defaultCom
 
         try {
             if (newState) {
-                await supabase.from("habit_logs").insert({ habit_id: id, completed_date: today });
+                // robust: delete then insert (works even without unique constraints)
+                await supabase
+                    .from("habit_logs")
+                    .delete()
+                    .eq("habit_id", id)
+                    .eq("completed_date", today);
+                await supabase.from("habit_logs").insert({ habit_id: id, completed_date: today, status: "done" });
             } else {
                 await supabase
                     .from("habit_logs")
@@ -71,6 +80,34 @@ export default function HabitCard({ id, name, streak, completedDates, defaultCom
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const archiveHabit = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const { error } = await supabase
+            .from("habits")
+            .update({ archived: true })
+            .eq("id", id);
+        if (error) {
+            alert("Nie udało się zarchiwizować. Dodaj kolumnę 'archived' w tabeli habits.");
+            console.error(error);
+            return;
+        }
+        router.refresh();
+    };
+
+    const restoreHabit = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const { error } = await supabase
+            .from("habits")
+            .update({ archived: false })
+            .eq("id", id);
+        if (error) {
+            alert("Nie udało się przywrócić. Dodaj kolumnę 'archived' w tabeli habits.");
+            console.error(error);
+            return;
+        }
+        router.refresh();
     };
 
     const deleteHabit = async (e: React.MouseEvent) => {
@@ -134,87 +171,118 @@ export default function HabitCard({ id, name, streak, completedDates, defaultCom
                 className={`
         group flex flex-col p-4 rounded-2xl border transition-all duration-200 cursor-pointer select-none relative overflow-hidden
         ${isCompleted
-                    ? "bg-green-900/10 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
-                    : "bg-gray-900 border-gray-800 hover:border-gray-600 hover:bg-gray-800/80"
-                }
+                        ? "bg-green-900/10 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
+                        : "bg-gray-900 border-gray-800 hover:border-gray-600 hover:bg-gray-800/80"
+                    }
       `}
             >
-            {/* GÓRA KARTY: Checkbox i Nazwa */}
-            <div className="flex items-center justify-between w-full z-10">
-                <div className="flex items-center gap-4">
-                    <div
-                        className={`
+                {/* GÓRA KARTY: Checkbox i Nazwa */}
+                <div className="flex items-center justify-between w-full z-10">
+                    <div className="flex items-center gap-4">
+                        <div
+                            className={`
               flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300
               ${isCompleted
-                                ? "bg-green-500 border-green-500 scale-110"
-                                : "border-gray-600 group-hover:border-gray-400"
-                            }
+                                    ? "bg-green-500 border-green-500 scale-110"
+                                    : "border-gray-600 group-hover:border-gray-400"
+                                }
             `}
-                    >
-                        {isCompleted && <Check size={18} className="text-black stroke-[3]" />}
+                        >
+                            {isCompleted && <Check size={18} className="text-black stroke-[3]" />}
+                        </div>
+
+                        <div className="flex flex-col">
+                            <span className={`text-lg font-medium transition-colors ${isCompleted ? "text-green-100 line-through decoration-green-500/50" : "text-gray-200"}`}>
+                                {name}
+                            </span>
+                            {tags.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                    {tags.slice(0, 3).map((t) => (
+                                        <span
+                                            key={t}
+                                            className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-700"
+                                        >
+                                            {t}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex flex-col">
-                        <span className={`text-lg font-medium transition-colors ${isCompleted ? "text-green-100 line-through decoration-green-500/50" : "text-gray-200"}`}>
-                            {name}
-                        </span>
+                    {/* IKONY PO PRAWEJ: Streak i Kosz */}
+                    <div className="flex items-center gap-3">
+                        <div className={`text-xs font-mono flex items-center gap-1 ${streak > 0 ? "text-orange-400" : "text-gray-600"}`}>
+                            <Flame size={14} className={streak > 0 ? "fill-orange-400" : ""} />
+                            <span className="text-sm">{streak}</span>
+                        </div>
+
+                        <button
+                            onClick={openEdit}
+                            className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            aria-label="Edytuj nawyk"
+                        >
+                            <Pencil size={18} />
+                        </button>
+
+                        <button
+                            onClick={goToDetails}
+                            className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            aria-label="Szczegóły nawyku"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+
+                        <button
+                            onClick={deleteHabit}
+                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+
+                        {!archived ? (
+                            <button
+                                onClick={archiveHabit}
+                                className="px-2 py-1 text-xs text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            >
+                                Archiwizuj
+                            </button>
+                        ) : (
+                            <button
+                                onClick={restoreHabit}
+                                className="px-2 py-1 text-xs text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            >
+                                Przywróć
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* IKONY PO PRAWEJ: Streak i Kosz */}
-                <div className="flex items-center gap-3">
-                    <div className={`text-xs font-mono flex items-center gap-1 ${streak > 0 ? "text-orange-400" : "text-gray-600"}`}>
-                        <Flame size={14} className={streak > 0 ? "fill-orange-400" : ""} />
-                        <span className="text-sm">{streak}</span>
-                    </div>
+                {/* DÓŁ KARTY: Heatmapa (Krateczki) */}
+                <div className="mt-4 flex gap-1.5 ml-12">
+                    {last7Days.map((date, index) => {
+                        const isDone = allCompletedDates.includes(date);
+                        const isSkip = skippedDates.includes(date);
+                        const isToday = index === 6; // Ostatni element to dzisiaj
 
-                    <button
-                        onClick={openEdit}
-                        className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        aria-label="Edytuj nawyk"
-                    >
-                        <Pencil size={18} />
-                    </button>
-
-                    <button
-                        onClick={goToDetails}
-                        className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                        aria-label="Szczegóły nawyku"
-                    >
-                        <ChevronRight size={18} />
-                    </button>
-
-                    <button
-                        onClick={deleteHabit}
-                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
-            </div>
-
-            {/* DÓŁ KARTY: Heatmapa (Krateczki) */}
-            <div className="mt-4 flex gap-1.5 ml-12">
-                {last7Days.map((date, index) => {
-                    const isDone = allCompletedDates.includes(date);
-                    const isToday = index === 6; // Ostatni element to dzisiaj
-
-                    return (
-                        <div
-                            key={date}
-                            className={`
+                        return (
+                            <div
+                                key={date}
+                                className={`
                 w-2.5 h-2.5 rounded-sm transition-all
                 ${isDone
-                                    ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
-                                    : "bg-gray-800"
-                                }
+                                        ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                                            : isSkip
+                                                ? "bg-yellow-500/70"
+                                                : "bg-gray-800"
+                                    }
                 ${isToday ? "ring-1 ring-gray-500" : ""}
               `}
-                            title={date} // Po najechaniu pokaże datę
-                        />
-                    );
-                })}
-            </div>
+                                title={date} // Po najechaniu pokaże datę
+                            />
+                        );
+                    })}
+                </div>
             </div>
 
             {isEditing && (
