@@ -22,7 +22,7 @@ export default function HabitCard({ id, name, streak, completedDates, defaultCom
 
     // Funkcja wywołująca konfetti
     const triggerConfetti = () => {
-        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 999 };
         const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
         const interval = window.setInterval(() => {
