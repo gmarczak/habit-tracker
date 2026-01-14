@@ -12,7 +12,7 @@ export default function LoginPage() {
     const router = useRouter();
     const supabase = createClient();
 
-    const getFakeEmail = (user: string) => `${user.toLowerCase().trim()}@example.com`;
+    const getFakeEmail = (user: string) => `${user.toLowerCase().trim()}@tracker.com`;
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
