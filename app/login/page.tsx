@@ -12,8 +12,7 @@ export default function LoginPage() {
     const router = useRouter();
     const supabase = createClient();
 
-    // Trik: Doklejamy sztuczną domenę, żeby Supabase myślał, że to email
-    const getFakeEmail = (user: string) => `${user.toLowerCase().trim()}@tracker.local`;
+    const getFakeEmail = (user: string) => `${user.toLowerCase().trim()}@example.com`;
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
