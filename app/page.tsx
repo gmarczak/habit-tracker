@@ -1,10 +1,21 @@
-import { supabase } from "@/utils/supabase";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 import HabitCard from "@/components/HabitCard";
 import AddHabitButton from "@/components/AddHabitButton";
 import { CalendarDays } from "lucide-react";
 import { calculateStreak } from "@/utils/streakCalculator";
 
-export const revalidate = 0; // Wyłącza cache, żeby dane były zawsze świeże
+export const revalidate = 0;
+
+type Habit = {
+  id: string;
+  name: string;
+};
+
+type HabitLog = {
+  habit_id: string;
+  completed_date: string;
+};
 
 const getTodayDate = () => {
   return new Intl.DateTimeFormat("pl-PL", {
@@ -13,24 +24,23 @@ const getTodayDate = () => {
 };
 
 export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
   const todayISO = new Date().toISOString().split('T')[0];
 
-  // 1. Pobieramy nawyki
   const { data: habits } = await supabase
     .from("habits")
     .select("*")
     .order("created_at", { ascending: true });
 
-  // 2. Pobieramy WSZYSTKIE logi (żeby policzyć streak)
   const { data: allLogs } = await supabase
     .from("habit_logs")
     .select("habit_id, completed_date");
 
-  // 3. Grupujemy logi po ID nawyku (żeby wiedzieć, które daty należą do którego nawyku)
-  // Wynik to np: { "id_nawyku_1": ["2023-10-01", "2023-10-02"], ... }
   const logsByHabit: Record<string, string[]> = {};
 
-  allLogs?.forEach((log) => {
+  (allLogs as HabitLog[] | null | undefined)?.forEach((log) => {
     if (!logsByHabit[log.habit_id]) {
       logsByHabit[log.habit_id] = [];
     }
@@ -54,8 +64,7 @@ export default async function Home() {
         </header>
 
         <section className="flex flex-col gap-3 pb-24">
-          {habits?.map((habit) => {
-            // Dla każdego nawyku wyciągamy jego daty i liczymy streak
+          {(habits as Habit[] | null | undefined)?.map((habit) => {
             const habitDates = logsByHabit[habit.id] || [];
             const streak = calculateStreak(habitDates);
             const isCompletedToday = habitDates.includes(todayISO);
@@ -65,7 +74,7 @@ export default async function Home() {
                 key={habit.id}
                 id={habit.id}
                 name={habit.name}
-                streak={streak} // <--- Przekazujemy wynik
+                streak={streak}
                 defaultCompleted={isCompletedToday}
               />
             );

@@ -1,23 +1,25 @@
 "use client";
 
-import { Check, Trash2, Flame } from "lucide-react"; // <--- Dodaliśmy Flame
+import { Check, Trash2, Flame } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "@/utils/supabase";
+import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 type HabitCardProps = {
+
     id: string;
     name: string;
-    streak: number; // <--- Nowe pole
+    streak: number;
     defaultCompleted?: boolean;
 };
 
 export default function HabitCard({ id, name, streak, defaultCompleted = false }: HabitCardProps) {
+    const supabase = createClient();
     const router = useRouter();
     const [isCompleted, setIsCompleted] = useState(defaultCompleted);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Optymistyczna aktualizacja streaka (tylko wizualnie dla użytkownika)
+
     const currentStreak = isCompleted ? streak : streak;
 
     const toggleHabit = async () => {
@@ -39,7 +41,7 @@ export default function HabitCard({ id, name, streak, defaultCompleted = false }
                     .eq("habit_id", id)
                     .eq("completed_date", today);
             }
-            router.refresh(); // Odświeżamy, żeby przeliczyć streak na serwerze
+            router.refresh();
         } catch (error) {
             console.error("Błąd zapisu:", error);
             setIsCompleted(!newState);
@@ -84,7 +86,7 @@ export default function HabitCard({ id, name, streak, defaultCompleted = false }
                         {name}
                     </span>
 
-                    {/* Wyświetlanie Streaka */}
+
                     <div className={`text-xs font-mono flex items-center gap-1 ${currentStreak > 0 ? "text-orange-400" : "text-gray-600"}`}>
                         <Flame size={12} className={currentStreak > 0 ? "fill-orange-400" : ""} />
                         {currentStreak} dni serii

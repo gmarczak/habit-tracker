@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/utils/supabase";
+import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { Plus, X, Loader2 } from "lucide-react";
 
 export default function AddHabitButton() {
-    const [isOpen, setIsOpen] = useState(false); // Czy okno jest otwarte?
-    const [name, setName] = useState("");        // Treść nowego nawyku
+    const supabase = createClient();
+    const [isOpen, setIsOpen] = useState(false);
+    const [name, setName] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const router = useRouter(); // Pozwoli nam odświeżyć stronę po dodaniu
+    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -17,7 +18,7 @@ export default function AddHabitButton() {
 
         setIsLoading(true);
 
-        // 1. Zapisz do bazy
+
         const { error } = await supabase
             .from("habits")
             .insert({ name });
@@ -28,7 +29,7 @@ export default function AddHabitButton() {
             alert("Wystąpił błąd podczas dodawania.");
             console.error(error);
         } else {
-            // 2. Sukces: wyczyść formularz, zamknij okno i odśwież dane w tle
+
             setName("");
             setIsOpen(false);
             router.refresh();
@@ -37,7 +38,7 @@ export default function AddHabitButton() {
 
     return (
         <>
-            {/* 1. Pływający Przycisk (FAB) */}
+
             <button
                 onClick={() => setIsOpen(true)}
                 className="fixed bottom-8 right-8 md:absolute md:bottom-8 md:right-0 bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-900/40 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-40"
@@ -45,13 +46,13 @@ export default function AddHabitButton() {
                 <Plus size={28} />
             </button>
 
-            {/* 2. Modal (Okienko) - pojawia się tylko gdy isOpen === true */}
+
             {isOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
 
                     <div className="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
 
-                        {/* Przycisk zamknięcia X */}
+
                         <button
                             onClick={() => setIsOpen(false)}
                             className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
