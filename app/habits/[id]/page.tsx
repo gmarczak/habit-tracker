@@ -62,67 +62,67 @@ export default async function HabitDetailsPage({ params }: PageProps) {
 
     return (
         <main className="min-h-screen bg-[#0a0a0a] text-white flex justify-center overflow-hidden">
-            <div className="w-full max-w-md px-6 py-12 flex flex-col gap-8 relative">
+            <div className="w-full max-w-4xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8 relative">
                 <header className="flex flex-col gap-3">
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors w-fit"
+                        className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors w-fit text-sm"
                     >
-                        <ArrowLeft size={18} />
+                        <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
                         <span>Wróć</span>
                     </Link>
 
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+                        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
                             {(habit as Habit).name}
                         </h1>
-                        <p className="text-gray-500 text-sm mt-1">Szczegóły nawyku</p>
+                        <p className="text-gray-500 text-xs sm:text-sm mt-1">Szczegóły nawyku</p>
                     </div>
                 </header>
 
-                <section className="grid grid-cols-2 gap-3">
-                    <div className="p-4 rounded-2xl border border-gray-800 bg-gray-900">
-                        <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                <section className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-800 bg-gray-900">
+                        <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-semibold">
                             Aktualny streak
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                            <Flame size={18} className={currentStreak > 0 ? "text-orange-400 fill-orange-400" : "text-gray-700"} />
-                            <div className="text-2xl font-bold">{currentStreak}</div>
+                            <Flame size={16} className={`sm:w-[18px] sm:h-[18px] ${currentStreak > 0 ? "text-orange-400 fill-orange-400" : "text-gray-700"}`} />
+                            <div className="text-xl sm:text-2xl font-bold">{currentStreak}</div>
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl border border-gray-800 bg-gray-900">
-                        <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-800 bg-gray-900">
+                        <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-semibold">
                             Najlepszy streak
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                            <Flame size={18} className={bestStreak > 0 ? "text-orange-400 fill-orange-400" : "text-gray-700"} />
-                            <div className="text-2xl font-bold">{bestStreak}</div>
+                            <Flame size={16} className={`sm:w-[18px] sm:h-[18px] ${bestStreak > 0 ? "text-orange-400 fill-orange-400" : "text-gray-700"}`} />
+                            <div className="text-xl sm:text-2xl font-bold">{bestStreak}</div>
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl border border-gray-800 bg-gray-900">
-                        <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-800 bg-gray-900">
+                        <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-semibold">
                             Wykonanie 7 dni
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                            <Percent size={18} className="text-gray-400" />
-                            <div className="text-2xl font-bold">{completion7}%</div>
+                            <Percent size={16} className="sm:w-[18px] sm:h-[18px] text-gray-400" />
+                            <div className="text-xl sm:text-2xl font-bold">{completion7}%</div>
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl border border-gray-800 bg-gray-900">
-                        <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-800 bg-gray-900">
+                        <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider font-semibold">
                             Wykonanie 30 dni
                         </div>
                         <div className="mt-2 flex items-center gap-2">
-                            <Percent size={18} className="text-gray-400" />
-                            <div className="text-2xl font-bold">{completion30}%</div>
+                            <Percent size={16} className="sm:w-[18px] sm:h-[18px] text-gray-400" />
+                            <div className="text-xl sm:text-2xl font-bold">{completion30}%</div>
                         </div>
                     </div>
                 </section>
 
-                <section className="p-4 rounded-2xl border border-gray-800 bg-gray-900">
+                <section className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-gray-800 bg-gray-900">
                     <HabitHistoryGrid habitId={id} initialLogs={habitLogs} days={30} />
                 </section>
             </div>

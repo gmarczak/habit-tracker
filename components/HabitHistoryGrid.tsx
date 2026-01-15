@@ -119,15 +119,21 @@ export default function HabitHistoryGrid({
     };
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-                <h3 className="text-sm text-gray-400 uppercase tracking-wider font-semibold">
+        <div className="flex flex-col gap-3 md:gap-4">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <h3 className="text-sm md:text-base text-gray-400 uppercase tracking-wider font-semibold">
                     Historia ({days} dni)
                 </h3>
-                <div className="text-xs text-gray-500">Kliknij dzień, aby zmienić</div>
+                <div className="text-xs text-gray-500">
+                    Kliknij dzień, aby zmienić status
+                </div>
             </div>
 
-            <div className="grid grid-cols-10 gap-2">
+            {/* Grid - responsywny układ */}
+            <div className="grid gap-1.5 md:gap-2" style={{
+                gridTemplateColumns: 'repeat(auto-fill, minmax(24px, 1fr))'
+            }}>
                 {dates.map((date) => {
                     const entry = byDate.get(date);
                     const isDone = entry?.status === "done";
@@ -142,17 +148,35 @@ export default function HabitHistoryGrid({
                             disabled={!!pendingDate}
                             title={entry?.note ? `${date}\n${entry.note}` : date}
                             className={`
-                h-7 w-full rounded-md border transition-all
-                ${isDone ? "bg-green-500/90 border-green-400" : isSkip ? "bg-yellow-500/70 border-yellow-400" : "bg-gray-900 border-gray-800"}
-                ${isPending ? "opacity-60" : "hover:scale-[1.03]"}
-              `}
+                                aspect-square w-full min-w-[24px] rounded-md border transition-all
+                                ${isDone
+                                    ? "bg-green-500/90 border-green-400 shadow-sm"
+                                    : isSkip
+                                        ? "bg-yellow-500/70 border-yellow-400"
+                                        : "bg-gray-900 border-gray-800"
+                                }
+                                ${isPending ? "opacity-60" : "hover:scale-105 active:scale-95"}
+                                disabled:cursor-not-allowed
+                            `}
                         />
                     );
                 })}
             </div>
 
-            <div className="text-xs text-gray-500">
-                Zielone = wykonane, żółte = pominięte, szare = brak
+            {/* Legenda */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-green-500/90"></div>
+                    <span>Wykonane</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-yellow-500/70"></div>
+                    <span>Pominięte</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-sm bg-gray-900 border border-gray-800"></div>
+                    <span>Brak</span>
+                </div>
             </div>
 
             {selectedDate && (

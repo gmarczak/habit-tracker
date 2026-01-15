@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import HabitCard from "@/components/HabitCard";
 import AddHabitButton from "@/components/AddHabitButton";
+import HabitList from "@/components/HabitList";
 import { CalendarDays, BarChart3 } from "lucide-react";
 import { calculateStreakFromLogs } from "@/utils/streakCalculator";
 import Link from "next/link";
@@ -64,56 +64,55 @@ export default async function Home() {
 
   const today = getTodayDate();
 
+  // Przygotuj dane dla HabitList
+  const habitsData = habits?.filter((h: any) => !h?.archived)?.map((habit: any) => {
+    const habitDoneDates = doneDatesByHabit[habit.id] || [];
+    const habitSkipDates = skipDatesByHabit[habit.id] || [];
+    const habitLogs = logsByHabit[habit.id] || [];
+    const streak = calculateStreakFromLogs(habitLogs);
+    const isCompletedToday = habitDoneDates.includes(todayISO);
+
+    return {
+      id: habit.id,
+      name: habit.name,
+      streak,
+      completedDates: habitDoneDates,
+      skippedDates: habitSkipDates,
+      tags: habit.tags ?? [],
+      archived: habit.archived ?? false,
+      isCompletedToday,
+    };
+  }) || [];
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white flex justify-center overflow-hidden">
-      <div className="w-full max-w-md px-6 py-12 flex flex-col gap-8 relative">
+      <div className="w-full max-w-4xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8 relative">
 
         {/* HEADER Z DATĄ */}
         <header>
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 text-gray-400 text-sm uppercase tracking-wider font-semibold">
-              <CalendarDays size={16} />
-              <span>Dzisiaj</span>
+            <div className="flex items-center gap-2 text-gray-400 text-xs sm:text-sm uppercase tracking-wider font-semibold">
+              <CalendarDays size={14} className="sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Dzisiaj</span>
             </div>
             <Link
               href="/yearly-summary"
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors text-sm text-gray-300 hover:text-white"
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors text-xs sm:text-sm text-gray-300 hover:text-white"
             >
-              <BarChart3 size={16} />
+              <BarChart3 size={14} className="sm:w-4 sm:h-4" />
               <span>Rok</span>
             </Link>
           </div>
-          <h1 className="text-3xl font-bold capitalize bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-bold capitalize bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
             {today}
           </h1>
         </header>
 
-        {/* LISTA KART */}
-        <section className="flex flex-col gap-3 pb-24">
-          {habits?.filter((h: any) => !h?.archived)?.map((habit: any) => {
-            const habitDoneDates = doneDatesByHabit[habit.id] || [];
-            const habitSkipDates = skipDatesByHabit[habit.id] || [];
-            const habitLogs = logsByHabit[habit.id] || [];
-            const streak = calculateStreakFromLogs(habitLogs);
-            const isCompletedToday = habitDoneDates.includes(todayISO);
-
-            return (
-              <HabitCard
-                key={habit.id}
-                id={habit.id}
-                name={habit.name}
-                streak={streak}
-                completedDates={habitDoneDates} // 'done'
-                skippedDates={habitSkipDates} // 'skip'
-                tags={habit.tags ?? []}
-                archived={habit.archived ?? false}
-                defaultCompleted={isCompletedToday}
-              />
-            );
-          })}
-
-          {/* EKRAN PUSTY (GDY BRAK NAWYKÓW) */}
-          {habits?.length === 0 && (
+        {/* LISTA NAWYKÓW Z WYSZUKIWANIEM I GRUPOWANIEM */}
+        <section className="pb-20 sm:pb-24">
+          {habitsData.length > 0 ? (
+            <HabitList habits={habitsData} />
+          ) : (
             <div className="p-8 text-center border border-dashed border-gray-800 rounded-2xl text-gray-500 mt-4">
               <p>Jeszcze nic tu nie ma.</p>
               <p className="text-sm mt-2">Kliknij plusa na dole, żeby dodać swój pierwszy nawyk!</p>
