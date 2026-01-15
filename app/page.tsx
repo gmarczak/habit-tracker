@@ -2,8 +2,9 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import HabitCard from "@/components/HabitCard";
 import AddHabitButton from "@/components/AddHabitButton";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, BarChart3 } from "lucide-react";
 import { calculateStreakFromLogs } from "@/utils/streakCalculator";
+import Link from "next/link";
 
 // To wyłącza cache, żebyś zawsze widział aktualne dane po odświeżeniu
 export const revalidate = 0;
@@ -69,9 +70,18 @@ export default async function Home() {
 
         {/* HEADER Z DATĄ */}
         <header>
-          <div className="flex items-center gap-2 text-gray-400 text-sm uppercase tracking-wider font-semibold mb-1">
-            <CalendarDays size={16} />
-            <span>Dzisiaj</span>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 text-gray-400 text-sm uppercase tracking-wider font-semibold">
+              <CalendarDays size={16} />
+              <span>Dzisiaj</span>
+            </div>
+            <Link
+              href="/yearly-summary"
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors text-sm text-gray-300 hover:text-white"
+            >
+              <BarChart3 size={16} />
+              <span>Rok</span>
+            </Link>
           </div>
           <h1 className="text-3xl font-bold capitalize bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
             {today}

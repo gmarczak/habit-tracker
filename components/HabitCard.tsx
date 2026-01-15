@@ -272,9 +272,9 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                 w-2.5 h-2.5 rounded-sm transition-all
                 ${isDone
                                         ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
-                                            : isSkip
-                                                ? "bg-yellow-500/70"
-                                                : "bg-gray-800"
+                                        : isSkip
+                                            ? "bg-yellow-500/70"
+                                            : "bg-gray-800"
                                     }
                 ${isToday ? "ring-1 ring-gray-500" : ""}
               `}

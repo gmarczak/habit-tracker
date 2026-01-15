@@ -45,9 +45,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Dopasuj wszystkie ścieżki z wyjątkiem statycznych plików (obrazy, favicon itp.)
-         */
         '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 }
