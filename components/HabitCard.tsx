@@ -4,7 +4,6 @@ import { Check, Trash2, Flame, Pencil, ChevronRight, X, Loader2 } from "lucide-r
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import confetti from "canvas-confetti";
 import MiniHeatmap from "./MiniHeatmap";
 import { updateHabitName } from "@/app/actions/habitActions";
 
@@ -27,25 +26,6 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
     const [isEditing, setIsEditing] = useState(false);
     const [editedName, setEditedName] = useState(name);
     const [isSaving, setIsSaving] = useState(false);
-    const [showMobileMenu, setShowMobileMenu] = useState(false);
-    const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
-
-    // Funkcja wywołująca konfetti
-    const triggerConfetti = () => {
-        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 999 };
-        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-        const interval = window.setInterval(() => {
-            const timeLeft = 500; // Czas trwania animacji
-            // ...skrócona logika konfetti dla efektu "wybuchu"
-        }, 250);
-
-        confetti({
-            origin: { y: 0.7 },
-            particleCount: 100,
-            spread: 70,
-        });
-    };
 
     const toggleHabit = async () => {
         if (isLoading) return;
@@ -53,11 +33,6 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
 
         const newState = !isCompleted;
         setIsCompleted(newState);
-
-        // Jeśli odhaczamy (robimy na zielono), strzelamy konfetti!
-        if (newState) {
-            triggerConfetti();
-        }
 
         const today = new Date().toISOString().split('T')[0];
 
@@ -132,20 +107,6 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
         router.push(`/habits/${id}`);
     };
 
-    const handleLongPressStart = (e: React.TouchEvent) => {
-        const timer = setTimeout(() => {
-            setShowMobileMenu(true);
-        }, 500); // 500ms long press
-        setLongPressTimer(timer);
-    };
-
-    const handleLongPressEnd = () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            setLongPressTimer(null);
-        }
-    };
-
     const saveEdit = async (e: React.FormEvent) => {
         e.preventDefault();
         const nextName = editedName.trim();
@@ -170,13 +131,6 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
         router.refresh();
     };
 
-    // --- LOGIKA HEATMAPY (Ostatnie dni) ---
-    const last30Days = Array.from({ length: 30 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (29 - i));
-        return d.toISOString().split('T')[0];
-    });
-
     return (
         <>
             <div
@@ -187,9 +141,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                     border-white/10 hover:border-white/20 hover:bg-white/[0.03]
                     ${isCompleted ? "ring-1 ring-emerald-500/20" : ""}
                 `}
-                onTouchStart={handleLongPressStart}
-                onTouchEnd={handleLongPressEnd}
-                onTouchMove={handleLongPressEnd}
+                onClick={(e) => goToDetails(e)}
             >
                 {/* Streak badge in top-right */}
                 <div className="absolute top-3 right-3">
@@ -202,7 +154,10 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                 {/* Checkbox column (left), vertically centered */}
                 <div className="self-stretch flex items-center">
                     <button
-                        onClick={toggleHabit}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            toggleHabit();
+                        }}
                         className={`
                             flex-shrink-0 flex items-center justify-center
                             w-10 h-10 md:w-11 md:h-11 rounded-xl border-2 transition-all duration-200
@@ -352,64 +307,6 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                 </div>
             )}
 
-            {/* Mobile Menu Modal */}
-            {showMobileMenu && (
-                <div
-                    className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm"
-                    onClick={() => setShowMobileMenu(false)}
-                >
-                    <div
-                        className="bg-gray-900 border-t md:border border-gray-800 w-full md:max-w-sm md:rounded-2xl shadow-2xl p-6 relative rounded-t-3xl md:rounded-b-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="w-12 h-1 bg-gray-700 rounded-full mx-auto mb-4 md:hidden"></div>
-
-                        <h2 className="text-xl font-bold text-white mb-4">{name}</h2>
-
-                        <div className="flex flex-col gap-2">
-                            <button
-                                onClick={(e) => {
-                                    setShowMobileMenu(false);
-                                    openEdit(e);
-                                }}
-                                className="w-full py-3 px-4 rounded-lg bg-gray-800 text-white font-medium hover:bg-gray-700 transition-colors flex items-center gap-3"
-                            >
-                                <Pencil size={18} />
-                                <span>Edytuj nazwę</span>
-                            </button>
-
-                            <button
-                                onClick={(e) => {
-                                    setShowMobileMenu(false);
-                                    goToDetails(e);
-                                }}
-                                className="w-full py-3 px-4 rounded-lg bg-gray-800 text-white font-medium hover:bg-gray-700 transition-colors flex items-center gap-3"
-                            >
-                                <ChevronRight size={18} />
-                                <span>Zobacz szczegóły</span>
-                            </button>
-
-                            <button
-                                onClick={(e) => {
-                                    setShowMobileMenu(false);
-                                    deleteHabit(e);
-                                }}
-                                className="w-full py-3 px-4 rounded-lg bg-red-900/30 text-red-400 font-medium hover:bg-red-900/50 transition-colors flex items-center gap-3"
-                            >
-                                <Trash2 size={18} />
-                                <span>Usuń nawyk</span>
-                            </button>
-
-                            <button
-                                onClick={() => setShowMobileMenu(false)}
-                                className="w-full py-3 px-4 rounded-lg bg-gray-800 text-gray-300 font-medium hover:bg-gray-700 transition-colors mt-2"
-                            >
-                                Anuluj
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </>
     );
 }

@@ -64,13 +64,12 @@ export default function AddHabitButton() {
 
     return (
         <>
-
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-8 right-8 md:absolute md:bottom-8 md:right-0 bg-blue-600 hover:bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-900/40 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-40 group"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-40"
                 title="Dodaj nawyk (Ctrl+N)"
             >
-                <Plus size={28} className="group-hover:rotate-90 transition-transform" />
+                <Plus size={20} />
             </button>
 
 

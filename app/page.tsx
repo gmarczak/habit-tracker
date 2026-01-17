@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import AddHabitButton from "@/components/AddHabitButton";
+import DesktopLayout from "@/components/DesktopLayout";
 import HabitList from "@/components/HabitList";
 import { CalendarDays, BarChart3 } from "lucide-react";
 import { calculateStreakFromLogs } from "@/utils/streakCalculator";
@@ -84,46 +84,52 @@ export default async function Home() {
     };
   }) || [];
 
+  // Desktop layout (3 kolumny) widoczny na lg i wyższych
+  // Mobile layout (single column) widoczny poniżej lg
+
   return (
-    <main className="min-h-screen bg-[#0a0a0a] text-white flex justify-center overflow-hidden">
-      <div className="w-full max-w-4xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8 relative">
-
-        {/* HEADER Z DATĄ */}
-        <header>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2 text-gray-400 text-xs sm:text-sm uppercase tracking-wider font-semibold">
-              <CalendarDays size={14} className="sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Dzisiaj</span>
-            </div>
-            <Link
-              href="/yearly-summary"
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors text-xs sm:text-sm text-gray-300 hover:text-white"
-            >
-              <BarChart3 size={14} className="sm:w-4 sm:h-4" />
-              <span>Rok</span>
-            </Link>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold capitalize bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
-            {today}
-          </h1>
-        </header>
-
-        {/* LISTA NAWYKÓW Z WYSZUKIWANIEM I GRUPOWANIEM */}
-        <section className="pb-20 sm:pb-24">
-          {habitsData.length > 0 ? (
-            <HabitList habits={habitsData} />
-          ) : (
-            <div className="p-8 text-center border border-dashed border-gray-800 rounded-2xl text-gray-500 mt-4">
-              <p>Jeszcze nic tu nie ma.</p>
-              <p className="text-sm mt-2">Kliknij plusa na dole, żeby dodać swój pierwszy nawyk!</p>
-            </div>
-          )}
-        </section>
-
-        {/* PRZYCISK DODAWANIA */}
-        <AddHabitButton />
-
+    <>
+      {/* DESKTOP - 3 KOLUMNY (lg i wyżej) */}
+      <div className="hidden lg:block">
+        <DesktopLayout habits={habitsData} todayDate={today} />
       </div>
-    </main>
+
+      {/* MOBILE - SINGLE COLUMN (poniżej lg) */}
+      <main className="lg:hidden min-h-screen bg-[#0a0a0a] text-white flex justify-center overflow-hidden">
+        <div className="w-full max-w-4xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8 relative">
+          {/* HEADER Z DATĄ */}
+          <header>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-gray-400 text-xs sm:text-sm uppercase tracking-wider font-semibold">
+                <CalendarDays size={14} className="sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">Dzisiaj</span>
+              </div>
+              <Link
+                href="/yearly-summary"
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors text-xs sm:text-sm text-gray-300 hover:text-white"
+              >
+                <BarChart3 size={14} className="sm:w-4 sm:h-4" />
+                <span>Rok</span>
+              </Link>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold capitalize bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+              {today}
+            </h1>
+          </header>
+
+          {/* LISTA NAWYKÓW Z WYSZUKIWANIEM I GRUPOWANIEM */}
+          <section className="pb-20 sm:pb-24">
+            {habitsData.length > 0 ? (
+              <HabitList habits={habitsData} />
+            ) : (
+              <div className="p-8 text-center border border-dashed border-gray-800 rounded-2xl text-gray-500 mt-4">
+                <p>Jeszcze nic tu nie ma.</p>
+                <p className="text-sm mt-2">Kliknij plusa na dole, żeby dodać swój pierwszy nawyk!</p>
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
+    </>
   );
 }
