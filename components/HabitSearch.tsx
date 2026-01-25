@@ -26,25 +26,25 @@ export default function HabitSearch({
         <div className="space-y-3">
             {/* Search bar */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={18} />
                 <input
                     type="text"
                     placeholder="Szukaj nawyków..."
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="w-full pl-10 pr-20 py-2.5 bg-gray-900/50 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                    className="w-full pl-10 pr-20 py-2.5 bg-[#1e1e1e]/50 border border-[#2d2d2d] rounded-xl text-[#f9fafb] placeholder-[#9ca3af] focus:outline-none focus:border-[#10b981] transition-colors"
                 />
                 {searchQuery && (
                     <button
                         onClick={() => onSearchChange("")}
-                        className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                        className="absolute right-12 top-1/2 -translate-y-1/2 text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
                     >
                         <X size={16} />
                     </button>
                 )}
                 <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${showFilters ? "bg-blue-600 text-white" : "text-gray-500 hover:text-white hover:bg-gray-800"
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${showFilters ? "bg-[#10b981] text-white" : "text-[#9ca3af] hover:text-[#f9fafb] hover:bg-[#2d2d2d]"
                         }`}
                 >
                     <Filter size={16} />
@@ -57,8 +57,8 @@ export default function HabitSearch({
                     <button
                         onClick={() => onFilterChange("all")}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === "all"
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                            ? "bg-[#10b981] text-white"
+                            : "bg-[#2d2d2d] text-[#9ca3af] hover:bg-[#3f3f46]"
                             }`}
                     >
                         Wszystkie ({totalCount})
@@ -66,8 +66,8 @@ export default function HabitSearch({
                     <button
                         onClick={() => onFilterChange("completed")}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${filterStatus === "completed"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                            ? "bg-[#10b981] text-white"
+                            : "bg-[#2d2d2d] text-[#9ca3af] hover:bg-[#3f3f46]"
                             }`}
                     >
                         <Check size={14} />
@@ -76,8 +76,8 @@ export default function HabitSearch({
                     <button
                         onClick={() => onFilterChange("pending")}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === "pending"
-                                ? "bg-orange-600 text-white"
-                                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                            ? "bg-orange-600 text-white"
+                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                             }`}
                     >
                         Pozostałe ({totalCount - completedCount})

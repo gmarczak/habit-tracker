@@ -53,32 +53,32 @@ export default function LoginPage() {
     };
 
     return (
-        <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4">
-            <div className="w-full max-w-sm bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-xl">
+        <main className="min-h-screen flex items-center justify-center bg-[#121212] text-[#f9fafb] p-4">
+            <div className="w-full max-w-sm bg-[#1e1e1e] border border-[#2d2d2d] p-8 rounded-2xl shadow-xl">
                 <h1 className="text-2xl font-bold mb-2 text-center">Witaj 👋</h1>
-                <p className="text-gray-500 text-center mb-6 text-sm">Zaloguj się swoją ksywką</p>
+                <p className="text-[#9ca3af] text-center mb-6 text-sm">Zaloguj się swoją ksywką</p>
 
                 <form onSubmit={handleLogin} className="flex flex-col gap-4">
                     <div className="relative">
-                        <User className="absolute left-3 top-3 text-gray-500" size={20} />
+                        <User className="absolute left-3 top-3 text-[#9ca3af]" size={20} />
                         <input
                             type="text"
                             placeholder="Twój Login (np. marcin)"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#121212] border border-[#2d2d2d] rounded-lg pl-10 pr-4 py-3 text-[#f9fafb] focus:border-[#10b981] focus:outline-none"
                             required
                         />
                     </div>
 
                     <div className="relative">
-                        <Lock className="absolute left-3 top-3 text-gray-500" size={20} />
+                        <Lock className="absolute left-3 top-3 text-[#9ca3af]" size={20} />
                         <input
                             type="password"
                             placeholder="Hasło"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#121212] border border-[#2d2d2d] rounded-lg pl-10 pr-4 py-3 text-[#f9fafb] focus:border-[#10b981] focus:outline-none"
                             required
                         />
                     </div>
@@ -86,7 +86,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all mt-2 flex justify-center"
+                        className="bg-[#10b981] hover:bg-[#059669] text-white font-bold py-3 rounded-lg transition-all mt-2 flex justify-center"
                     >
                         {loading ? <Loader2 className="animate-spin" /> : "Zaloguj się"}
                     </button>
@@ -95,7 +95,7 @@ export default function LoginPage() {
                         type="button"
                         onClick={handleRegister}
                         disabled={loading}
-                        className="text-gray-500 text-xs hover:text-white transition-colors mt-2"
+                        className="text-[#9ca3af] text-xs hover:text-[#f9fafb] transition-colors mt-2"
                     >
                         Nie masz konta? Wpisz dane powyżej i kliknij tutaj, aby założyć.
                     </button>

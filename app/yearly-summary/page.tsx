@@ -49,94 +49,94 @@ export default async function YearlySummaryPage() {
     }).sort((a, b) => b.totalDays - a.totalDays) || [];
 
     return (
-        <main className="min-h-screen bg-[#0a0a0a] text-white">
+        <main className="min-h-screen bg-[#121212] text-[#f9fafb]">
             <div className="max-w-7xl mx-auto px-6 py-12">
                 {/* Header */}
                 <div className="mb-8">
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4"
+                        className="inline-flex items-center gap-2 text-[#9ca3af] hover:text-[#f9fafb] transition-colors mb-4"
                     >
                         <ArrowLeft size={20} />
                         <span>Powrót do głównej</span>
                     </Link>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#f9fafb] to-[#9ca3af] bg-clip-text text-transparent">
                         Podsumowanie Roczne {currentYear}
                     </h1>
-                    <p className="text-gray-400 mt-2">
+                    <p className="text-[#9ca3af] mt-2">
                         Twoje nawyki w ujęciu całorocznym
                     </p>
                 </div>
 
                 {/* Główne statystyki */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-950/40 rounded-xl p-6 border border-emerald-800/30">
+                    <div className="bg-gradient-to-br from-[#064e3b]/40 to-[#0d3d2d]/40 rounded-xl p-6 border border-[#10b981]/30">
                         <div className="flex items-center gap-3 mb-2">
-                            <Calendar className="text-emerald-400" size={24} />
-                            <span className="text-gray-400 text-sm">Aktywne dni</span>
+                            <Calendar className="text-[#10b981]" size={24} />
+                            <span className="text-[#9ca3af] text-sm">Aktywne dni</span>
                         </div>
-                        <div className="text-3xl font-bold">{yearStats.totalActiveDays}</div>
-                        <div className="text-sm text-gray-500 mt-1">
+                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.totalActiveDays}</div>
+                        <div className="text-sm text-[#9ca3af] mt-1">
                             z {yearStats.daysInYear} dni ({yearStats.completionRate}%)
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-blue-900/40 to-blue-950/40 rounded-xl p-6 border border-blue-800/30">
+                    <div className="bg-gradient-to-br from-[#1e40af]/40 to-[#1e3a8a]/40 rounded-xl p-6 border border-[#3b82f6]/30">
                         <div className="flex items-center gap-3 mb-2">
-                            <Target className="text-blue-400" size={24} />
-                            <span className="text-gray-400 text-sm">Wykonane nawyki</span>
+                            <Target className="text-[#3b82f6]" size={24} />
+                            <span className="text-[#9ca3af] text-sm">Wykonane nawyki</span>
                         </div>
-                        <div className="text-3xl font-bold">{yearStats.totalCompletions}</div>
-                        <div className="text-sm text-gray-500 mt-1">
+                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.totalCompletions}</div>
+                        <div className="text-sm text-[#9ca3af] mt-1">
                             w ciągu roku
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-purple-900/40 to-purple-950/40 rounded-xl p-6 border border-purple-800/30">
+                    <div className="bg-gradient-to-br from-[#6b21a8]/40 to-[#581c87]/40 rounded-xl p-6 border border-[#d946ef]/30">
                         <div className="flex items-center gap-3 mb-2">
-                            <TrendingUp className="text-purple-400" size={24} />
-                            <span className="text-gray-400 text-sm">Najdłuższa seria</span>
+                            <TrendingUp className="text-[#d946ef]" size={24} />
+                            <span className="text-[#9ca3af] text-sm">Najdłuższa seria</span>
                         </div>
-                        <div className="text-3xl font-bold">{yearStats.longestStreak}</div>
-                        <div className="text-sm text-gray-500 mt-1">
+                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.longestStreak}</div>
+                        <div className="text-sm text-[#9ca3af] mt-1">
                             {yearStats.longestStreak === 1 ? 'dzień' : 'dni'}
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-amber-900/40 to-amber-950/40 rounded-xl p-6 border border-amber-800/30">
+                    <div className="bg-gradient-to-br from-[#a16207]/40 to-[#78350f]/40 rounded-xl p-6 border border-[#f59e0b]/30">
                         <div className="flex items-center gap-3 mb-2">
-                            <Award className="text-amber-400" size={24} />
-                            <span className="text-gray-400 text-sm">Najlepszy miesiąc</span>
+                            <Award className="text-[#f59e0b]" size={24} />
+                            <span className="text-[#9ca3af] text-sm">Najlepszy miesiąc</span>
                         </div>
-                        <div className="text-3xl font-bold">{yearStats.bestMonth.completions}</div>
-                        <div className="text-sm text-gray-500 mt-1">
+                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.bestMonth.completions}</div>
+                        <div className="text-sm text-[#9ca3af] mt-1">
                             {getMonthNamePL(yearStats.bestMonth.month)}
                         </div>
                     </div>
                 </div>
 
                 {/* Heatmapa */}
-                <div className="bg-gray-900/50 rounded-2xl p-6 mb-8 border border-gray-800">
-                    <h2 className="text-2xl font-bold mb-6">Mapa aktywności</h2>
+                <div className="bg-[#1e1e1e]/50 rounded-2xl p-6 mb-8 border border-[#2d2d2d]">
+                    <h2 className="text-2xl font-bold mb-6 text-[#f9fafb]">Mapa aktywności</h2>
                     <YearHeatmap year={currentYear} allLogs={logsWithHabitNames} />
                 </div>
 
                 {/* Statystyki poszczególnych nawyków */}
-                <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-800">
-                    <h2 className="text-2xl font-bold mb-6">Nawyki w {currentYear}</h2>
+                <div className="bg-[#1e1e1e]/50 rounded-2xl p-6 border border-[#2d2d2d]">
+                    <h2 className="text-2xl font-bold mb-6 text-[#f9fafb]">Nawyki w {currentYear}</h2>
                     <div className="space-y-3">
                         {habitStats.length > 0 ? (
                             habitStats.map((habit) => (
                                 <Link
                                     key={habit.id}
                                     href={`/habits/${habit.id}`}
-                                    className="flex items-center justify-between p-4 bg-gray-800/50 rounded-xl hover:bg-gray-800 transition-all group"
+                                    className="flex items-center justify-between p-4 bg-[#2d2d2d]/50 rounded-xl hover:bg-[#2d2d2d] transition-all group"
                                 >
                                     <div className="flex-1">
-                                        <h3 className="font-semibold group-hover:text-emerald-400 transition-colors">
+                                        <h3 className="font-semibold group-hover:text-[#10b981] transition-colors text-[#f9fafb]">
                                             {habit.name}
                                         </h3>
-                                        <div className="flex gap-4 mt-2 text-sm text-gray-400">
+                                        <div className="flex gap-4 mt-2 text-sm text-[#9ca3af]">
                                             <span>{habit.totalDays} {habit.totalDays === 1 ? 'dzień' : 'dni'}</span>
                                             <span>•</span>
                                             <span>Najdłuższa seria: {habit.longestStreak}</span>
@@ -144,16 +144,16 @@ export default async function YearlySummaryPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="text-right">
-                                            <div className="text-2xl font-bold text-emerald-400">
+                                            <div className="text-2xl font-bold text-[#10b981]">
                                                 {Math.round((habit.totalDays / yearStats.daysInYear) * 100)}%
                                             </div>
-                                            <div className="text-xs text-gray-500">wypełnienia</div>
+                                            <div className="text-xs text-[#9ca3af]">wypełnienia</div>
                                         </div>
                                     </div>
                                 </Link>
                             ))
                         ) : (
-                            <div className="text-center py-12 text-gray-500">
+                            <div className="text-center py-12 text-[#9ca3af]">
                                 Brak nawyków do wyświetlenia
                             </div>
                         )}
@@ -161,21 +161,21 @@ export default async function YearlySummaryPage() {
                 </div>
 
                 {/* Statystyki miesięczne */}
-                <div className="bg-gray-900/50 rounded-2xl p-6 mt-8 border border-gray-800">
-                    <h2 className="text-2xl font-bold mb-6">Rozkład miesięczny</h2>
+                <div className="bg-[#1e1e1e]/50 rounded-2xl p-6 mt-8 border border-[#2d2d2d]">
+                    <h2 className="text-2xl font-bold mb-6 text-[#f9fafb]">Rozkład miesięczny</h2>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {yearStats.monthlyStats.map((monthStat) => (
                             <div
                                 key={monthStat.month}
-                                className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50"
+                                className="bg-[#2d2d2d]/50 rounded-lg p-4 border border-[#3f3f46]/50"
                             >
-                                <div className="text-sm text-gray-400 mb-1">
+                                <div className="text-sm text-[#9ca3af] mb-1">
                                     {getMonthNamePL(monthStat.month)}
                                 </div>
-                                <div className="text-2xl font-bold text-emerald-400">
+                                <div className="text-2xl font-bold text-[#10b981]">
                                     {monthStat.completions}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
+                                <div className="text-xs text-[#9ca3af] mt-1">
                                     {monthStat.activeDays} {monthStat.activeDays === 1 ? 'dzień' : 'dni'}
                                 </div>
                             </div>
@@ -186,3 +186,4 @@ export default async function YearlySummaryPage() {
         </main>
     );
 }
+

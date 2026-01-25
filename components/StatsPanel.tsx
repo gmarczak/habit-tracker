@@ -108,46 +108,46 @@ export default function StatsPanel({
         <div className="h-full flex flex-col px-4 lg:px-6 py-4 lg:py-8">
             {/* DZISIAJ */}
             <div className="mb-4 lg:mb-8">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Dzisiaj</p>
-                <p className="text-3xl lg:text-4xl font-semibold text-gray-100">
-                    {completedToday} <span className="text-lg lg:text-2xl text-gray-500">/ {totalHabits}</span>
+                <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Dzisiaj</p>
+                <p className="text-3xl lg:text-4xl font-semibold text-[#f9fafb]">
+                    {completedToday} <span className="text-lg lg:text-2xl text-[#9ca3af]">/ {totalHabits}</span>
                 </p>
             </div>
 
             {/* CURRENT STREAK */}
             <div className="mb-4 lg:mb-8">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Current Streak</p>
-                <p className="text-4xl lg:text-5xl font-semibold text-gray-100">{actualStreak}</p>
-                <p className="text-sm text-gray-500 mt-1">dni z rzędu</p>
+                <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Current Streak</p>
+                <p className="text-4xl lg:text-5xl font-semibold text-[#f9fafb]">{actualStreak}</p>
+                <p className="text-sm text-[#9ca3af] mt-1">dni z rzędu</p>
             </div>
 
             {/* WIĘCEJ STATYSTYK - ZAWSZE WIDOCZNE */}
             <div className="space-y-4 lg:space-y-6">
                 <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Ten tydzień</p>
-                    <p className="text-2xl lg:text-3xl font-semibold text-gray-100">{weeklyStats.weeklyPercent}%</p>
-                    <div className="mt-2 h-1 bg-gray-800/50 rounded-full overflow-hidden">
+                    <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Ten tydzień</p>
+                    <p className="text-2xl lg:text-3xl font-semibold text-[#f9fafb]">{weeklyStats.weeklyPercent}%</p>
+                    <div className="mt-2 h-1 bg-[#2d2d2d]/50 rounded-full overflow-hidden">
                         <div
-                            className="h-full bg-gray-600 transition-all"
+                            className="h-full bg-[#10b981] transition-all"
                             style={{ width: `${weeklyStats.weeklyPercent}%` }}
                         />
                     </div>
                 </div>
 
                 <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Ten miesiąc</p>
-                    <p className="text-3xl font-semibold text-gray-100">{monthlyStats.monthlyPercent}%</p>
-                    <div className="mt-2 h-1 bg-gray-800/50 rounded-full overflow-hidden">
+                    <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Ten miesiąc</p>
+                    <p className="text-3xl font-semibold text-[#f9fafb]">{monthlyStats.monthlyPercent}%</p>
+                    <div className="mt-2 h-1 bg-[#2d2d2d]/50 rounded-full overflow-hidden">
                         <div
-                            className="h-full bg-gray-600 transition-all"
+                            className="h-full bg-[#10b981] transition-all"
                             style={{ width: `${monthlyStats.monthlyPercent}%` }}
                         />
                     </div>
                 </div>
 
                 <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Wszystkie czasy</p>
-                    <p className="text-2xl lg:text-3xl font-semibold text-gray-100">{totalCompletions}</p>
+                    <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Wszystkie czasy</p>
+                    <p className="text-2xl lg:text-3xl font-semibold text-[#f9fafb]">{totalCompletions}</p>
                 </div>
             </div>
 

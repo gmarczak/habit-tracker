@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import DesktopLayout from "@/components/DesktopLayout";
 import HabitList from "@/components/HabitList";
+import AddHabitButton from "@/components/AddHabitButton";
 import { CalendarDays, BarChart3 } from "lucide-react";
 import { calculateStreakFromLogs } from "@/utils/streakCalculator";
 import Link from "next/link";
@@ -95,30 +96,30 @@ export default async function Home() {
       </div>
 
       {/* MOBILE - SINGLE COLUMN (poniżej lg) */}
-      <main className="lg:hidden min-h-screen bg-[#0a0a0a] text-white flex justify-center overflow-hidden">
+      <main className="lg:hidden min-h-screen bg-[#121212] text-[#f9fafb] flex justify-center overflow-hidden">
         <div className="w-full max-w-4xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8 relative">
           {/* HEADER Z DATĄ */}
           <header>
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2 text-gray-400 text-xs sm:text-sm uppercase tracking-wider font-semibold">
+              <div className="flex items-center gap-2 text-[#9ca3af] text-xs sm:text-sm uppercase tracking-wider font-semibold">
                 <CalendarDays size={14} className="sm:w-4 sm:h-4" />
                 <span className="hidden xs:inline">Dzisiaj</span>
               </div>
               <Link
                 href="/yearly-summary"
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-colors text-xs sm:text-sm text-gray-300 hover:text-white"
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#1e1e1e] hover:bg-[#2d2d2d] rounded-lg transition-colors text-xs sm:text-sm text-[#9ca3af] hover:text-[#f9fafb]"
               >
                 <BarChart3 size={14} className="sm:w-4 sm:h-4" />
                 <span>Rok</span>
               </Link>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold capitalize bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold capitalize bg-gradient-to-r from-[#f9fafb] to-[#9ca3af] bg-clip-text text-transparent">
               {today}
             </h1>
           </header>
 
           {/* LISTA NAWYKÓW Z WYSZUKIWANIEM I GRUPOWANIEM */}
-          <section className="pb-20 sm:pb-24">
+          <section className="pb-24 sm:pb-28">
             {habitsData.length > 0 ? (
               <HabitList habits={habitsData} />
             ) : (
@@ -128,6 +129,11 @@ export default async function Home() {
               </div>
             )}
           </section>
+
+          {/* FAB BUTTON - MOBILE */}
+          <div className="lg:hidden fixed bottom-6 right-6 z-40">
+            <AddHabitButton />
+          </div>
         </div>
       </main>
     </>

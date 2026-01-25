@@ -26,14 +26,14 @@ export default function DesktopLayout({ habits, todayDate }: DesktopLayoutProps)
     const totalCompletions = habits.reduce((sum, h) => sum + h.completedDates.length, 0);
 
     return (
-        <div className="h-screen bg-[#0d0d0d] text-gray-100 flex overflow-hidden">
+        <div className="h-screen bg-[#121212] text-[#f9fafb] flex overflow-hidden">
             {/* MAIN CONTENT - 70% */}
             <main className="flex-1 lg:w-[70%] flex flex-col overflow-hidden h-full">
                 <TodayView habits={habits} todayDate={todayDate} />
             </main>
 
             {/* ASIDE - 30% */}
-            <aside className="hidden lg:flex lg:w-[30%] border-l border-gray-800/30 bg-[#0d0d0d] flex-col h-full">
+            <aside className="hidden lg:flex lg:w-[30%] border-l border-[#2d2d2d]/30 bg-[#121212] flex-col h-full">
                 <StatsPanel
                     totalStreak={totalStreak}
                     completedToday={completedToday}

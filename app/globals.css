@@ -3,6 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Nowa kolorystyka - Material Dark */
+  --color-main-bg: #121212;
+  --color-surface: #1e1e1e;
+  --color-surface-alt: #18181b;
+  --color-border: #2d2d2d;
+  --color-border-alt: #3f3f46;
+  --color-primary-green: #10b981;
+  --color-accent-green: #22c55e;
+  --color-accent-bg: #064e3b;
+  --color-danger: #ef4444;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #9ca3af;
 }
 
 @theme inline {
@@ -14,8 +27,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #121212;
+    --foreground: #f9fafb;
   }
 }
 

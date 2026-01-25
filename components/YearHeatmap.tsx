@@ -116,11 +116,11 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
     }, [yearData, currentYear]);
 
     const getIntensityClass = (count: number) => {
-        if (count === 0) return "bg-gray-800/50 hover:bg-gray-700/50";
-        if (count === 1) return "bg-emerald-900/40 hover:bg-emerald-800/60";
-        if (count === 2) return "bg-emerald-700/60 hover:bg-emerald-600/80";
-        if (count === 3) return "bg-emerald-600/70 hover:bg-emerald-500/90";
-        return "bg-emerald-500 hover:bg-emerald-400";
+        if (count === 0) return "bg-[#2d2d2d]/50 hover:bg-[#3f3f46]/50";
+        if (count === 1) return "bg-[#064e3b]/40 hover:bg-[#047857]/60";
+        if (count === 2) return "bg-[#10b981]/60 hover:bg-[#059669]/80";
+        if (count === 3) return "bg-[#10b981]/70 hover:bg-[#10b981]/90";
+        return "bg-[#22c55e] hover:bg-[#16a34a]";
     };
 
     const handleDayClick = (dayData: DayData) => {
@@ -146,14 +146,14 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
             <div className="flex items-center justify-between mb-6">
                 <button
                     onClick={() => changeYear(-1)}
-                    className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+                    className="p-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3f3f46] transition-colors"
                 >
                     <ChevronLeft size={20} />
                 </button>
-                <h2 className="text-2xl font-bold">{currentYear}</h2>
+                <h2 className="text-2xl font-bold text-[#f9fafb]">{currentYear}</h2>
                 <button
                     onClick={() => changeYear(1)}
-                    className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+                    className="p-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3f3f46] transition-colors"
                 >
                     <ChevronRight size={20} />
                 </button>
@@ -161,25 +161,25 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
 
             {/* Statystyki */}
             <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="text-gray-400 text-sm mb-1">Aktywne dni</div>
-                    <div className="text-2xl font-bold">{totalDays}</div>
+                <div className="bg-[#2d2d2d]/50 rounded-lg p-4">
+                    <div className="text-[#9ca3af] text-sm mb-1">Aktywne dni</div>
+                    <div className="text-2xl font-bold text-[#f9fafb]">{totalDays}</div>
                 </div>
-                <div className="bg-gray-800/50 rounded-lg p-4">
-                    <div className="text-gray-400 text-sm mb-1">Wykonane nawyki</div>
-                    <div className="text-2xl font-bold">{totalCompletions}</div>
+                <div className="bg-[#2d2d2d]/50 rounded-lg p-4">
+                    <div className="text-[#9ca3af] text-sm mb-1">Wykonane nawyki</div>
+                    <div className="text-2xl font-bold text-[#f9fafb]">{totalCompletions}</div>
                 </div>
             </div>
 
             {/* Legenda */}
-            <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
+            <div className="flex items-center gap-2 text-xs text-[#9ca3af] mb-4">
                 <span>Mniej</span>
                 <div className="flex gap-1">
-                    <div className="w-3 h-3 rounded-sm bg-gray-800/50"></div>
-                    <div className="w-3 h-3 rounded-sm bg-emerald-900/40"></div>
-                    <div className="w-3 h-3 rounded-sm bg-emerald-700/60"></div>
-                    <div className="w-3 h-3 rounded-sm bg-emerald-600/70"></div>
-                    <div className="w-3 h-3 rounded-sm bg-emerald-500"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#2d2d2d]/50"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#064e3b]/40"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#10b981]/60"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#10b981]/70"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#22c55e]"></div>
                 </div>
                 <span>Więcej</span>
             </div>
@@ -187,13 +187,13 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
             {/* Heatmapa - siatka miesięcy */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {monthsData.map((month, monthIdx) => (
-                    <div key={monthIdx} className="bg-gray-800/30 rounded-lg p-4">
-                        <h3 className="text-sm font-semibold mb-3 text-gray-300">{month.name}</h3>
+                    <div key={monthIdx} className="bg-[#2d2d2d]/30 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold mb-3 text-[#f9fafb]">{month.name}</h3>
 
                         {/* Nazwy dni tygodnia */}
                         <div className="grid grid-cols-7 gap-1 mb-1">
                             {DAYS_SHORT.map((day, idx) => (
-                                <div key={idx} className="text-[10px] text-gray-500 text-center">
+                                <div key={idx} className="text-[10px] text-[#9ca3af] text-center">
                                     {day}
                                 </div>
                             ))}
@@ -217,12 +217,12 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
                                             title={day.date ? `${day.date}: ${day.count} nawyków` : ''}
                                         >
                                             {day.date && day.count > 0 && (
-                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white/80">
+                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-[#f9fafb]/80">
                                                     {new Date(day.date).getDate()}
                                                 </span>
                                             )}
                                             {day.date && day.count === 0 && (
-                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] text-gray-600">
+                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] text-[#9ca3af]/60">
                                                     {new Date(day.date).getDate()}
                                                 </span>
                                             )}
@@ -242,12 +242,12 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
                     onClick={closeModal}
                 >
                     <div
-                        className="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-gray-800"
+                        className="bg-[#1e1e1e] rounded-2xl p-6 max-w-md w-full border border-[#2d2d2d]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="text-xl font-bold mb-1">
+                                <h3 className="text-xl font-bold mb-1 text-[#f9fafb]">
                                     {new Date(selectedDay.date + 'T00:00:00').toLocaleDateString('pl-PL', {
                                         weekday: 'long',
                                         day: 'numeric',
@@ -255,13 +255,13 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
                                         year: 'numeric'
                                     })}
                                 </h3>
-                                <p className="text-gray-400 text-sm">
+                                <p className="text-[#9ca3af] text-sm">
                                     {selectedDay.count} {selectedDay.count === 1 ? 'nawyk' : 'nawyków'} wykonanych
                                 </p>
                             </div>
                             <button
                                 onClick={closeModal}
-                                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                                className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors text-[#f9fafb]"
                             >
                                 <span className="text-2xl">×</span>
                             </button>
@@ -272,15 +272,15 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
                                 {selectedDay.habits.map((habit, idx) => (
                                     <div
                                         key={idx}
-                                        className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg"
+                                        className="flex items-center gap-3 p-3 bg-[#2d2d2d]/50 rounded-lg"
                                     >
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                        <span className="flex-1">{habit.name}</span>
+                                        <div className="w-2 h-2 rounded-full bg-[#22c55e]"></div>
+                                        <span className="flex-1 text-[#f9fafb]">{habit.name}</span>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-8 text-gray-500">
+                            <div className="text-center py-8 text-[#9ca3af]">
                                 Brak wykonanych nawyków tego dnia
                             </div>
                         )}

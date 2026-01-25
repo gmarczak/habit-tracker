@@ -73,18 +73,18 @@ export default function HabitCalendar({ completedDates, onDateClick }: HabitCale
             <div className="flex items-center justify-between mb-4 gap-2">
                 <button
                     onClick={goToPrevMonth}
-                    className="p-1 lg:p-2 hover:bg-gray-800/50 rounded-lg transition-colors text-gray-400 hover:text-gray-200"
+                    className="p-1 lg:p-2 hover:bg-[#2d2d2d]/50 rounded-lg transition-colors text-[#9ca3af] hover:text-[#f9fafb]"
                 >
                     <ChevronLeft size={16} className="lg:w-5 lg:h-5" />
                 </button>
 
-                <h3 className="text-base lg:text-lg font-semibold text-gray-100 text-center flex-1">
+                <h3 className="text-base lg:text-lg font-semibold text-[#f9fafb] text-center flex-1">
                     {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                 </h3>
 
                 <button
                     onClick={goToNextMonth}
-                    className="p-1 lg:p-2 hover:bg-gray-800/50 rounded-lg transition-colors text-gray-400 hover:text-gray-200"
+                    className="p-1 lg:p-2 hover:bg-[#2d2d2d]/50 rounded-lg transition-colors text-[#9ca3af] hover:text-[#f9fafb]"
                 >
                     <ChevronRight size={16} className="lg:w-5 lg:h-5" />
                 </button>
@@ -93,7 +93,7 @@ export default function HabitCalendar({ completedDates, onDateClick }: HabitCale
             {/* DNI TYGODNIA */}
             <div className="grid grid-cols-7 gap-1 lg:gap-2 mb-1 lg:mb-2">
                 {DAYS.map((day) => (
-                    <div key={day} className="text-center text-xs font-medium text-gray-500 py-1 lg:py-2">
+                    <div key={day} className="text-center text-xs font-medium text-[#9ca3af] py-1 lg:py-2">
                         {day}
                     </div>
                 ))}
@@ -119,15 +119,15 @@ export default function HabitCalendar({ completedDates, onDateClick }: HabitCale
                             className={`
                                 aspect-square rounded text-xs lg:text-sm font-medium transition-all flex items-center justify-center
                                 ${isFutureDate
-                                    ? 'text-gray-700 cursor-not-allowed'
+                                    ? 'text-[#9ca3af]/40 cursor-not-allowed'
                                     : 'hover:scale-105 cursor-pointer'
                                 }
                                 ${isCompleted
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'bg-gray-800/30 text-gray-400 hover:bg-gray-800/50'
+                                    ? 'bg-[#22c55e] text-white'
+                                    : 'bg-[#2d2d2d]/30 text-[#9ca3af] hover:bg-[#2d2d2d]/50'
                                 }
                                 ${isTodayDate
-                                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0d0d]'
+                                    ? 'ring-2 ring-[#10b981] ring-offset-2 ring-offset-[#121212]'
                                     : ''
                                 }
                             `}
@@ -139,17 +139,17 @@ export default function HabitCalendar({ completedDates, onDateClick }: HabitCale
             </div>
 
             {/* LEGENDA */}
-            <div className="flex items-center gap-3 lg:gap-6 mt-4 text-xs text-gray-500 flex-wrap">
+            <div className="flex items-center gap-3 lg:gap-6 mt-4 text-xs text-[#9ca3af] flex-wrap">
                 <div className="flex items-center gap-1 lg:gap-2">
-                    <div className="w-2 lg:w-3 h-2 lg:h-3 rounded bg-emerald-500" />
+                    <div className="w-2 lg:w-3 h-2 lg:h-3 rounded bg-[#22c55e]" />
                     <span>Wykonane</span>
                 </div>
                 <div className="flex items-center gap-1 lg:gap-2">
-                    <div className="w-2 lg:w-3 h-2 lg:h-3 rounded bg-gray-800/30" />
+                    <div className="w-2 lg:w-3 h-2 lg:h-3 rounded bg-[#2d2d2d]/30" />
                     <span>Nie</span>
                 </div>
                 <div className="flex items-center gap-1 lg:gap-2">
-                    <div className="w-2 lg:w-3 h-2 lg:h-3 rounded ring-2 ring-blue-500 bg-gray-800/30" />
+                    <div className="w-2 lg:w-3 h-2 lg:h-3 rounded ring-2 ring-[#10b981] bg-[#2d2d2d]/30" />
                     <span>Dzisiaj</span>
                 </div>
             </div>

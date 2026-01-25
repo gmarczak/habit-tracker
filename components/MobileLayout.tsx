@@ -26,7 +26,7 @@ type Tab = "home" | "calendar" | "stats";
 
 export default function MobileLayout({ habits, todayDate }: MobileLayoutProps) {
     const [activeTab, setActiveTab] = useState<Tab>("home");
-    
+
     const completedToday = habits.filter((h) => h.isCompletedToday).length;
     const totalCompletions = habits.reduce((sum, h) => sum + h.completedDates.length, 0);
     const totalStreak = Math.max(...habits.map((h) => h.streak), 0);
@@ -38,20 +38,20 @@ export default function MobileLayout({ habits, todayDate }: MobileLayoutProps) {
     ];
 
     return (
-        <div 
-            className="h-screen bg-[#0d0d0d] text-gray-100 flex flex-col overflow-hidden"
+        <div
+            className="h-screen bg-[#121212] text-[#f9fafb] flex flex-col overflow-hidden"
         >
             {/* QUICK HEADER */}
-            <header className="flex-shrink-0 bg-[#0d0d0d] border-b border-gray-800/30 px-4 py-3">
+            <header className="flex-shrink-0 bg-[#121212] border-b border-[#2d2d2d]/30 px-4 py-3">
                 <div className="flex items-center justify-between mb-3">
                     <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">Dzisiaj</p>
-                        <p className="text-2xl font-bold text-gray-100">
-                            {completedToday}<span className="text-sm text-gray-500 ml-1">/{habits.length}</span>
+                        <p className="text-xs text-[#9ca3af] uppercase tracking-wider">Dzisiaj</p>
+                        <p className="text-2xl font-bold text-[#f9fafb]">
+                            {completedToday}<span className="text-sm text-[#9ca3af] ml-1">/{habits.length}</span>
                         </p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">Streak</p>
+                        <p className="text-xs text-[#9ca3af] uppercase tracking-wider">Streak</p>
                         <p className="text-2xl font-bold text-orange-400">
                             {Math.max(...habits.map(h => {
                                 let streak = 0;
@@ -74,17 +74,16 @@ export default function MobileLayout({ habits, todayDate }: MobileLayoutProps) {
             </header>
 
             {/* TAB NAVIGATION */}
-            <div className="flex-shrink-0 bg-gray-900/50 border-b border-gray-800/30 px-0">
+            <div className="flex-shrink-0 bg-[#1e1e1e]/50 border-b border-[#2d2d2d]/30 px-0">
                 <div className="flex">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 text-xs font-medium transition-colors border-b-2 ${
-                                activeTab === tab.id
-                                    ? "text-emerald-400 border-emerald-400"
-                                    : "text-gray-500 border-transparent hover:text-gray-400"
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 text-xs font-medium transition-colors border-b-2 ${activeTab === tab.id
+                                ? "text-[#10b981] border-[#10b981]"
+                                : "text-[#9ca3af] border-transparent hover:text-[#f9fafb]"
+                                }`}
                         >
                             {tab.icon}
                             <span className="hidden xs:inline">{tab.label}</span>
@@ -98,15 +97,15 @@ export default function MobileLayout({ habits, todayDate }: MobileLayoutProps) {
                 {activeTab === "home" && (
                     <TodayView habits={habits} todayDate={todayDate} />
                 )}
-                
+
                 {activeTab === "calendar" && (
                     <div className="h-full overflow-y-auto px-4 py-6">
-                        <HabitCalendar 
+                        <HabitCalendar
                             completedDates={habits.flatMap(h => h.completedDates)}
                         />
                     </div>
                 )}
-                
+
                 {activeTab === "stats" && (
                     <div className="h-full overflow-y-auto">
                         <StatsPanel
