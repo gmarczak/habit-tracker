@@ -10,6 +10,7 @@ export default function AddHabitButton() {
     const [isOpen, setIsOpen] = useState(false);
     const [name, setName] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
     const router = useRouter();
 
     // Skrót klawiszowy Ctrl/Cmd + N
@@ -46,10 +47,11 @@ export default function AddHabitButton() {
         setIsLoading(false);
 
         if (error) {
-            alert("Wystąpił błąd podczas dodawania.");
+            setError("Wystąpił błąd podczas dodawania.");
             console.error(error);
         } else {
             setName("");
+            setError("");
             if (!keepOpen) {
                 setIsOpen(false);
             }
@@ -100,7 +102,10 @@ export default function AddHabitButton() {
                                     type="text"
                                     placeholder="Np. Czytanie 10 minut..."
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    onChange={(e) => {
+                                        setName(e.target.value);
+                                        setError("");
+                                    }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && e.shiftKey) {
                                             e.preventDefault();
@@ -117,6 +122,8 @@ export default function AddHabitButton() {
                                     <span>dodaj kolejny</span>
                                 </div>
                             </div>
+
+                            {error && <p className="text-red-500 text-sm -mt-2">{error}</p>}
 
                             <div className="flex gap-2 mt-2">
                                 <button
