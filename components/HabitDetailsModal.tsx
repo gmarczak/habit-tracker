@@ -83,6 +83,7 @@ export default function HabitDetailsModal({
                     <button
                         onClick={onClose}
                         className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                        aria-label="Close"
                     >
                         <X size={24} />
                     </button>
