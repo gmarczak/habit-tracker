@@ -28,8 +28,8 @@ export default function AddHabitButton() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen]);
 
-    const handleSubmit = async (e: React.FormEvent, keepOpen = false) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent, keepOpen = false) => {
+        e?.preventDefault();
         if (!name.trim()) return;
 
         setIsLoading(true);
@@ -59,7 +59,7 @@ export default function AddHabitButton() {
 
     const quickAdd = async () => {
         if (!name.trim()) return;
-        await handleSubmit(new Event('submit') as any, true);
+        await handleSubmit(undefined, true);
     };
 
     return (
@@ -84,6 +84,7 @@ export default function AddHabitButton() {
                             onClick={() => setIsOpen(false)}
                             className="absolute top-4 right-4 text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
                             title="Zamknij (ESC)"
+                            aria-label="Zamknij"
                         >
                             <X size={20} />
                         </button>
@@ -129,7 +130,7 @@ export default function AddHabitButton() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => handleSubmit(new Event('submit') as any, true)}
+                                    onClick={() => handleSubmit(undefined, true)}
                                     disabled={isLoading || !name.trim()}
                                     className="flex-1 py-3 px-4 rounded-lg bg-[#2d2d2d] text-[#f9fafb] font-medium hover:bg-[#3f3f46] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     title="Shift+Enter"
