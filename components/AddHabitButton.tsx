@@ -28,8 +28,7 @@ export default function AddHabitButton() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen]);
 
-    const handleSubmit = async (e: React.FormEvent, keepOpen = false) => {
-        e.preventDefault();
+    const addHabitAction = async (keepOpen = false) => {
         if (!name.trim()) return;
 
         setIsLoading(true);
@@ -57,9 +56,13 @@ export default function AddHabitButton() {
         }
     };
 
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await addHabitAction(false);
+    };
+
     const quickAdd = async () => {
-        if (!name.trim()) return;
-        await handleSubmit(new Event('submit') as any, true);
+        await addHabitAction(true);
     };
 
     return (
@@ -67,7 +70,7 @@ export default function AddHabitButton() {
             <button
                 onClick={() => setIsOpen(true)}
                 className="bg-[#10b981] hover:bg-[#059669] text-[#f9fafb] lg:w-12 lg:h-12 w-14 h-14 rounded-full shadow-lg lg:shadow-lg shadow-2xl flex items-center justify-center transition-all hover:scale-105 lg:hover:scale-110 active:scale-95 z-40 border-2 lg:border-0 border-[#10b981]/50"
-                title="Dodaj nawyk (Ctrl+N)"
+                aria-label="Dodaj nawyk (Ctrl+N)"
             >
                 <Plus size={20} className="hidden lg:block" />
                 <Plus size={24} strokeWidth={2.5} className="lg:hidden" />
@@ -83,7 +86,7 @@ export default function AddHabitButton() {
                         <button
                             onClick={() => setIsOpen(false)}
                             className="absolute top-4 right-4 text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
-                            title="Zamknij (ESC)"
+                            aria-label="Zamknij (ESC)"
                         >
                             <X size={20} />
                         </button>
@@ -94,7 +97,7 @@ export default function AddHabitButton() {
                         </div>
                         <p className="text-[#9ca3af] text-sm mb-6">Co chcesz robić codziennie?</p>
 
-                        <form onSubmit={(e) => handleSubmit(e, false)} className="flex flex-col gap-4">
+                        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                             <div className="relative">
                                 <input
                                     autoFocus
@@ -129,7 +132,7 @@ export default function AddHabitButton() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => handleSubmit(new Event('submit') as any, true)}
+                                    onClick={quickAdd}
                                     disabled={isLoading || !name.trim()}
                                     className="flex-1 py-3 px-4 rounded-lg bg-[#2d2d2d] text-[#f9fafb] font-medium hover:bg-[#3f3f46] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     title="Shift+Enter"
