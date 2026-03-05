@@ -15,6 +15,9 @@ type Habit = {
     tags: string[];
     archived: boolean;
     isCompletedToday: boolean;
+    isRequiredToday?: boolean;
+    frequency_type?: "daily" | "weekly_target" | "specific_days";
+    frequency_value?: any;
 };
 
 type MobileLayoutProps = {

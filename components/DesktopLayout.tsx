@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import TodayView from "./TodayView";
 import StatsPanel from "./StatsPanel";
+import AppSidebar from "./AppSidebar";
 
 type Habit = {
     id: string;
@@ -13,6 +13,9 @@ type Habit = {
     tags: string[];
     archived: boolean;
     isCompletedToday: boolean;
+    isRequiredToday?: boolean;
+    frequency_type?: "daily" | "weekly_target" | "specific_days";
+    frequency_value?: any;
 };
 
 type DesktopLayoutProps = {
@@ -26,22 +29,30 @@ export default function DesktopLayout({ habits, todayDate }: DesktopLayoutProps)
     const totalCompletions = habits.reduce((sum, h) => sum + h.completedDates.length, 0);
 
     return (
-        <div className="h-screen bg-[#121212] text-[#f9fafb] flex overflow-hidden">
-            {/* MAIN CONTENT - 70% */}
-            <main className="flex-1 lg:w-[70%] flex flex-col overflow-hidden h-full">
-                <TodayView habits={habits} todayDate={todayDate} />
-            </main>
+        <div className="h-screen bg-main-bg text-text-primary flex overflow-hidden">
+            {/* SIDEBAR - 250px (w-64) */}
+            <AppSidebar />
 
-            {/* ASIDE - 30% */}
-            <aside className="hidden lg:flex lg:w-[30%] border-l border-[#2d2d2d]/30 bg-[#121212] flex-col h-full">
-                <StatsPanel
-                    totalStreak={totalStreak}
-                    completedToday={completedToday}
-                    totalHabits={habits.length}
-                    habits={habits}
-                    totalCompletions={totalCompletions}
-                />
-            </aside>
+            /* MAIN CONTENT AREA */
+            <main className="flex-1 flex flex-col overflow-y-auto w-full">
+                <div className="p-6 lg:p-8 space-y-6 lg:space-y-8 flex-1 flex flex-col max-w-7xl mx-auto w-full">
+                    {/* STATS TOP BAR */}
+                    <section className="flex-shrink-0">
+                        <StatsPanel
+                            totalStreak={totalStreak}
+                            completedToday={completedToday}
+                            totalHabits={habits.length}
+                            habits={habits}
+                            totalCompletions={totalCompletions}
+                        />
+                    </section>
+
+                    {/* HABITS LIST AREA */}
+                    <section className="flex-1 min-h-[500px] bg-surface border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col relative">
+                        <TodayView habits={habits} todayDate={todayDate} />
+                    </section>
+                </div>
+            </main>
         </div>
     );
 }

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, TrendingUp, Calendar, Target, Award } from "lucide-react";
 import YearHeatmap from "@/components/YearHeatmap";
+import AppSidebar from "@/components/AppSidebar";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import { calculateYearlyStats, getMonthNamePL, calculateHabitYearlyStats } from "@/utils/yearlyStats";
 
 export const revalidate = 0;
@@ -49,141 +51,137 @@ export default async function YearlySummaryPage() {
     }).sort((a, b) => b.totalDays - a.totalDays) || [];
 
     return (
-        <main className="min-h-screen bg-[#121212] text-[#f9fafb]">
-            <div className="max-w-7xl mx-auto px-6 py-12">
-                {/* Header */}
-                <div className="mb-8">
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2 text-[#9ca3af] hover:text-[#f9fafb] transition-colors mb-4"
-                    >
-                        <ArrowLeft size={20} />
-                        <span>Powrót do głównej</span>
-                    </Link>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-[#f9fafb] to-[#9ca3af] bg-clip-text text-transparent">
-                        Podsumowanie Roczne {currentYear}
-                    </h1>
-                    <p className="text-[#9ca3af] mt-2">
-                        Twoje nawyki w ujęciu całorocznym
-                    </p>
-                </div>
-
-                {/* Główne statystyki */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-gradient-to-br from-[#064e3b]/40 to-[#0d3d2d]/40 rounded-xl p-6 border border-[#10b981]/30">
-                        <div className="flex items-center gap-3 mb-2">
-                            <Calendar className="text-[#10b981]" size={24} />
-                            <span className="text-[#9ca3af] text-sm">Aktywne dni</span>
-                        </div>
-                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.totalActiveDays}</div>
-                        <div className="text-sm text-[#9ca3af] mt-1">
-                            z {yearStats.daysInYear} dni ({yearStats.completionRate}%)
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-[#1e40af]/40 to-[#1e3a8a]/40 rounded-xl p-6 border border-[#3b82f6]/30">
-                        <div className="flex items-center gap-3 mb-2">
-                            <Target className="text-[#3b82f6]" size={24} />
-                            <span className="text-[#9ca3af] text-sm">Wykonane nawyki</span>
-                        </div>
-                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.totalCompletions}</div>
-                        <div className="text-sm text-[#9ca3af] mt-1">
-                            w ciągu roku
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-[#6b21a8]/40 to-[#581c87]/40 rounded-xl p-6 border border-[#d946ef]/30">
-                        <div className="flex items-center gap-3 mb-2">
-                            <TrendingUp className="text-[#d946ef]" size={24} />
-                            <span className="text-[#9ca3af] text-sm">Najdłuższa seria</span>
-                        </div>
-                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.longestStreak}</div>
-                        <div className="text-sm text-[#9ca3af] mt-1">
-                            {yearStats.longestStreak === 1 ? 'dzień' : 'dni'}
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-[#a16207]/40 to-[#78350f]/40 rounded-xl p-6 border border-[#f59e0b]/30">
-                        <div className="flex items-center gap-3 mb-2">
-                            <Award className="text-[#f59e0b]" size={24} />
-                            <span className="text-[#9ca3af] text-sm">Najlepszy miesiąc</span>
-                        </div>
-                        <div className="text-3xl font-bold text-[#f9fafb]">{yearStats.bestMonth.completions}</div>
-                        <div className="text-sm text-[#9ca3af] mt-1">
-                            {getMonthNamePL(yearStats.bestMonth.month)}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Heatmapa */}
-                <div className="bg-[#1e1e1e]/50 rounded-2xl p-6 mb-8 border border-[#2d2d2d]">
-                    <h2 className="text-2xl font-bold mb-6 text-[#f9fafb]">Mapa aktywności</h2>
-                    <YearHeatmap year={currentYear} allLogs={logsWithHabitNames} />
-                </div>
-
-                {/* Statystyki poszczególnych nawyków */}
-                <div className="bg-[#1e1e1e]/50 rounded-2xl p-6 border border-[#2d2d2d]">
-                    <h2 className="text-2xl font-bold mb-6 text-[#f9fafb]">Nawyki w {currentYear}</h2>
-                    <div className="space-y-3">
-                        {habitStats.length > 0 ? (
-                            habitStats.map((habit) => (
-                                <Link
-                                    key={habit.id}
-                                    href={`/habits/${habit.id}`}
-                                    className="flex items-center justify-between p-4 bg-[#2d2d2d]/50 rounded-xl hover:bg-[#2d2d2d] transition-all group"
-                                >
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold group-hover:text-[#10b981] transition-colors text-[#f9fafb]">
-                                            {habit.name}
-                                        </h3>
-                                        <div className="flex gap-4 mt-2 text-sm text-[#9ca3af]">
-                                            <span>{habit.totalDays} {habit.totalDays === 1 ? 'dzień' : 'dni'}</span>
-                                            <span>•</span>
-                                            <span>Najdłuższa seria: {habit.longestStreak}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="text-right">
-                                            <div className="text-2xl font-bold text-[#10b981]">
-                                                {Math.round((habit.totalDays / yearStats.daysInYear) * 100)}%
-                                            </div>
-                                            <div className="text-xs text-[#9ca3af]">wypełnienia</div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))
-                        ) : (
-                            <div className="text-center py-12 text-[#9ca3af]">
-                                Brak nawyków do wyświetlenia
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Statystyki miesięczne */}
-                <div className="bg-[#1e1e1e]/50 rounded-2xl p-6 mt-8 border border-[#2d2d2d]">
-                    <h2 className="text-2xl font-bold mb-6 text-[#f9fafb]">Rozkład miesięczny</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {yearStats.monthlyStats.map((monthStat) => (
-                            <div
-                                key={monthStat.month}
-                                className="bg-[#2d2d2d]/50 rounded-lg p-4 border border-[#3f3f46]/50"
-                            >
-                                <div className="text-sm text-[#9ca3af] mb-1">
-                                    {getMonthNamePL(monthStat.month)}
-                                </div>
-                                <div className="text-2xl font-bold text-[#10b981]">
-                                    {monthStat.completions}
-                                </div>
-                                <div className="text-xs text-[#9ca3af] mt-1">
-                                    {monthStat.activeDays} {monthStat.activeDays === 1 ? 'dzień' : 'dni'}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+        <div className="h-[100dvh] bg-main-bg text-text-primary flex overflow-hidden w-full">
+            {/* DESKTOP SIDEBAR */}
+            <div className="hidden lg:block h-full flex-shrink-0">
+                <AppSidebar />
             </div>
-        </main>
+
+            {/* MAIN CONTENT AREA */}
+            <main className="flex-1 overflow-y-auto w-full pb-28 lg:pb-0 relative bg-main-bg">
+                <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-12 flex flex-col gap-4 lg:gap-8 min-h-full">
+
+                    {/* Header */}
+                    <div className="mb-0 lg:mb-4">
+                        <h1 className="text-2xl lg:text-4xl font-bold bg-gradient-to-r from-[#f9fafb] to-[#9ca3af] lg:from-text-primary lg:to-text-secondary bg-clip-text text-transparent leading-tight mb-1">
+                            Podsumowanie {currentYear}
+                        </h1>
+                        <p className="text-sm text-[#9ca3af] lg:text-text-secondary leading-tight">
+                            Twoje nawyki w ujęciu całorocznym
+                        </p>
+                    </div>
+
+                    {/* Główne statystyki - minimalistyczne */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
+                        <div className="bg-surface border border-border rounded-xl p-3 sm:p-4 shadow-sm flex flex-col justify-center">
+                            <span className="text-text-secondary text-[10px] lg:text-xs uppercase tracking-wider font-semibold leading-none mb-1">Aktywne dni</span>
+                            <div className="flex items-baseline gap-1.5 mt-0.5">
+                                <span className="text-lg sm:text-2xl lg:text-3xl font-bold text-text-primary leading-none">{yearStats.totalActiveDays}</span>
+                                <span className="text-[10px] text-text-secondary leading-none">/ {yearStats.daysInYear}</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-surface border border-border rounded-xl p-3 sm:p-4 shadow-sm flex flex-col justify-center">
+                            <span className="text-text-secondary text-[10px] lg:text-xs uppercase tracking-wider font-semibold leading-none mb-1">Wykonane</span>
+                            <div className="flex items-baseline gap-1.5 mt-0.5">
+                                <span className="text-lg sm:text-2xl lg:text-3xl font-bold text-text-primary leading-none">{yearStats.totalCompletions}</span>
+                                <span className="text-[10px] text-text-secondary leading-none">razy</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-surface border border-border rounded-xl p-3 sm:p-4 shadow-sm flex flex-col justify-center">
+                            <span className="text-text-secondary text-[10px] lg:text-xs uppercase tracking-wider font-semibold leading-none mb-1">Max Seria</span>
+                            <div className="flex items-baseline gap-1.5 mt-0.5">
+                                <span className="text-lg sm:text-2xl lg:text-3xl font-bold text-text-primary leading-none">{yearStats.longestStreak}</span>
+                                <span className="text-[10px] text-text-secondary leading-none">{yearStats.longestStreak === 1 ? 'dzień' : 'dni'}</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-surface border border-border rounded-xl p-3 sm:p-4 shadow-sm flex flex-col justify-center">
+                            <span className="text-text-secondary text-[10px] lg:text-xs uppercase tracking-wider font-semibold leading-none mb-1">Najlepszy Msc</span>
+                            <div className="flex items-baseline gap-1.5 mt-0.5">
+                                <span className="text-lg sm:text-2xl lg:text-3xl font-bold text-text-primary leading-none">{yearStats.bestMonth.completions}</span>
+                                <span className="text-[10px] text-text-secondary leading-none">{getMonthNamePL(yearStats.bestMonth.month).substring(0, 3)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Heatmapa */}
+                    <div className="bg-surface rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-border shadow-sm">
+                        <h2 className="text-lg lg:text-2xl font-bold mb-4 text-text-primary leading-tight">Mapa aktywności</h2>
+                        <div className="overflow-x-auto pb-4">
+                            <YearHeatmap year={currentYear} allLogs={logsWithHabitNames} habits={habits || []} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
+                        {/* Statystyki poszczególnych nawyków */}
+                        <div className="bg-surface rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-border shadow-sm">
+                            <h2 className="text-lg lg:text-2xl font-bold mb-4 text-text-primary leading-tight">Nawyki w {currentYear}</h2>
+                            <div className="space-y-2 lg:space-y-3">
+                                {habitStats.length > 0 ? (
+                                    habitStats.map((habit) => (
+                                        <Link
+                                            key={habit.id}
+                                            href={`/habits/${habit.id}`}
+                                            className="flex items-center justify-between p-4 bg-main-bg rounded-xl border border-transparent hover:border-border transition-colors group"
+                                        >
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold group-hover:text-primary-green transition-colors text-text-primary">
+                                                    {habit.name}
+                                                </h3>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-text-secondary font-medium">
+                                                    <span>{habit.totalDays} {habit.totalDays === 1 ? 'dzień' : 'dni'}</span>
+                                                    <span className="hidden sm:inline">•</span>
+                                                    <span>Najdłuższa seria: {habit.longestStreak}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 pl-4 border-l border-border/50 ml-4">
+                                                <div className="text-right">
+                                                    <div className="text-xl font-bold text-primary-green">
+                                                        {Math.round((habit.totalDays / yearStats.daysInYear) * 100)}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-12 text-text-secondary">
+                                        Brak nawyków do wyświetlenia
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Statystyki miesięczne */}
+                        <div className="bg-surface rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-border shadow-sm h-fit">
+                            <h2 className="text-lg lg:text-2xl font-bold mb-4 text-text-primary leading-tight">Rozkład miesięczny</h2>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {yearStats.monthlyStats.map((monthStat) => (
+                                    <div
+                                        key={monthStat.month}
+                                        className="bg-main-bg rounded-xl p-4 border border-border flex flex-col items-center text-center"
+                                    >
+                                        <div className="text-xs text-text-secondary font-medium uppercase tracking-wider mb-2">
+                                            {getMonthNamePL(monthStat.month)}
+                                        </div>
+                                        <div className="text-2xl font-bold text-primary-green mb-1">
+                                            {monthStat.completions}
+                                        </div>
+                                        <div className="text-[10px] text-text-secondary font-medium bg-surface-alt px-2 py-0.5 rounded-full">
+                                            {monthStat.activeDays} {monthStat.activeDays === 1 ? 'dzień' : 'dni'}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+
+            {/* MOBILE BOTTOM NAV */}
+            <MobileBottomNav />
+        </div>
     );
 }
-

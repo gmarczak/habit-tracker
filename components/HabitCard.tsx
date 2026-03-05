@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Trash2, Flame, Pencil, ChevronRight, X, Loader2, Edit2, Trash } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import MiniHeatmap from "./MiniHeatmap";
@@ -16,9 +16,10 @@ type HabitCardProps = {
     tags?: string[];
     archived?: boolean;
     defaultCompleted?: boolean;
+    currentDate?: string;
 };
 
-export default function HabitCard({ id, name, streak, completedDates, skippedDates = [], tags = [], archived = false, defaultCompleted = false }: HabitCardProps) {
+export default function HabitCard({ id, name, streak, completedDates, skippedDates = [], tags = [], archived = false, defaultCompleted = false, currentDate }: HabitCardProps) {
     const router = useRouter();
     const supabase = createClient();
     const [isCompleted, setIsCompleted] = useState(defaultCompleted);
@@ -26,6 +27,13 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
     const [isEditing, setIsEditing] = useState(false);
     const [editedName, setEditedName] = useState(name);
     const [isSaving, setIsSaving] = useState(false);
+
+    const today = new Date().toISOString().split('T')[0];
+    const dateToUse = currentDate || today;
+
+    useEffect(() => {
+        setIsCompleted(completedDates.includes(dateToUse));
+    }, [currentDate, completedDates, dateToUse]);
 
     // Swipe state
     const [swipeStart, setSwipeStart] = useState(0);
@@ -66,8 +74,6 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
         const newState = !isCompleted;
         setIsCompleted(newState);
 
-        const today = new Date().toISOString().split('T')[0];
-
         try {
             if (newState) {
                 // robust: delete then insert (works even without unique constraints)
@@ -75,14 +81,14 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                     .from("habit_logs")
                     .delete()
                     .eq("habit_id", id)
-                    .eq("completed_date", today);
-                await supabase.from("habit_logs").insert({ habit_id: id, completed_date: today, status: "done" });
+                    .eq("completed_date", dateToUse);
+                await supabase.from("habit_logs").insert({ habit_id: id, completed_date: dateToUse, status: "done" });
             } else {
                 await supabase
                     .from("habit_logs")
                     .delete()
                     .eq("habit_id", id)
-                    .eq("completed_date", today);
+                    .eq("completed_date", dateToUse);
             }
             router.refresh();
         } catch (error) {
@@ -168,14 +174,14 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
             <div className="relative overflow-hidden">
                 {/* Tło dla akcji - pokaż się przy swipe */}
                 {swipeOffset < 0 && (
-                    <div className="absolute inset-0 flex items-center justify-end bg-[#ef4444]/20 pr-4 gap-2 z-0">
+                    <div className="absolute inset-0 flex items-center justify-end bg-danger/20 pr-4 gap-2 z-0">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsEditing(true);
                                 closeSwipe();
                             }}
-                            className="p-2 text-[#f9fafb] hover:text-[#f9fafb] transition-colors"
+                            className="p-2 text-text-primary hover:text-text-secondary transition-colors"
                             title="Edytuj"
                         >
                             <Edit2 size={18} />
@@ -186,7 +192,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                 deleteHabit(e);
                                 closeSwipe();
                             }}
-                            className="p-2 text-[#ef4444] hover:text-[#dc2626] transition-colors"
+                            className="p-2 text-danger hover:opacity-80 transition-colors"
                             title="Usuń"
                         >
                             <Trash size={18} />
@@ -200,10 +206,10 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                     className={`
                     group grid grid-cols-[auto,1fr] gap-4
                     p-4 md:p-5 rounded-2xl border transition-colors duration-200
-                    select-none relative overflow-hidden backdrop-blur-sm
-                    border-[#2d2d2d] hover:border-[#3f3f46] hover:bg-[#1e1e1e]/50
-                    ${isCompleted ? "ring-1 ring-[#10b981]/20" : ""}
-                    bg-[#1e1e1e] z-10
+                    select-none relative overflow-hidden
+                    border-border hover:border-border-alt hover:bg-surface-alt
+                    ${isCompleted ? "ring-1 ring-primary-green/20" : ""}
+                    bg-surface shadow-sm z-10
                 `}
                     onClick={(e) => goToDetails(e)}
                     onTouchStart={handleTouchStart}
@@ -217,8 +223,8 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                     {/* Streak badge in top-right */}
                     <div className="absolute top-3 right-3">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                        bg-[#064e3b] text-orange-300 border border-orange-500/30 shadow-sm">
-                            <Flame size={14} className="fill-orange-300" />
+                        bg-surface-alt text-orange-500 border border-border shadow-sm">
+                            <Flame size={14} className="fill-orange-500" />
                             <span className="text-xs font-semibold tabular-nums">{streak}</span>
                         </div>
                     </div>
@@ -234,8 +240,8 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                             w-10 h-10 md:w-11 md:h-11 rounded-xl border-2 transition-all duration-200
                             shadow-md cursor-pointer
                             ${isCompleted
-                                    ? "bg-gradient-to-br from-[#10b981] to-[#22c55e] border-[#10b981] shadow-[#10b981]/40"
-                                    : "bg-[#064e3b] border-[#2d2d2d] hover:border-[#3f3f46] hover:bg-[#064e3b]/80"
+                                    ? "bg-primary-green border-primary-green shadow-sm text-white"
+                                    : "bg-surface border-border-alt hover:border-text-secondary"
                                 }
                         `}
                         >
@@ -250,7 +256,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                             <div className="min-w-0">
                                 <h3 className={`
                                 text-lg md:text-xl font-semibold truncate
-                                ${isCompleted ? "text-[#f9fafb] line-through decoration-[#10b981]/60" : "text-[#f9fafb]"}
+                                ${isCompleted ? "text-text-secondary line-through decoration-primary-green/60" : "text-text-primary"}
                             `}>
                                     {name}
                                 </h3>
@@ -259,7 +265,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                         {tags.slice(0, 2).map((t) => (
                                             <span
                                                 key={t}
-                                                className="text-[10px] px-2 py-0.5 rounded-full bg-[#064e3b] text-[#9ca3af] border border-[#2d2d2d]"
+                                                className="text-[10px] px-2 py-0.5 rounded-full bg-surface-alt text-text-secondary border border-border"
                                             >
                                                 {t}
                                             </span>
@@ -297,7 +303,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                 e.stopPropagation();
                                 openEdit(e);
                             }}
-                            className="p-2 text-[#9ca3af] hover:text-[#f9fafb] hover:bg-[#2d2d2d] rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-110"
+                            className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface-alt rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-110"
                             aria-label="Edytuj nawyk"
                         >
                             <Pencil size={16} />
@@ -308,7 +314,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                 e.stopPropagation();
                                 goToDetails(e);
                             }}
-                            className="p-2 text-[#9ca3af] hover:text-[#f9fafb] hover:bg-[#2d2d2d] rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-110"
+                            className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface-alt rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-110"
                             aria-label="Szczegóły nawyku"
                         >
                             <ChevronRight size={16} />
@@ -319,7 +325,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                 e.stopPropagation();
                                 deleteHabit(e);
                             }}
-                            className="p-2 text-[#9ca3af] hover:text-[#ef4444] hover:bg-[#ef4444]/20 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-110"
+                            className="p-2 text-text-secondary hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-110"
                             aria-label="Usuń nawyk"
                         >
                             <Trash2 size={16} />
@@ -331,23 +337,23 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
 
             {isEditing && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#000000]/60 backdrop-blur-sm"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-text-primary/40 backdrop-blur-sm"
                     onClick={() => setIsEditing(false)}
                 >
                     <div
-                        className="bg-[#1e1e1e] border border-[#2d2d2d] w-full max-w-sm rounded-2xl shadow-2xl p-6 relative"
+                        className="bg-surface border border-border w-full max-w-sm rounded-2xl shadow-2xl p-6 relative"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={() => setIsEditing(false)}
-                            className="absolute top-4 right-4 text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
+                            className="absolute top-4 right-4 text-text-secondary hover:text-text-primary transition-colors"
                             aria-label="Zamknij"
                         >
                             <X size={20} />
                         </button>
 
-                        <h2 className="text-xl font-bold text-[#f9fafb] mb-1">Edytuj nawyk</h2>
-                        <p className="text-[#9ca3af] text-sm mb-6">Zmień nazwę nawyku.</p>
+                        <h2 className="text-xl font-bold text-text-primary mb-1">Edytuj nawyk</h2>
+                        <p className="text-text-secondary text-sm mb-6">Zmień nazwę nawyku.</p>
 
                         <form onSubmit={saveEdit} className="flex flex-col gap-4">
                             <input
@@ -355,7 +361,7 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                 type="text"
                                 value={editedName}
                                 onChange={(e) => setEditedName(e.target.value)}
-                                className="w-full bg-[#121212] border border-[#2d2d2d] rounded-lg px-4 py-3 text-[#f9fafb] placeholder-[#9ca3af] focus:outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981] transition-all"
+                                className="w-full bg-surface border border-border rounded-lg px-4 py-3 text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary-green focus:ring-1 focus:ring-primary-green transition-all"
                                 placeholder="Np. Czytanie 10 minut..."
                             />
 
@@ -363,14 +369,14 @@ export default function HabitCard({ id, name, streak, completedDates, skippedDat
                                 <button
                                     type="button"
                                     onClick={() => setIsEditing(false)}
-                                    className="flex-1 py-3 px-4 rounded-lg bg-[#2d2d2d] text-[#9ca3af] font-medium hover:bg-[#3f3f46] transition-colors"
+                                    className="flex-1 py-3 px-4 rounded-lg bg-surface-alt text-text-secondary font-medium hover:bg-border transition-colors"
                                 >
                                     Anuluj
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSaving || !editedName.trim()}
-                                    className="flex-1 py-3 px-4 rounded-lg bg-[#10b981] text-white font-medium hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                    className="flex-1 py-3 px-4 rounded-lg bg-primary-green text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                                 >
                                     {isSaving ? <Loader2 className="animate-spin" /> : "Zapisz"}
                                 </button>

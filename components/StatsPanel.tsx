@@ -13,6 +13,9 @@ type Habit = {
     tags: string[];
     archived: boolean;
     isCompletedToday: boolean;
+    isRequiredToday?: boolean;
+    frequency_type?: "daily" | "weekly_target" | "specific_days";
+    frequency_value?: any;
 };
 
 type StatsPanelProps = {
@@ -105,60 +108,52 @@ export default function StatsPanel({
     }, [habits, totalHabits]);
 
     return (
-        <div className="h-full flex flex-col px-4 lg:px-6 py-4 lg:py-8">
-            {/* DZISIAJ */}
-            <div className="mb-4 lg:mb-8">
-                <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Dzisiaj</p>
-                <p className="text-3xl lg:text-4xl font-semibold text-[#f9fafb]">
-                    {completedToday} <span className="text-lg lg:text-2xl text-[#9ca3af]">/ {totalHabits}</span>
-                </p>
-            </div>
+        <div className="w-full">
+            <div className="grid grid-cols-2 gap-2">
+                {/* DZISIAJ */}
+                <div className="bg-surface border border-border rounded-xl p-2 sm:p-3 lg:p-4 flex flex-col justify-center shadow-sm">
+                    <p className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold truncate leading-none mb-1">Dzisiaj</p>
+                    <p className="text-xl lg:text-2xl font-bold text-text-primary leading-none">
+                        {completedToday} <span className="text-[11px] text-text-secondary font-medium uppercase tracking-wider">/ {totalHabits}</span>
+                    </p>
+                </div>
 
-            {/* CURRENT STREAK */}
-            <div className="mb-4 lg:mb-8">
-                <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Current Streak</p>
-                <p className="text-4xl lg:text-5xl font-semibold text-[#f9fafb]">{actualStreak}</p>
-                <p className="text-sm text-[#9ca3af] mt-1">dni z rzędu</p>
-            </div>
+                {/* CURRENT STREAK */}
+                <div className="bg-surface border border-border rounded-xl p-2 sm:p-3 lg:p-4 flex flex-col justify-center shadow-sm">
+                    <p className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold truncate leading-none mb-1">Streak</p>
+                    <div className="flex items-baseline gap-1 leading-none">
+                        <p className="text-xl lg:text-2xl font-bold text-text-primary leading-none">{actualStreak}</p>
+                        <p className="text-[11px] text-text-secondary font-medium uppercase tracking-wider">dni</p>
+                    </div>
+                </div>
 
-            {/* WIĘCEJ STATYSTYK - ZAWSZE WIDOCZNE */}
-            <div className="space-y-4 lg:space-y-6">
-                <div>
-                    <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Ten tydzień</p>
-                    <p className="text-2xl lg:text-3xl font-semibold text-[#f9fafb]">{weeklyStats.weeklyPercent}%</p>
-                    <div className="mt-2 h-1 bg-[#2d2d2d]/50 rounded-full overflow-hidden">
+                {/* TEN TYDZIEŃ */}
+                <div className="bg-surface border border-border rounded-xl p-2 sm:p-3 lg:p-4 flex flex-col justify-center shadow-sm">
+                    <div className="flex items-end justify-between mb-1.5">
+                        <p className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold truncate leading-none">Tydzień</p>
+                        <p className="text-sm lg:text-lg font-bold text-text-primary leading-none">{weeklyStats.weeklyPercent}%</p>
+                    </div>
+                    <div className="h-1.5 bg-main-bg border border-border/50 rounded-full overflow-hidden w-full">
                         <div
-                            className="h-full bg-[#10b981] transition-all"
+                            className="h-full bg-primary-green transition-all duration-500 rounded-full"
                             style={{ width: `${weeklyStats.weeklyPercent}%` }}
                         />
                     </div>
                 </div>
 
-                <div>
-                    <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Ten miesiąc</p>
-                    <p className="text-3xl font-semibold text-[#f9fafb]">{monthlyStats.monthlyPercent}%</p>
-                    <div className="mt-2 h-1 bg-[#2d2d2d]/50 rounded-full overflow-hidden">
+                {/* TEN MIESIĄC */}
+                <div className="bg-surface border border-border rounded-xl p-2 sm:p-3 lg:p-4 flex flex-col justify-center shadow-sm">
+                    <div className="flex items-end justify-between mb-1.5">
+                        <p className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold truncate leading-none">Miesiąc</p>
+                        <p className="text-sm lg:text-lg font-bold text-text-primary leading-none">{monthlyStats.monthlyPercent}%</p>
+                    </div>
+                    <div className="h-1.5 bg-main-bg border border-border/50 rounded-full overflow-hidden w-full">
                         <div
-                            className="h-full bg-[#10b981] transition-all"
+                            className="h-full bg-primary-green transition-all duration-500 rounded-full"
                             style={{ width: `${monthlyStats.monthlyPercent}%` }}
                         />
                     </div>
                 </div>
-
-                <div>
-                    <p className="text-xs text-[#9ca3af] uppercase tracking-wider mb-2">Wszystkie czasy</p>
-                    <p className="text-2xl lg:text-3xl font-semibold text-[#f9fafb]">{totalCompletions}</p>
-                </div>
-            </div>
-
-            {/* FOOTER LINK */}
-            <div className="mt-auto pt-4 lg:pt-8 border-t border-gray-800/30">
-                <Link
-                    href="/yearly-summary"
-                    className="block text-center px-4 py-2 bg-gray-800/50 hover:bg-gray-800 rounded-lg text-xs text-gray-400 hover:text-gray-300 transition-colors"
-                >
-                    Roczne podsumowanie
-                </Link>
             </div>
         </div>
     );

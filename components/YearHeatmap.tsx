@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 
 type DayData = {
     date: string;
@@ -17,6 +19,7 @@ type YearHeatmapProps = {
         completed_date: string;
         status?: "done" | "skip" | null;
     }>;
+    habits: Array<{ id: string; name: string }>;
 };
 
 const MONTHS_PL = [
@@ -26,9 +29,12 @@ const MONTHS_PL = [
 
 const DAYS_SHORT = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "Sb"];
 
-export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
+export default function YearHeatmap({ year, allLogs, habits }: YearHeatmapProps) {
+    const supabase = createClient();
+    const router = useRouter();
     const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
     const [currentYear, setCurrentYear] = useState(year);
+    const [loadingHabitId, setLoadingHabitId] = useState<string | null>(null);
 
     // Generuj dane dla całego roku
     const yearData = useMemo(() => {
@@ -116,10 +122,10 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
     }, [yearData, currentYear]);
 
     const getIntensityClass = (count: number) => {
-        if (count === 0) return "bg-[#2d2d2d]/50 hover:bg-[#3f3f46]/50";
-        if (count === 1) return "bg-[#064e3b]/40 hover:bg-[#047857]/60";
-        if (count === 2) return "bg-[#10b981]/60 hover:bg-[#059669]/80";
-        if (count === 3) return "bg-[#10b981]/70 hover:bg-[#10b981]/90";
+        if (count === 0) return "bg-border hover:bg-border-alt";
+        if (count === 1) return "bg-[#bbf7d0] hover:bg-[#86efac]";
+        if (count === 2) return "bg-[#86efac] hover:bg-[#4ade80]";
+        if (count === 3) return "bg-[#4ade80] hover:bg-[#22c55e]";
         return "bg-[#22c55e] hover:bg-[#16a34a]";
     };
 
@@ -137,6 +143,61 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
         setCurrentYear(prev => prev + delta);
     };
 
+    const toggleHabitInModal = async (habitId: string, isCompleted: boolean) => {
+        if (!selectedDay || !selectedDay.date) return;
+        setLoadingHabitId(habitId);
+
+        try {
+            if (isCompleted) {
+                // Był zrobiony -> usuń
+                await supabase
+                    .from("habit_logs")
+                    .delete()
+                    .eq("habit_id", habitId)
+                    .eq("completed_date", selectedDay.date);
+
+                // Update lokalnego stanu selectedDay by działał bez odświeżania okna
+                setSelectedDay((prev) => {
+                    if (!prev) return prev;
+                    const hName = habits.find(h => h.id === habitId)?.name;
+                    return {
+                        ...prev,
+                        count: Math.max(0, prev.count - 1),
+                        habits: prev.habits.filter(h => h.name !== hName)
+                    };
+                });
+            } else {
+                // Nie był zrobiony -> dodaj
+                // Na wszelki wypadek najpierw delete z tego dnia
+                await supabase
+                    .from("habit_logs")
+                    .delete()
+                    .eq("habit_id", habitId)
+                    .eq("completed_date", selectedDay.date);
+                await supabase.from("habit_logs").insert({
+                    habit_id: habitId,
+                    completed_date: selectedDay.date,
+                    status: "done"
+                });
+
+                setSelectedDay((prev) => {
+                    if (!prev) return prev;
+                    const hName = habits.find(h => h.id === habitId)?.name || "";
+                    return {
+                        ...prev,
+                        count: prev.count + 1,
+                        habits: [...prev.habits, { name: hName, status: "done" }]
+                    };
+                });
+            }
+            router.refresh(); // Aktualizacja logów w tle 
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoadingHabitId(null);
+        }
+    };
+
     const totalDays = Array.from(yearData.values()).filter(d => d.count > 0).length;
     const totalCompletions = Array.from(yearData.values()).reduce((sum, d) => sum + d.count, 0);
 
@@ -146,14 +207,14 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
             <div className="flex items-center justify-between mb-6">
                 <button
                     onClick={() => changeYear(-1)}
-                    className="p-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3f3f46] transition-colors"
+                    className="p-2 rounded-lg bg-surface-alt text-text-secondary hover:bg-border hover:text-text-primary transition-colors"
                 >
                     <ChevronLeft size={20} />
                 </button>
-                <h2 className="text-2xl font-bold text-[#f9fafb]">{currentYear}</h2>
+                <h2 className="text-2xl font-bold text-text-primary">{currentYear}</h2>
                 <button
                     onClick={() => changeYear(1)}
-                    className="p-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3f3f46] transition-colors"
+                    className="p-2 rounded-lg bg-surface-alt text-text-secondary hover:bg-border hover:text-text-primary transition-colors"
                 >
                     <ChevronRight size={20} />
                 </button>
@@ -161,24 +222,24 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
 
             {/* Statystyki */}
             <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-[#2d2d2d]/50 rounded-lg p-4">
-                    <div className="text-[#9ca3af] text-sm mb-1">Aktywne dni</div>
-                    <div className="text-2xl font-bold text-[#f9fafb]">{totalDays}</div>
+                <div className="bg-surface-alt border border-border rounded-lg p-4">
+                    <div className="text-text-secondary text-sm mb-1">Aktywne dni</div>
+                    <div className="text-2xl font-bold text-text-primary">{totalDays}</div>
                 </div>
-                <div className="bg-[#2d2d2d]/50 rounded-lg p-4">
-                    <div className="text-[#9ca3af] text-sm mb-1">Wykonane nawyki</div>
-                    <div className="text-2xl font-bold text-[#f9fafb]">{totalCompletions}</div>
+                <div className="bg-surface-alt border border-border rounded-lg p-4">
+                    <div className="text-text-secondary text-sm mb-1">Wykonane nawyki</div>
+                    <div className="text-2xl font-bold text-text-primary">{totalCompletions}</div>
                 </div>
             </div>
 
             {/* Legenda */}
-            <div className="flex items-center gap-2 text-xs text-[#9ca3af] mb-4">
+            <div className="flex items-center gap-2 text-xs text-text-secondary mb-4">
                 <span>Mniej</span>
                 <div className="flex gap-1">
-                    <div className="w-3 h-3 rounded-sm bg-[#2d2d2d]/50"></div>
-                    <div className="w-3 h-3 rounded-sm bg-[#064e3b]/40"></div>
-                    <div className="w-3 h-3 rounded-sm bg-[#10b981]/60"></div>
-                    <div className="w-3 h-3 rounded-sm bg-[#10b981]/70"></div>
+                    <div className="w-3 h-3 rounded-sm bg-border"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#bbf7d0]"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#86efac]"></div>
+                    <div className="w-3 h-3 rounded-sm bg-[#4ade80]"></div>
                     <div className="w-3 h-3 rounded-sm bg-[#22c55e]"></div>
                 </div>
                 <span>Więcej</span>
@@ -187,13 +248,13 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
             {/* Heatmapa - siatka miesięcy */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {monthsData.map((month, monthIdx) => (
-                    <div key={monthIdx} className="bg-[#2d2d2d]/30 rounded-lg p-4">
-                        <h3 className="text-sm font-semibold mb-3 text-[#f9fafb]">{month.name}</h3>
+                    <div key={monthIdx} className="bg-surface border border-border rounded-lg p-4">
+                        <h3 className="text-sm font-semibold mb-3 text-text-primary">{month.name}</h3>
 
                         {/* Nazwy dni tygodnia */}
                         <div className="grid grid-cols-7 gap-1 mb-1">
                             {DAYS_SHORT.map((day, idx) => (
-                                <div key={idx} className="text-[10px] text-[#9ca3af] text-center">
+                                <div key={idx} className="text-[10px] text-text-secondary text-center">
                                     {day}
                                 </div>
                             ))}
@@ -217,12 +278,12 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
                                             title={day.date ? `${day.date}: ${day.count} nawyków` : ''}
                                         >
                                             {day.date && day.count > 0 && (
-                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-[#f9fafb]/80">
+                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-zinc-950">
                                                     {new Date(day.date).getDate()}
                                                 </span>
                                             )}
                                             {day.date && day.count === 0 && (
-                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] text-[#9ca3af]/60">
+                                                <span className="absolute inset-0 flex items-center justify-center text-[8px] text-zinc-500">
                                                     {new Date(day.date).getDate()}
                                                 </span>
                                             )}
@@ -238,16 +299,16 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
             {/* Modal z detalami dnia */}
             {selectedDay && (
                 <div
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                    className="fixed inset-0 bg-text-primary/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
                     onClick={closeModal}
                 >
                     <div
-                        className="bg-[#1e1e1e] rounded-2xl p-6 max-w-md w-full border border-[#2d2d2d]"
+                        className="bg-surface rounded-2xl p-6 max-w-md w-full border border-border shadow-xl"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-start mb-4">
                             <div>
-                                <h3 className="text-xl font-bold mb-1 text-[#f9fafb]">
+                                <h3 className="text-xl font-bold mb-1 text-text-primary">
                                     {new Date(selectedDay.date + 'T00:00:00').toLocaleDateString('pl-PL', {
                                         weekday: 'long',
                                         day: 'numeric',
@@ -255,35 +316,51 @@ export default function YearHeatmap({ year, allLogs }: YearHeatmapProps) {
                                         year: 'numeric'
                                     })}
                                 </h3>
-                                <p className="text-[#9ca3af] text-sm">
+                                <p className="text-text-secondary text-sm">
                                     {selectedDay.count} {selectedDay.count === 1 ? 'nawyk' : 'nawyków'} wykonanych
                                 </p>
                             </div>
                             <button
                                 onClick={closeModal}
-                                className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors text-[#f9fafb]"
+                                className="p-2 hover:bg-surface-alt rounded-lg transition-colors text-text-primary"
                             >
                                 <span className="text-2xl">×</span>
                             </button>
                         </div>
 
-                        {selectedDay.habits.length > 0 ? (
-                            <div className="space-y-2">
-                                {selectedDay.habits.map((habit, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="flex items-center gap-3 p-3 bg-[#2d2d2d]/50 rounded-lg"
-                                    >
-                                        <div className="w-2 h-2 rounded-full bg-[#22c55e]"></div>
-                                        <span className="flex-1 text-[#f9fafb]">{habit.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-[#9ca3af]">
-                                Brak wykonanych nawyków tego dnia
-                            </div>
-                        )}
+                        <div className="space-y-2">
+                            {habits.length > 0 ? (
+                                habits.map((habit) => {
+                                    const isCompleted = selectedDay.habits.some(h => h.name === habit.name && h.status !== 'skip');
+                                    const isL = loadingHabitId === habit.id;
+                                    return (
+                                        <div
+                                            key={habit.id}
+                                            className="flex items-center gap-3 p-3 bg-main-bg border border-border hover:bg-surface-alt transition-colors rounded-xl cursor-pointer"
+                                            onClick={() => toggleHabitInModal(habit.id, isCompleted)}
+                                        >
+                                            <div
+                                                className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded border transition-all
+                                                    ${isCompleted ? 'bg-primary-green border-primary-green' : 'bg-surface border-border-alt'}`}
+                                            >
+                                                {isL ? (
+                                                    <Loader2 size={12} className="animate-spin text-text-secondary" />
+                                                ) : (
+                                                    isCompleted && <Check size={14} className="text-white outline-none stroke-[3]" />
+                                                )}
+                                            </div>
+                                            <span className={`text-sm ${isCompleted ? 'text-text-secondary line-through' : 'text-text-primary'}`}>
+                                                {habit.name}
+                                            </span>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-8 text-text-secondary">
+                                    Brak nawyków na koncie
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

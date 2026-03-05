@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import HabitCardFlat from "./HabitCardFlat";
 import AddHabitButton from "./AddHabitButton";
+import QuickStartHabits from "./QuickStartHabits";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Habit = {
@@ -14,6 +15,9 @@ type Habit = {
     tags: string[];
     archived: boolean;
     isCompletedToday: boolean;
+    isRequiredToday?: boolean;
+    frequency_type?: "daily" | "weekly_target" | "specific_days";
+    frequency_value?: any;
 };
 
 type TodayViewProps = {
@@ -53,19 +57,19 @@ export default function TodayView({ habits, todayDate }: TodayViewProps) {
     return (
         <div className="h-full flex flex-col relative">
             {/* HEADER DNIA - STICKY */}
-            <header className="flex-shrink-0 sticky top-0 z-20 bg-[#121212] border-b border-[#2d2d2d]/30 px-4 lg:px-8 py-4 lg:py-6">
+            <header className="flex-shrink-0 sticky top-0 z-20 bg-main-bg border-b border-border px-4 lg:px-8 py-4 lg:py-6">
                 {/* NAVIGATION */}
                 <div className="flex items-center justify-between mb-4">
                     <button
                         onClick={() => setDayOffset(d => d + 1)}
-                        className="p-2 hover:bg-[#2d2d2d]/50 rounded-lg transition-colors text-[#9ca3af] hover:text-[#f9fafb]"
+                        className="p-2 hover:bg-surface-alt rounded-lg transition-colors text-text-secondary hover:text-text-primary"
                         title="Poprzedni dzień"
                     >
                         <ChevronLeft size={20} />
                     </button>
 
                     <div className="text-center flex-1">
-                        <p className="text-sm text-[#9ca3af]">
+                        <p className="text-sm text-text-secondary">
                             {dayOffset === 0 ? "Dzisiaj" : `${dayOffset} dni temu`}
                         </p>
                     </div>
@@ -73,25 +77,25 @@ export default function TodayView({ habits, todayDate }: TodayViewProps) {
                     <button
                         onClick={() => setDayOffset(d => Math.max(0, d - 1))}
                         disabled={dayOffset === 0}
-                        className="p-2 hover:bg-[#2d2d2d]/50 rounded-lg transition-colors text-[#9ca3af] hover:text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 hover:bg-surface-alt rounded-lg transition-colors text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Następny dzień"
                     >
                         <ChevronRight size={20} />
                     </button>
                 </div>
 
-                <h1 className="text-3xl font-semibold text-[#f9fafb] mb-3 tracking-tight">
+                <h1 className="text-3xl font-semibold text-text-primary mb-3 tracking-tight">
                     {displayDate}
                 </h1>
                 <div className="flex items-center gap-4 flex-wrap">
-                    <p className="text-sm lg:text-lg font-medium text-[#f9fafb]">
+                    <p className="text-sm lg:text-lg font-medium text-text-primary">
                         {completedToday} / {totalHabits} wykonane
                     </p>
                 </div>
                 {/* PROGRESS BAR */}
-                <div className="mt-3 h-2 bg-[#2d2d2d]/50 rounded-full overflow-hidden">
+                <div className="mt-3 h-2 bg-surface-alt rounded-full overflow-hidden">
                     <div
-                        className="h-full bg-[#10b981] transition-all duration-500"
+                        className="h-full bg-primary-green transition-all duration-500"
                         style={{ width: `${progressPercent}%` }}
                     />
                 </div>
@@ -99,7 +103,7 @@ export default function TodayView({ habits, todayDate }: TodayViewProps) {
 
             {/* LISTA NAWYKÓW - FLAT */}
             <div className="flex-1 overflow-y-auto px-4 lg:px-8 pb-4 lg:pb-8">
-                <div className="divide-y divide-[#2d2d2d]/30">
+                <div className="divide-y divide-border">
                     {habits.length > 0 ? (
                         habits.map((habit) => {
                             const isCompletedOnDate = habit.completedDates.includes(currentDate);
@@ -116,8 +120,8 @@ export default function TodayView({ habits, todayDate }: TodayViewProps) {
                             );
                         })
                     ) : (
-                        <div className="p-12 text-center text-[#9ca3af] text-sm">
-                            Brak nawyków
+                        <div className="px-4 pb-4 pt-4">
+                            <QuickStartHabits />
                         </div>
                     )}
                 </div>

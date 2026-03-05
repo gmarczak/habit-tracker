@@ -73,16 +73,16 @@ export default function HabitDetailsModal({
             {/* BOTTOM SHEET */}
             <div
                 ref={sheetRef}
-                className="fixed bottom-0 left-0 right-0 bg-[#0d0d0d] rounded-t-2xl z-50 flex flex-col max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom"
+                className="fixed bottom-0 left-0 right-0 bg-surface rounded-t-3xl z-50 flex flex-col max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom border-t border-border shadow-[0_-10px_20px_rgba(0,0,0,0.05)]"
             >
                 {/* HANDLE + HEADER */}
-                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-800/30">
+                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
                     <div className="flex-1">
-                        <h2 className="text-xl font-semibold text-gray-100">{habitName}</h2>
+                        <h2 className="text-xl font-semibold text-text-primary">{habitName}</h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                        className="p-1 text-text-secondary hover:text-text-primary transition-colors"
                     >
                         <X size={24} />
                     </button>
@@ -90,43 +90,43 @@ export default function HabitDetailsModal({
 
                 {/* DRAG INDICATOR */}
                 <div className="flex-shrink-0 flex justify-center py-2">
-                    <div className="w-10 h-1 bg-gray-700 rounded-full" />
+                    <div className="w-10 h-1 bg-border-alt rounded-full" />
                 </div>
 
                 {/* CONTENT - SCROLLABLE */}
                 <div className="flex-1 overflow-y-auto px-6 pb-8">
                     {/* QUICK STATS - 2x2 GRID */}
                     <div className="mt-4 grid grid-cols-2 gap-3 mb-6">
-                        <div className="bg-gray-900/50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Aktualny</p>
+                        <div className="bg-surface-alt border border-border rounded-lg p-3">
+                            <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Aktualny</p>
                             <p className="text-2xl font-bold text-orange-400">{currentStreak}🔥</p>
                         </div>
-                        <div className="bg-gray-900/50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Best</p>
-                            <p className="text-2xl font-bold text-yellow-400">{bestStreak}🏆</p>
+                        <div className="bg-surface-alt border border-border rounded-lg p-3">
+                            <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Best</p>
+                            <p className="text-2xl font-bold text-yellow-500">{bestStreak}🏆</p>
                         </div>
-                        <div className="bg-gray-900/50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">7 dni</p>
-                            <p className="text-2xl font-bold text-emerald-400">{completion7}%</p>
+                        <div className="bg-surface-alt border border-border rounded-lg p-3">
+                            <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">7 dni</p>
+                            <p className="text-2xl font-bold text-primary-green">{completion7}%</p>
                         </div>
-                        <div className="bg-gray-900/50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">30 dni</p>
-                            <p className="text-2xl font-bold text-blue-400">{completion30}%</p>
+                        <div className="bg-surface-alt border border-border rounded-lg p-3">
+                            <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">30 dni</p>
+                            <p className="text-2xl font-bold text-blue-500">{completion30}%</p>
                         </div>
                     </div>
 
                     {/* CALENDAR */}
                     <div className="mb-6">
-                        <h3 className="text-sm font-semibold text-gray-300 mb-3">Kalendarz</h3>
-                        <div className="bg-gray-900/20 rounded-lg border border-gray-800/30 p-4">
+                        <h3 className="text-sm font-semibold text-text-primary mb-3">Kalendarz</h3>
+                        <div className="bg-surface-alt rounded-lg border border-border p-4">
                             <HabitCalendar completedDates={completedDates} />
                         </div>
                     </div>
 
                     {/* CHART */}
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-300 mb-3">Postępy (30 dni)</h3>
-                        <div className="bg-gray-900/20 rounded-lg border border-gray-800/30 p-4">
+                        <h3 className="text-sm font-semibold text-text-primary mb-3">Postępy (30 dni)</h3>
+                        <div className="bg-surface-alt rounded-lg border border-border p-4">
                             <HabitChart completedDates={completedDates} days={30} />
                         </div>
                     </div>

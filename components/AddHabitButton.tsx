@@ -1,16 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { Plus, X, Loader2, Zap } from "lucide-react";
 
-export default function AddHabitButton() {
+export default function AddHabitButton({ isBottomNav }: { isBottomNav?: boolean }) {
     const supabase = createClient();
     const [isOpen, setIsOpen] = useState(false);
     const [name, setName] = useState("");
+    const [frequencyType, setFrequencyType] = useState<"daily" | "weekly_target" | "specific_days">("daily");
+    const [frequencyValue, setFrequencyValue] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Skrót klawiszowy Ctrl/Cmd + N
     useEffect(() => {
@@ -40,7 +48,9 @@ export default function AddHabitButton() {
                 name: name.trim(),
                 archived: false,
                 tags: [],
-                schedule_type: "daily",
+                schedule_type: "daily", // legacy field
+                frequency_type: frequencyType,
+                frequency_value: frequencyValue,
             });
 
         setIsLoading(false);
@@ -50,6 +60,8 @@ export default function AddHabitButton() {
             console.error(error);
         } else {
             setName("");
+            setFrequencyType("daily");
+            setFrequencyValue(null);
             if (!keepOpen) {
                 setIsOpen(false);
             }
@@ -66,7 +78,7 @@ export default function AddHabitButton() {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="bg-[#10b981] hover:bg-[#059669] text-[#f9fafb] lg:w-12 lg:h-12 w-14 h-14 rounded-full shadow-lg lg:shadow-lg shadow-2xl flex items-center justify-center transition-all hover:scale-105 lg:hover:scale-110 active:scale-95 z-40 border-2 lg:border-0 border-[#10b981]/50"
+                className="bg-primary-green hover:opacity-90 text-white lg:w-12 lg:h-12 w-14 h-14 rounded-full shadow-lg lg:shadow-lg shadow-2xl flex items-center justify-center transition-all hover:scale-105 lg:hover:scale-110 active:scale-95 z-40 border-2 lg:border-0 border-primary-green/50"
                 title="Dodaj nawyk (Ctrl+N)"
             >
                 <Plus size={20} className="hidden lg:block" />
@@ -74,32 +86,37 @@ export default function AddHabitButton() {
             </button>
 
 
-            {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#000000]/60 backdrop-blur-sm animate-in fade-in duration-200">
+            {mounted && isOpen && createPortal(
+                <>
+                    {/* Overlay */}
+                    <div
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
+                        onClick={() => setIsOpen(false)}
+                    />
 
-                    <div className="bg-[#1e1e1e] border border-[#2d2d2d] w-full max-w-sm rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
-
-
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="absolute top-4 right-4 text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
-                            title="Zamknij (ESC)"
-                        >
-                            <X size={20} />
-                        </button>
-
-                        <div className="flex items-center gap-2 mb-1">
-                            <Zap size={20} className="text-blue-500" />
-                            <h2 className="text-xl font-bold text-[#f9fafb]">Szybkie dodawanie</h2>
+                    {/* Modal Container */}
+                    <div className="fixed top-[15dvh] left-1/2 -translate-x-1/2 w-[92%] max-w-lg bg-zinc-900 z-[101] rounded-2xl p-6 border border-zinc-800 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-2">
+                                <Zap size={24} className="text-primary-green shrink-0" />
+                                <h2 className="text-xl font-bold text-white text-left">Szybkie dodawanie</h2>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsOpen(false)}
+                                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                title="Zamknij (ESC)"
+                            >
+                                <X size={24} />
+                            </button>
                         </div>
-                        <p className="text-[#9ca3af] text-sm mb-6">Co chcesz robić codziennie?</p>
 
-                        <form onSubmit={(e) => handleSubmit(e, false)} className="flex flex-col gap-4">
-                            <div className="relative">
+                        <form onSubmit={(e) => handleSubmit(e, false)} className="flex flex-col gap-6">
+                            <div>
                                 <input
                                     autoFocus
                                     type="text"
-                                    placeholder="Np. Czytanie 10 minut..."
+                                    placeholder="np. Bieganie"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     onKeyDown={(e) => {
@@ -108,47 +125,103 @@ export default function AddHabitButton() {
                                             quickAdd();
                                         }
                                     }}
-                                    className="w-full bg-[#121212] border border-[#2d2d2d] rounded-lg px-4 py-3 text-[#f9fafb] placeholder-[#9ca3af] focus:outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981] transition-all"
+                                    className="w-full block bg-zinc-800 border border-zinc-700 rounded-xl px-5 py-4 text-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-primary-green focus:ring-1 focus:ring-primary-green transition-all"
                                 />
-                                <div className="text-xs text-[#9ca3af] mt-1.5 flex items-center gap-1">
-                                    <kbd className="px-1.5 py-0.5 bg-[#2d2d2d] rounded text-[10px]">Enter</kbd>
-                                    <span>dodaj</span>
-                                    <span className="mx-1">•</span>
-                                    <kbd className="px-1.5 py-0.5 bg-[#2d2d2d] rounded text-[10px]">Shift+Enter</kbd>
-                                    <span>dodaj kolejny</span>
+                                <div className="text-xs text-zinc-500 mt-2 flex justify-between">
+                                    <div className="hidden sm:flex items-center gap-1">
+                                        <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded border border-zinc-700">Enter</kbd>
+                                        <span>aby dodać</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded border border-zinc-700">Shift+Enter</kbd>
+                                        <span>dodaj kolejny</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex flex-col gap-3">
+                                <label className="text-sm font-medium text-white text-left">Częstotliwość</label>
+                                <select
+                                    value={frequencyType}
+                                    onChange={(e) => {
+                                        setFrequencyType(e.target.value as any);
+                                        if (e.target.value === "specific_days") setFrequencyValue([1, 2, 3, 4, 5]);
+                                        else if (e.target.value === "weekly_target") setFrequencyValue(3);
+                                        else setFrequencyValue(null);
+                                    }}
+                                    className="w-full block bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-base text-white focus:outline-none focus:border-primary-green focus:ring-1 focus:ring-primary-green outline-none"
+                                >
+                                    <option value="daily">Codziennie</option>
+                                    <option value="specific_days">Wybrane dni tygodnia</option>
+                                    <option value="weekly_target">Cel tygodniowy</option>
+                                </select>
+
+                                {frequencyType === "specific_days" && (
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                        {[1, 2, 3, 4, 5, 6, 0].map((day) => {
+                                            const days = ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "Sb"];
+                                            const isSelected = (frequencyValue || []).includes(day);
+                                            return (
+                                                <button
+                                                    key={day}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = frequencyValue || [];
+                                                        if (isSelected) {
+                                                            setFrequencyValue(current.filter((d: number) => d !== day));
+                                                        } else {
+                                                            setFrequencyValue([...current, day]);
+                                                        }
+                                                    }}
+                                                    className={`w-10 h-10 flex items-center justify-center text-sm font-medium rounded-full border transition-colors ${isSelected ? 'bg-primary-green text-white border-primary-green' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700'}`}
+                                                >
+                                                    {days[day]}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+
+                                {frequencyType === "weekly_target" && (
+                                    <div className="flex items-center gap-3 mt-1 bg-zinc-800 p-3 rounded-xl border border-zinc-700">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="7"
+                                            value={frequencyValue || 3}
+                                            onChange={(e) => setFrequencyValue(parseInt(e.target.value))}
+                                            className="w-16 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-white text-center font-bold focus:outline-none focus:border-primary-green focus:ring-1 focus:ring-primary-green"
+                                        />
+                                        <span className="text-base font-medium text-white">razy w tygodniu</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-row gap-3 mt-2 w-full">
                                 <button
                                     type="button"
                                     onClick={() => setIsOpen(false)}
-                                    className="px-4 py-3 rounded-lg bg-[#2d2d2d] text-[#9ca3af] font-medium hover:bg-[#3f3f46] transition-colors"
+                                    className="flex-1 px-5 py-4 rounded-xl bg-zinc-800 text-zinc-300 font-medium hover:bg-zinc-700 transition-colors border border-zinc-700"
                                 >
                                     Anuluj
                                 </button>
                                 <button
-                                    type="button"
-                                    onClick={() => handleSubmit(new Event('submit') as any, true)}
-                                    disabled={isLoading || !name.trim()}
-                                    className="flex-1 py-3 px-4 rounded-lg bg-[#2d2d2d] text-[#f9fafb] font-medium hover:bg-[#3f3f46] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    title="Shift+Enter"
-                                >
-                                    {isLoading ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
-                                    <span>Dodaj kolejny</span>
-                                </button>
-                                <button
                                     type="submit"
                                     disabled={isLoading || !name.trim()}
-                                    className="flex-1 py-3 px-4 rounded-lg bg-[#10b981] text-[#f9fafb] font-medium hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                    className="flex-1 py-4 px-6 rounded-xl bg-primary-green text-white font-bold text-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
-                                    {isLoading ? <Loader2 className="animate-spin" /> : "Dodaj"}
+                                    {isLoading ? <Loader2 className="animate-spin" /> : (
+                                        <>
+                                            <Plus strokeWidth={3} size={20} />
+                                            <span>Dodaj</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
-
                     </div>
-                </div>
+                </>,
+                document.body
             )}
         </>
     );

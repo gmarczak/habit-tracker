@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import HabitCard from "./HabitCard";
 import HabitSearch from "./HabitSearch";
 import HabitGroup from "./HabitGroup";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 
 type Habit = {
     id: string;
@@ -14,6 +15,9 @@ type Habit = {
     tags: string[];
     archived: boolean;
     isCompletedToday: boolean;
+    isRequiredToday?: boolean;
+    frequency_type?: "daily" | "weekly_target" | "specific_days";
+    frequency_value?: any;
 };
 
 type HabitListProps = {
@@ -23,6 +27,24 @@ type HabitListProps = {
 export default function HabitList({ habits }: HabitListProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "pending">("all");
+    const [dayOffset, setDayOffset] = useState(0);
+
+    // Calculate currently viewed date based on offset
+    const activeDate = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - dayOffset);
+        return d.toISOString().split('T')[0];
+    }, [dayOffset]);
+
+    const displayDate = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - dayOffset);
+        return new Intl.DateTimeFormat("pl-PL", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+        }).format(d);
+    }, [dayOffset]);
 
     // Filtrowanie
     const filteredHabits = useMemo(() => {
@@ -36,15 +58,15 @@ export default function HabitList({ habits }: HabitListProps) {
             );
         }
 
-        // Status filter
+        // Status filter with respect to the activeDate
         if (filterStatus === "completed") {
-            result = result.filter((h) => h.isCompletedToday);
+            result = result.filter((h) => h.completedDates.includes(activeDate));
         } else if (filterStatus === "pending") {
-            result = result.filter((h) => !h.isCompletedToday);
+            result = result.filter((h) => !h.completedDates.includes(activeDate));
         }
 
         return result;
-    }, [habits, searchQuery, filterStatus]);
+    }, [habits, searchQuery, filterStatus, activeDate]);
 
     // Grupowanie według tagów
     const groupedHabits = useMemo(() => {
@@ -75,11 +97,40 @@ export default function HabitList({ habits }: HabitListProps) {
         return groups;
     }, [filteredHabits]);
 
-    const completedCount = habits.filter((h) => h.isCompletedToday).length;
+    const completedCount = habits.filter((h) => h.completedDates.includes(activeDate)).length;
     const shouldGroup = Object.keys(groupedHabits).length > 1;
 
     return (
         <div className="space-y-4">
+            {/* Day Navigation Header (Visible only on mobile because DesktopLayout uses TodayView) */}
+            <header className="mb-2 lg:hidden">
+                <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 text-text-secondary text-[11px] sm:text-xs uppercase tracking-wider font-semibold">
+                        <CalendarDays size={14} className="sm:w-4 sm:h-4" />
+                        <span>{dayOffset === 0 ? "Dzisiaj" : `${dayOffset} dni temu`}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setDayOffset(d => d + 1)}
+                            className="p-1.5 hover:bg-surface-alt rounded-lg transition-colors text-text-secondary hover:text-text-primary"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                        <button
+                            onClick={() => setDayOffset(d => Math.max(0, d - 1))}
+                            disabled={dayOffset === 0}
+                            className="p-1.5 hover:bg-surface-alt rounded-lg transition-colors text-text-secondary hover:text-text-primary disabled:opacity-30"
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold capitalize text-text-primary leading-tight">
+                    {displayDate}
+                </h1>
+            </header>
+
             {/* Search and filters */}
             <HabitSearch
                 searchQuery={searchQuery}
@@ -103,7 +154,7 @@ export default function HabitList({ habits }: HabitListProps) {
                             })
                             .map(([category, categoryHabits]) => {
                                 const completedInCategory = categoryHabits.filter(
-                                    (h) => h.isCompletedToday
+                                    (h) => h.completedDates.includes(activeDate)
                                 ).length;
 
                                 return (
@@ -124,7 +175,8 @@ export default function HabitList({ habits }: HabitListProps) {
                                                 skippedDates={habit.skippedDates}
                                                 tags={habit.tags}
                                                 archived={habit.archived}
-                                                defaultCompleted={habit.isCompletedToday}
+                                                defaultCompleted={habit.completedDates.includes(activeDate)}
+                                                currentDate={activeDate}
                                             />
                                         ))}
                                     </HabitGroup>
@@ -144,7 +196,8 @@ export default function HabitList({ habits }: HabitListProps) {
                                 skippedDates={habit.skippedDates}
                                 tags={habit.tags}
                                 archived={habit.archived}
-                                defaultCompleted={habit.isCompletedToday}
+                                defaultCompleted={habit.completedDates.includes(activeDate)}
+                                currentDate={activeDate}
                             />
                         ))}
                     </div>

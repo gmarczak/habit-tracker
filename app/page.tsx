@@ -3,18 +3,23 @@ import { redirect } from "next/navigation";
 import DesktopLayout from "@/components/DesktopLayout";
 import HabitList from "@/components/HabitList";
 import AddHabitButton from "@/components/AddHabitButton";
+import StatsPanel from "@/components/StatsPanel";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import QuickStartHabits from "@/components/QuickStartHabits";
 import { CalendarDays, BarChart3 } from "lucide-react";
 import { calculateStreakFromLogs } from "@/utils/streakCalculator";
 import Link from "next/link";
+import { formatInTimeZone } from "date-fns-tz";
 
 // To wyłącza cache, żebyś zawsze widział aktualne dane po odświeżeniu
 export const revalidate = 0;
 
-const getTodayDate = () => {
+const getTodayDate = (tz: string) => {
   return new Intl.DateTimeFormat("pl-PL", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: tz,
   }).format(new Date());
 };
 
@@ -32,7 +37,16 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const todayISO = new Date().toISOString().split('T')[0];
+  // Safely get timezone
+  let timezone = "UTC";
+  try {
+    const { data: profile } = await supabase.from("profiles").select("timezone").eq("id", user.id).maybeSingle();
+    if (profile?.timezone) timezone = profile.timezone;
+  } catch (e) {
+    // Fallback quietly if table is missing
+  }
+
+  const todayISO = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
 
   // 2. Pobieramy nawyki użytkownika
   const { data: habits } = await supabase
@@ -63,14 +77,25 @@ export default async function Home() {
     }
   });
 
-  const today = getTodayDate();
+  const today = getTodayDate(timezone);
 
   // Przygotuj dane dla HabitList
   const habitsData = habits?.filter((h: any) => !h?.archived)?.map((habit: any) => {
     const habitDoneDates = doneDatesByHabit[habit.id] || [];
     const habitSkipDates = skipDatesByHabit[habit.id] || [];
     const habitLogs = logsByHabit[habit.id] || [];
-    const streak = calculateStreakFromLogs(habitLogs);
+    const streak = calculateStreakFromLogs(habitLogs, habit.frequency_type, habit.frequency_value, todayISO);
+
+    // Check if habit is required today
+    let isRequiredToday = true;
+    if (habit.frequency_type === 'specific_days') {
+      const requiredDays = Array.isArray(habit.frequency_value) ? habit.frequency_value : [];
+      const d = new Date(todayISO + 'T12:00:00Z').getDay();
+      isRequiredToday = requiredDays.includes(d);
+    }
+
+    // For specific_days, if it's not required today, maybe we shouldn't show it as "missed" by default
+    // But isCompletedToday strictly means if they did it today
     const isCompletedToday = habitDoneDates.includes(todayISO);
 
     return {
@@ -82,11 +107,15 @@ export default async function Home() {
       tags: habit.tags ?? [],
       archived: habit.archived ?? false,
       isCompletedToday,
+      isRequiredToday,
+      frequency_type: habit.frequency_type || 'daily',
+      frequency_value: habit.frequency_value,
     };
   }) || [];
 
-  // Desktop layout (3 kolumny) widoczny na lg i wyższych
-  // Mobile layout (single column) widoczny poniżej lg
+  const completedToday = habitsData.filter((h: any) => h.isCompletedToday).length;
+  const totalStreak = Math.max(...habitsData.map((h: any) => h.streak), 0);
+  const totalCompletions = habitsData.reduce((sum: number, h: any) => sum + h.completedDates.length, 0);
 
   return (
     <>
@@ -96,46 +125,36 @@ export default async function Home() {
       </div>
 
       {/* MOBILE - SINGLE COLUMN (poniżej lg) */}
-      <main className="lg:hidden min-h-screen bg-[#121212] text-[#f9fafb] flex justify-center overflow-hidden">
-        <div className="w-full max-w-4xl px-4 sm:px-6 py-8 sm:py-12 flex flex-col gap-6 sm:gap-8 relative">
-          {/* HEADER Z DATĄ */}
-          <header>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2 text-[#9ca3af] text-xs sm:text-sm uppercase tracking-wider font-semibold">
-                <CalendarDays size={14} className="sm:w-4 sm:h-4" />
-                <span className="hidden xs:inline">Dzisiaj</span>
-              </div>
-              <Link
-                href="/yearly-summary"
-                className="flex items-center gap-2 px-3 py-1.5 bg-[#1e1e1e] hover:bg-[#2d2d2d] rounded-lg transition-colors text-xs sm:text-sm text-[#9ca3af] hover:text-[#f9fafb]"
-              >
-                <BarChart3 size={14} className="sm:w-4 sm:h-4" />
-                <span>Rok</span>
-              </Link>
+      <main className="lg:hidden min-h-[100dvh] bg-main-bg text-text-primary flex flex-col overflow-y-auto pb-28">
+        <div className="w-full px-4 sm:px-6 py-4 sm:py-6 flex flex-col gap-4 relative max-w-lg mx-auto">
+          {/* NAGŁÓWEK znajduje się teraz wewnątrz HabitList, by obsłużyć Day Navigation on Mobile */}
+
+          {/* STATYSTYKI MOBILNE (Horyzontalnie przewijane) */}
+          <section className="overflow-x-auto pb-1 -mx-4 px-4 snap-x">
+            <div className="w-full">
+              <StatsPanel
+                totalStreak={totalStreak}
+                completedToday={completedToday}
+                totalHabits={habitsData.length}
+                habits={habitsData}
+                totalCompletions={totalCompletions}
+              />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold capitalize bg-gradient-to-r from-[#f9fafb] to-[#9ca3af] bg-clip-text text-transparent">
-              {today}
-            </h1>
-          </header>
+          </section>
 
           {/* LISTA NAWYKÓW Z WYSZUKIWANIEM I GRUPOWANIEM */}
-          <section className="pb-24 sm:pb-28">
+          <section className="flex-1">
             {habitsData.length > 0 ? (
               <HabitList habits={habitsData} />
             ) : (
-              <div className="p-8 text-center border border-dashed border-gray-800 rounded-2xl text-gray-500 mt-4">
-                <p>Jeszcze nic tu nie ma.</p>
-                <p className="text-sm mt-2">Kliknij plusa na dole, żeby dodać swój pierwszy nawyk!</p>
-              </div>
+              <QuickStartHabits />
             )}
           </section>
-
-          {/* FAB BUTTON - MOBILE */}
-          <div className="lg:hidden fixed bottom-6 right-6 z-40">
-            <AddHabitButton />
-          </div>
         </div>
       </main>
+
+      {/* MOBILE BOTTOM NAV */}
+      <MobileBottomNav />
     </>
   );
 }

@@ -134,7 +134,7 @@ export default function HabitCardFlat({
 
     if (isEditing) {
         return (
-            <div className="px-4 lg:px-8 py-4 bg-gray-900/50 border-y border-gray-800/30">
+            <div className="px-4 lg:px-8 py-4 bg-surface-alt border-y border-border">
                 <div className="flex items-center gap-3 mb-3">
                     <input
                         autoFocus
@@ -145,7 +145,7 @@ export default function HabitCardFlat({
                             if (e.key === "Enter") saveEdit();
                             if (e.key === "Escape") setIsEditing(false);
                         }}
-                        className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+                        className="flex-1 bg-surface border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary-green"
                         placeholder="Nazwa nawyku"
                     />
                     <button
@@ -157,7 +157,7 @@ export default function HabitCardFlat({
                     </button>
                     <button
                         onClick={() => setIsEditing(false)}
-                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 text-xs rounded transition-colors"
+                        className="px-3 py-2 bg-surface hover:bg-surface-alt border border-border text-text-secondary text-xs rounded transition-colors"
                     >
                         <X size={14} />
                     </button>
@@ -199,7 +199,7 @@ export default function HabitCardFlat({
             {/* Główna karta */}
             <div
                 ref={cardRef}
-                className="group px-4 lg:px-8 py-3 lg:py-4 hover:bg-gray-900/30 transition-colors relative cursor-pointer bg-[#0d0d0d]"
+                className="group px-4 lg:px-8 py-3 lg:py-4 hover:bg-surface-alt transition-colors relative cursor-pointer bg-surface"
                 onClick={() => router.push(`/habits/${id}`)}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -218,8 +218,8 @@ export default function HabitCardFlat({
                         }}
                         disabled={isLoading}
                         className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${isCompleted
-                            ? "bg-emerald-500 border-emerald-500 scale-105"
-                            : "border-gray-600 hover:border-gray-500"
+                            ? "bg-primary-green border-primary-green scale-105"
+                            : "border-border-alt hover:border-text-secondary bg-surface"
                             } ${isLoading ? "opacity-50" : ""}`}
                     >
                         {isCompleted && <Check size={14} className="text-white" strokeWidth={3} />}
@@ -227,15 +227,15 @@ export default function HabitCardFlat({
 
                     {/* NAZWA NAWYKU */}
                     <div className="flex-1 min-w-0">
-                        <p className={`text-base font-medium transition-colors ${isCompleted ? "text-gray-400 line-through" : "text-gray-100"
+                        <p className={`text-base font-medium transition-colors ${isCompleted ? "text-text-secondary line-through" : "text-text-primary"
                             }`}>
                             {name}
                         </p>
 
                         {/* PROGRESS BAR */}
-                        <div className="mt-2 h-[2px] bg-gray-800 rounded-full overflow-hidden">
+                        <div className="mt-2 h-[2px] bg-border rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-gray-600 transition-all"
+                                className="h-full bg-text-secondary transition-all"
                                 style={{ width: `${progressPercent}%` }}
                             />
                         </div>
@@ -243,7 +243,7 @@ export default function HabitCardFlat({
 
                     {/* STREAK BADGE (tylko jeśli > 2) */}
                     {streak > 2 && (
-                        <div className="flex-shrink-0 text-xs text-gray-400 font-medium">
+                        <div className="flex-shrink-0 text-xs text-text-secondary font-medium bg-surface-alt px-2 py-0.5 rounded border border-border">
                             {streak}🔥
                         </div>
                     )}
@@ -256,7 +256,7 @@ export default function HabitCardFlat({
                                 e.stopPropagation();
                                 setShowActions(!showActions);
                             }}
-                            className="p-1 text-gray-600 hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="p-1 text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                             <MoreHorizontal size={16} />
                         </button>
@@ -267,7 +267,7 @@ export default function HabitCardFlat({
                                     className="fixed inset-0 z-10"
                                     onClick={() => setShowActions(false)}
                                 />
-                                <div className="absolute right-0 top-full mt-1 bg-gray-900 border border-gray-800 rounded-lg shadow-xl z-20 py-1 min-w-[140px]">
+                                <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-lg z-20 py-1 min-w-[140px]">
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
@@ -275,7 +275,7 @@ export default function HabitCardFlat({
                                             setIsEditing(true);
                                             setShowActions(false);
                                         }}
-                                        className="w-full px-3 py-2 text-left text-xs text-blue-400 hover:bg-gray-800 flex items-center gap-2"
+                                        className="w-full px-3 py-2 text-left text-xs text-text-secondary hover:text-text-primary hover:bg-surface-alt flex items-center gap-2"
                                     >
                                         <Pencil size={12} />
                                         Edytuj
@@ -286,7 +286,7 @@ export default function HabitCardFlat({
                                             deleteHabit(e as any);
                                             setShowActions(false);
                                         }}
-                                        className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-gray-800 flex items-center gap-2"
+                                        className="w-full px-3 py-2 text-left text-xs text-danger hover:bg-surface-alt flex items-center gap-2"
                                     >
                                         <Trash2 size={12} />
                                         Usuń

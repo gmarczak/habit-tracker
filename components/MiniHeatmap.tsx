@@ -37,12 +37,12 @@ export default function MiniHeatmap({
                         className={`
                             w-2.5 h-2.5 md:w-3 md:h-3 rounded-[3px] transition-all flex-shrink-0
                             ${isDone
-                                ? "bg-emerald-500/90 shadow-[0_0_4px_rgba(16,185,129,0.35)]"
+                                ? "bg-primary-green shadow-sm"
                                 : isSkip
-                                    ? "bg-yellow-500/70"
-                                    : "bg-gray-800/60"
+                                    ? "bg-[#fcd34d]"
+                                    : "bg-border"
                             }
-                            ${isToday ? "ring-1 ring-gray-500/60" : ""}
+                            ${isToday ? "ring-1 ring-text-secondary/60" : ""}
                         `}
                         title={`${date}${isDone ? ' - wykonane' : isSkip ? ' - pominięte' : ''}`}
                     />
