@@ -91,17 +91,11 @@ supabase functions deploy send-reminders --no-verify-jwt --project-ref fswfdsooa
 
 ## Logowanie
 
-Mailem, bez hasła: jedna wiadomość zawiera link (wygodny na komputerze) i 6-cyfrowy kod. Kod jest konieczny w aplikacji dodanej do ekranu głównego na iPhonie, bo link z maila otwiera się w Safari, które ma osobną pamięć i sesję.
+Główny sposób to **e-mail + hasło** (`signInWithPassword`, zakładanie konta przez `signUp` z potwierdzeniem adresu). Link z maila (`signInWithOtp`) został jako awaryjny: działa na komputerze i w samym Safari.
 
-Wymaga szablonu w Supabase → Authentication → Emails → **Magic Link** z kodem `{{ .Token }}`, np.:
+Dlaczego hasło: na iPhonie aplikacja dodana do ekranu głównego ma osobną pamięć od Safari, a link z maila zawsze otwiera Safari, więc nie zaloguje aplikacji z ikony. Konto założone linkiem nie ma hasła — ustawia się je w **Ustawieniach → Konto** (`updateUser`).
 
-```html
-<h2>Logowanie do Nawyków</h2>
-<p>Twój kod: <strong style="font-size:24px;letter-spacing:4px">{{ .Token }}</strong></p>
-<p>Albo kliknij: <a href="{{ .ConfirmationURL }}">zaloguj się</a></p>
-```
-
-Wbudowana poczta Supabase wysyła tylko kilka maili na godzinę (błąd 429 „email rate limit exceeded”). Przy większej liczbie użytkowników trzeba podpiąć własny SMTP (Authentication → Emails → SMTP).
+Wbudowana poczta Supabase wysyła tylko kilka maili na godzinę (błąd 429) i na darmowym planie nie pozwala zmieniać treści maili. Przy większej liczbie użytkowników trzeba podpiąć własny SMTP (Authentication → Emails → SMTP).
 
 ## Wdrożenie
 
