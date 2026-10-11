@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { btnDanger, btnPrimary, btnSecondary, chip, field, label, labelText, sectionTitle } from "@/components/ui/styles";
+import { PasswordForm } from "@/features/auth/PasswordForm";
 import { PauseForm } from "@/features/habits/HabitDetail";
 import { currentSubscription, disablePush, enablePush, pushSupport, type PushSupport } from "@/features/reminders/push";
 import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
@@ -118,6 +119,7 @@ export function SettingsScreen() {
           Konto
         </h2>
         {snapshot.email && <p className="text-sm text-muted">Zalogowano jako {snapshot.email}</p>}
+        <PasswordForm />
         <div className="flex flex-wrap gap-3">
           <button type="button" onClick={() => void signOut()} className={btnSecondary}>
             Wyloguj
