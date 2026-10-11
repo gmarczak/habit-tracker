@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/database.types";
 import { supabaseEnv } from "@/lib/db/env";
 
-const PUBLIC_PATHS = ["/login", "/auth", "/preview"];
+const PUBLIC_PATHS = ["/login", "/auth"];
 
 /** Odświeża sesję Supabase i odsyła niezalogowanych do /login. */
 export async function proxy(request: NextRequest) {

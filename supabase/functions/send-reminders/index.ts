@@ -299,7 +299,13 @@ Deno.serve(async (req) => {
   const { data: config, error: configError } = await supabase.rpc("push_config", { p_secret: secret }).single();
   if (configError || !config) return json({ error: "unauthorized" }, 401);
   const { vapid_public, vapid_private, vapid_subject } = config;
-  webpush.setVapidDetails(vapid_subject, vapid_public, vapid_private);
+  const missing = Object.entries({ vapid_public, vapid_private, vapid_subject }).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length > 0) return json({ error: "not_configured", missing }, 503);
+  try {
+    webpush.setVapidDetails(vapid_subject, vapid_public, vapid_private);
+  } catch (e) {
+    return json({ error: "invalid_vapid_config", detail: e instanceof Error ? e.message : String(e) }, 503);
+  }
   const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, habit_id, local_time").eq("enabled", true);
   if (error) return json({ error: error.message }, 500);
   const byUser = /* @__PURE__ */ new Map();
