@@ -7,8 +7,8 @@ select count(*) as profiles_auto from profiles;
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-1111-1111-111111111111',false);
 select user_today() is not null as today_ok;
-select create_habit('Czytanie','count','strony','📚',null,null,'daily',null,null,null,20, current_date - 10) as h1 \gset
-select create_habit('Siłownia','check',null,null,null,null,'weekdays','{1,3,5}',null,null,null, current_date - 10) as h2 \gset
+select add_habit('Czytanie','count','strony','book-open',null,null,'daily',null,null,null,20, current_date - 10) as h1 \gset
+select add_habit('Siłownia','check',null,null,null,null,'weekdays','{1,3,5}',null,null,null, current_date - 10) as h2 \gset
 \echo '-- poprawny wpis'
 select value, skipped from set_entry(:'h1', current_date - 1, 25);
 select value from set_entry(:'h1', current_date - 1, 30);   -- upsert, nie duplikat
