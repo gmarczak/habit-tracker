@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { supabaseBrowser } from "@/lib/db/client";
+import { supabaseBrowser, type Supabase } from "@/lib/db/client";
 import { localDate, type LocalDate } from "@/lib/domain/dates";
-import { createHabit, entryFromChange, withEntry, type EntryChange, type NewHabit } from "./mutations";
+import { entryFromChange, withEntry, type EntryChange } from "./mutations";
 import { fetchSnapshot, type Snapshot } from "./snapshot";
 
 export const snapshotKey = ["snapshot"] as const;
@@ -58,10 +58,28 @@ export function useEntryMutation() {
   });
 }
 
-export function useCreateHabit() {
+/**
+ * Pozostałe zapisy (nawyki, kategorie, pauzy, ustawienia): wymagają sieci,
+ * po sukcesie odświeżają cały snapshot. Opcjonalna zmiana optymistyczna cache.
+ */
+export function useAction<TInput, TResult = void>(
+  run: (supabase: Supabase, input: TInput) => Promise<TResult>,
+  optimistic?: (snapshot: Snapshot, input: TInput) => Snapshot,
+) {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: NewHabit) => createHabit(supabaseBrowser(), input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: snapshotKey }),
+  return useMutation<TResult, Error, TInput, { previous: Snapshot | undefined }>({
+    mutationFn: (input) => run(supabaseBrowser(), input),
+    onMutate: async (input) => {
+      const previous = qc.getQueryData<Snapshot>(snapshotKey);
+      if (optimistic && previous) {
+        await qc.cancelQueries({ queryKey: snapshotKey });
+        qc.setQueryData<Snapshot>(snapshotKey, optimistic(previous, input));
+      }
+      return { previous };
+    },
+    onError: (_e, _i, context) => {
+      if (optimistic && context?.previous) qc.setQueryData(snapshotKey, context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: snapshotKey }),
   });
 }

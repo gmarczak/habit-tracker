@@ -45,6 +45,6 @@ Migracje w `supabase/migrations` są źródłem prawdy. Testy bazy lokalnie (Pos
 
 ```bash
 psql -f supabase/tests/auth_stub.sql
-for f in supabase/migrations/*.sql; do psql -f "$f"; done
+for f in supabase/migrations/*.sql; do sed '/^create extension/d' "$f" | psql; done
 psql -f supabase/tests/behavior.sql
 ```

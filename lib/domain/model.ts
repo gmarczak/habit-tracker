@@ -1,6 +1,9 @@
 import type { LocalDate, WeekStart } from "./dates";
 
 export type HabitKind = "check" | "count" | "duration";
+
+export const HABIT_COLORS = ["green", "blue", "violet", "amber", "rose", "teal", "slate"] as const;
+export type HabitColor = (typeof HABIT_COLORS)[number];
 export type Frequency = "daily" | "weekdays" | "weekly_count" | "every_n_days";
 
 /** Wersja planu obowiązująca od `validFrom` do dnia przed następną wersją. */
@@ -21,8 +24,9 @@ export type Habit = {
   name: string;
   kind: HabitKind;
   unit: string | null;
-  emoji: string | null;
-  color: string;
+  /** klucz ikony liniowej z lib/ui/icons */
+  icon: string | null;
+  color: HabitColor;
   categoryId: string | null;
   startDate: LocalDate;
   sortOrder: number;
@@ -58,3 +62,9 @@ export type StreakUnit = "days" | "weeks";
 export function unitOf(frequency: Frequency): StreakUnit {
   return frequency === "weekly_count" ? "weeks" : "days";
 }
+
+export type Category = { id: string; name: string; sortOrder: number };
+
+export type PauseRecord = Pause & { id: string; reason: string | null };
+
+export type Reminder = { id: string; habitId: string | null; localTime: string; enabled: boolean };

@@ -5,11 +5,13 @@ import nextTs from "eslint-config-next/typescript";
 const config = [
   ...nextVitals,
   ...nextTs,
-  { ignores: [".next/**", "node_modules/**", "lib/db/database.types.ts", "next-env.d.ts"] },
+  {
+    ignores: [".next/**", "node_modules/**", "lib/db/database.types.ts", "next-env.d.ts", "supabase/functions/*/index.ts", "public/sw.js"],
+  },
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true }],
       "no-restricted-syntax": [
         "error",
         {

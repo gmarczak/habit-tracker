@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/database.types";
 import { supabaseEnv } from "@/lib/db/env";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+const PUBLIC_PATHS = ["/login", "/auth", "/preview"];
 
 /** Odświeża sesję Supabase i odsyła niezalogowanych do /login. */
 export async function proxy(request: NextRequest) {
@@ -34,5 +34,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon|manifest|.*\\.(?:png|svg|ico|webmanifest)$).*)"],
+  // Bez proxy: pliki statyczne, service worker i manifest (muszą działać przed zalogowaniem i offline)
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|.*\\.(?:png|svg|ico|webmanifest|woff2?)$).*)"],
 };

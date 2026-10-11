@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: "Nawyki",
   description: "Habit tracker: odhacz w 3 sekundy i zobacz postęp.",
   applicationName: "Nawyki",
+  appleWebApp: { capable: true, title: "Nawyki", statusBarStyle: "default" },
+  icons: { apple: "/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

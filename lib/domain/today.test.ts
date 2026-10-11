@@ -18,7 +18,7 @@ const habit = (id: string, p: Plan, over: Partial<Habit> = {}): Habit => ({
   name: id,
   kind: "check",
   unit: null,
-  emoji: null,
+  icon: null,
   color: "green",
   categoryId: null,
   startDate: "2026-09-01",

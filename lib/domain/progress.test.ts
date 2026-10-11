@@ -16,7 +16,7 @@ function habit(plans: Plan[], startDate = "2026-09-01", over: Partial<Habit> = {
     name: "Test",
     kind: "check",
     unit: null,
-    emoji: null,
+    icon: null,
     color: "green",
     categoryId: null,
     startDate,

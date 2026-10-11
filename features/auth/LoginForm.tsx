@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState, type FormEvent } from "react";
+import { btnPrimary, field, label, labelText } from "@/components/ui/styles";
 import { supabaseBrowser } from "@/lib/db/client";
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; email: string } | { kind: "error"; message: string };
@@ -16,39 +18,50 @@ export function LoginForm({ linkError }: { linkError: boolean }) {
       email: email.trim(),
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
-    setStatus(error ? { kind: "error", message: error.message } : { kind: "sent", email: email.trim() });
+    setStatus(
+      error
+        ? { kind: "error", message: error.status === 429 ? "Za dużo prób. Odczekaj chwilę i spróbuj ponownie." : error.message }
+        : { kind: "sent", email: email.trim() },
+    );
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <h1 className="font-serif text-4xl font-semibold">Nawyki</h1>
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6 py-10">
+      <div className="flex flex-col gap-4">
+        <Image src="/icon-192.png" alt="" width={56} height={56} className="rounded-2xl" priority />
+        <h1 className="font-serif text-4xl font-semibold">Nawyki</h1>
+        <p className="text-muted">Odhacz w 3 sekundy i zobacz postęp. Zaloguj się linkiem z maila — bez hasła.</p>
+      </div>
+
       {status.kind === "sent" ? (
-        <p className="text-lg">
-          Wysłaliśmy link na <strong>{status.email}</strong>. Otwórz go na tym urządzeniu, żeby się zalogować.
-        </p>
+        <div className="flex flex-col gap-3 rounded-3xl bg-surface p-5">
+          <p className="font-serif text-xl font-semibold">Sprawdź skrzynkę</p>
+          <p>
+            Wysłaliśmy link na <strong>{status.email}</strong>. Otwórz go na tym urządzeniu i w tej samej przeglądarce.
+          </p>
+          <button type="button" onClick={() => setStatus({ kind: "idle" })} className="self-start text-sm font-semibold text-accent">
+            Inny adres
+          </button>
+        </div>
       ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          {linkError && <p className="text-danger">Link wygasł albo został już użyty. Wyślij nowy.</p>}
-          <label htmlFor="email" className="font-medium">
-            Adres e-mail
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {linkError && <p className="rounded-2xl bg-surface px-4 py-3 text-sm">Link wygasł albo został już użyty. Wyślij nowy.</p>}
+          <label className={label}>
+            <span className={labelText}>Adres e-mail</span>
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={field}
+            />
           </label>
-          <input
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-12 rounded-xl border border-border bg-surface px-4 text-base"
-          />
-          <button
-            type="submit"
-            disabled={status.kind === "sending"}
-            className="h-12 rounded-xl bg-accent font-semibold text-accent-contrast disabled:opacity-60"
-          >
+          <button type="submit" disabled={status.kind === "sending"} className={btnPrimary}>
             {status.kind === "sending" ? "Wysyłam…" : "Wyślij link logowania"}
           </button>
-          {status.kind === "error" && <p className="text-danger">{status.message}</p>}
+          {status.kind === "error" && <p className="text-sm text-danger">{status.message}</p>}
         </form>
       )}
     </main>
