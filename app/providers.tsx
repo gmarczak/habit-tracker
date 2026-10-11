@@ -1,0 +1,52 @@
+"use client";
+
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { del, get, set } from "idb-keyval";
+import { useState, type ReactNode } from "react";
+import { entryMutationKey } from "@/lib/data/hooks";
+import { saveEntry, type EntryChange } from "@/lib/data/mutations";
+import { supabaseBrowser } from "@/lib/db/client";
+
+const CACHE_VERSION = "v2-1";
+
+function makeClient() {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { gcTime: 1000 * 60 * 60 * 24 * 7, retry: 1, networkMode: "offlineFirst" },
+      mutations: { networkMode: "online", retry: 3 },
+    },
+  });
+  client.setMutationDefaults(entryMutationKey, {
+    mutationFn: (change: EntryChange) => saveEntry(supabaseBrowser(), change),
+  });
+  return client;
+}
+
+const persister =
+  typeof window === "undefined"
+    ? undefined
+    : createAsyncStoragePersister({
+        storage: {
+          getItem: async (key) => (await get<string>(key)) ?? null,
+          setItem: (key, value) => set(key, value),
+          removeItem: (key) => del(key),
+        },
+        key: "habit-tracker-cache",
+        throttleTime: 500,
+      });
+
+export function Providers({ children }: { children: ReactNode }) {
+  const [client] = useState(makeClient);
+  if (!persister) return null;
+  return (
+    <PersistQueryClientProvider
+      client={client}
+      persistOptions={{ persister, buster: CACHE_VERSION, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+      onSuccess={() => client.resumePausedMutations()}
+    >
+      {children}
+    </PersistQueryClientProvider>
+  );
+}

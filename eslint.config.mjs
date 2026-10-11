@@ -1,18 +1,28 @@
-import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-const eslintConfig = defineConfig([
+// Zasady wynikające z lekcji starej wersji (patrz plan remasteru)
+const config = [
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
+  { ignores: [".next/**", "node_modules/**", "lib/db/database.types.ts", "next-env.d.ts"] },
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.property.name='toISOString']",
+          message: "Nie licz dat przez toISOString() (UTC). Użyj funkcji z lib/domain/dates.",
+        },
+        {
+          selector: "CallExpression[callee.name=/^(alert|confirm)$/]",
+          message: "Bez alert()/confirm(): użyj toastu z Cofnij.",
+        },
+      ],
+    },
+  },
+];
 
-export default eslintConfig;
+export default config;

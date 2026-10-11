@@ -1,0 +1,135 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useEntryMutation } from "@/lib/data/hooks";
+import type { LocalDate } from "@/lib/domain/dates";
+import type { TodayItem } from "@/lib/domain/today";
+import { formatNumber, formatStreak } from "@/lib/format";
+import { EntrySheet } from "./EntrySheet";
+
+const LONG_PRESS_MS = 450;
+
+function haptic() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(12);
+}
+
+function CheckIcon() {
+  return (
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  );
+}
+
+/** Wiersz B1: monogram, nazwa + szczegół, przycisk akcji po prawej. Zrobione: bez ramki, pełne kółko. */
+export function HabitRow({ item, date, compact }: { item: TodayItem; date: LocalDate; compact: boolean }) {
+  const mutation = useEntryMutation();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const pressTimer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+
+  const { habit, plan, entry, state, streak, week } = item;
+  const value = entry && !entry.skipped ? (entry.value ?? 0) : 0;
+  const target = plan.targetValue;
+  const isDone = state === "done";
+  const isSkipped = state === "skipped";
+  const unit = habit.kind === "duration" ? "min" : (habit.unit ?? "");
+
+  /** Główny gest: tak/nie przełącza, ilość dodaje 1, czas zalicza pełny cel. */
+  function primary() {
+    if (isSkipped) return mutation.mutate({ habitId: habit.id, date, kind: "clear" });
+    if (habit.kind === "check") {
+      if (isDone) return mutation.mutate({ habitId: habit.id, date, kind: "clear" });
+      haptic();
+      return mutation.mutate({ habitId: habit.id, date, kind: "set", value: 1 });
+    }
+    if (habit.kind === "count" && !isDone) {
+      const next = value + 1;
+      if (next >= target) haptic();
+      return mutation.mutate({ habitId: habit.id, date, kind: "set", value: next });
+    }
+    if (isDone) return setSheetOpen(true);
+    haptic();
+    return mutation.mutate({ habitId: habit.id, date, kind: "set", value: target });
+  }
+
+  function startPress() {
+    longPressed.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true;
+      setSheetOpen(true);
+    }, LONG_PRESS_MS);
+  }
+  function cancelPress() {
+    if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  }
+
+  const streakText = streak.current > 0 ? `seria ${formatStreak(streak)}` : null;
+  const progressText =
+    week !== null
+      ? `${week.done} z ${week.required || plan.timesPerWeek} w tym tygodniu`
+      : habit.kind === "check"
+        ? null
+        : `${formatNumber(value)} z ${formatNumber(target)} ${unit}`.trim();
+
+  const title = isDone && habit.kind !== "check" && week === null ? `${habit.name} · ${formatNumber(value)} ${unit}`.trim() : habit.name;
+  const detail = isSkipped
+    ? "Pominięte"
+    : isDone
+      ? streakText
+      : [progressText, streakText].filter(Boolean).join(" · ") || "Zaczynasz nową serię";
+
+  const actionLabel =
+    habit.kind === "count" && !isDone && !isSkipped
+      ? `${habit.name}: dodaj 1 (${formatNumber(value)} z ${formatNumber(target)})`
+      : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
+
+  return (
+    <div className={`flex items-center gap-3.5 ${compact ? "py-2.5" : "border-b border-border py-4"}`}>
+      {!compact && (
+        <span
+          aria-hidden="true"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-semibold text-accent"
+          style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)" }}
+        >
+          {habit.emoji ?? habit.name.trim().charAt(0).toUpperCase()}
+        </span>
+      )}
+
+      <button type="button" onClick={() => setSheetOpen(true)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+        <span className={`w-full truncate ${compact ? "text-base font-medium text-done" : "text-[17px] font-semibold"}`}>{title}</span>
+        {detail && <span className={`text-[13px] ${isDone && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
+      </button>
+
+      <button
+        type="button"
+        aria-label={actionLabel}
+        aria-pressed={isDone}
+        onClick={() => {
+          if (!longPressed.current) primary();
+        }}
+        onPointerDown={startPress}
+        onPointerUp={cancelPress}
+        onPointerLeave={cancelPress}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setSheetOpen(true);
+        }}
+        className={`flex h-11 shrink-0 select-none items-center justify-center rounded-full text-[15px] font-bold transition-colors ${
+          isDone
+            ? "w-11 bg-accent text-accent-contrast"
+            : isSkipped
+              ? "w-11 border-[1.5px] border-control text-muted"
+              : habit.kind === "count"
+                ? "min-w-14 border-[1.5px] border-accent px-3 text-accent"
+                : "w-11 border-[1.5px] border-control"
+        }`}
+      >
+        {isDone ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}
+      </button>
+
+      <EntrySheet open={sheetOpen} onClose={() => setSheetOpen(false)} item={item} date={date} />
+    </div>
+  );
+}
