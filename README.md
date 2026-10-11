@@ -88,3 +88,7 @@ supabase functions deploy send-reminders --no-verify-jwt --project-ref fswfdsooa
 `--no-verify-jwt` jest celowe, bo autoryzacją jest `x-cron-secret`. Sprawdzenie: `curl -X POST https://fswfdsooabadlcpekiyx.supabase.co/functions/v1/send-reminders` ma zwrócić `401`. Odpowiedzi crona są w `net._http_response`.
 
 **Klient:** klucz publiczny VAPID jest w zmiennej `NEXT_PUBLIC_VAPID_PUBLIC_KEY` w Vercelu (projekt `gm-habit-tracker`, Production/Preview/Development). Lokalnie wpisz go do `.env.local`. Musi być identyczny z `vapid_public` w Vault.
+
+## Wdrożenie
+
+Produkcja (gm-habit-tracker.vercel.app) wdraża się automatycznie z gałęzi `main` przez integrację Vercel ↔ GitHub; gałęzie i PR-y dostają podglądy. Jeśli push nie uruchamia builda, sprawdź Vercel → Settings → Git (błąd „Project Link not found” naprawia Disconnect + ponowne podłączenie repo).
