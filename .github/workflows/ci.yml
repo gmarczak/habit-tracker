@@ -42,6 +42,6 @@ jobs:
       - name: Migracje od zera + testy zachowania (RLS, ograniczenia, RPC)
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/tests/auth_stub.sql
-          for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+          for f in supabase/migrations/*.sql; do sed '/^create extension/d' "$f" | psql -v ON_ERROR_STOP=1; done
           psql -f supabase/tests/behavior.sql | tee out.txt
           grep -q "b_sees_habits" out.txt

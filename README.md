@@ -45,6 +45,46 @@ Migracje w `supabase/migrations` są źródłem prawdy. Testy bazy lokalnie (Pos
 
 ```bash
 psql -f supabase/tests/auth_stub.sql
-for f in supabase/migrations/*.sql; do psql -f "$f"; done
+for f in supabase/migrations/*.sql; do sed '/^create extension/d' "$f" | psql; done
 psql -f supabase/tests/behavior.sql
 ```
+
+## Przypomnienia
+
+Web Push wysyła funkcja Edge `send-reminders`. Co 5 minut wywołuje ją `pg_cron` (zadanie `send-reminders`, migracja `reminders_cron`) z nagłówkiem `x-cron-secret`. Funkcja sprawdza sekret przez RPC `push_config`, które przy poprawnym sekrecie zwraca klucze VAPID. Bez sekretu odpowiada `401`.
+
+**Sekrety w Supabase Vault** (nigdy w repo):
+
+| Nazwa | Co to jest |
+| --- | --- |
+| `cron_secret` | losowe ≥ 32 bajty hex; znają go tylko cron i `push_config` |
+| `vapid_public` | klucz publiczny VAPID (ten sam co `NEXT_PUBLIC_VAPID_PUBLIC_KEY`) |
+| `vapid_private` | klucz prywatny VAPID |
+| `vapid_subject` | kontakt dla usług push, np. `mailto:ty@example.com` |
+
+**Konfiguracja od zera** (SQL Editor w Supabase lub `execute_sql`):
+
+```bash
+npx web-push generate-vapid-keys --json   # para kluczy VAPID
+```
+
+```sql
+-- cron_secret losowany w bazie, nigdzie go nie kopiujesz
+select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'cron_secret');
+select vault.create_secret('<publicKey>', 'vapid_public');
+select vault.create_secret('<privateKey>', 'vapid_private');
+select vault.create_secret('mailto:<adres>', 'vapid_subject');
+```
+
+Zmiana wartości: `select vault.update_secret(id, '<nowa>') from vault.secrets where name = '<nazwa>';`. Po zmianie kluczy VAPID dotychczasowe subskrypcje przestają działać, a użytkownicy muszą włączyć przypomnienia ponownie.
+
+**Wdrożenie funkcji:** kod jest w `supabase/functions/send-reminders/src.ts`, a `index.ts` to wygenerowany bundel.
+
+```bash
+npm run build:functions
+supabase functions deploy send-reminders --no-verify-jwt --project-ref fswfdsooabadlcpekiyx
+```
+
+`--no-verify-jwt` jest celowe, bo autoryzacją jest `x-cron-secret`. Sprawdzenie: `curl -X POST https://fswfdsooabadlcpekiyx.supabase.co/functions/v1/send-reminders` ma zwrócić `401`. Odpowiedzi crona są w `net._http_response`.
+
+**Klient:** klucz publiczny VAPID jest w zmiennej `NEXT_PUBLIC_VAPID_PUBLIC_KEY` w Vercelu (projekt `gm-habit-tracker`, Production/Preview/Development). Lokalnie wpisz go do `.env.local`. Musi być identyczny z `vapid_public` w Vault.

@@ -1,7 +1,17 @@
 import type { Tables } from "@/lib/db/database.types";
 import type { Supabase } from "@/lib/db/client";
 import type { WeekStart } from "@/lib/domain/dates";
-import type { Entry, Habit, Pause, Plan, Settings } from "@/lib/domain/model";
+import {
+  HABIT_COLORS,
+  type Category,
+  type Entry,
+  type Habit,
+  type HabitColor,
+  type PauseRecord,
+  type Plan,
+  type Reminder,
+  type Settings,
+} from "@/lib/domain/model";
 
 /**
  * Cała historia użytkownika w jednym obiekcie. Rok używania to kilka tysięcy wierszy,
@@ -9,10 +19,13 @@ import type { Entry, Habit, Pause, Plan, Settings } from "@/lib/domain/model";
  */
 export type Snapshot = {
   userId: string;
+  email: string | null;
   settings: Settings;
   habits: Habit[];
   entries: Entry[];
-  pauses: Pause[];
+  pauses: PauseRecord[];
+  categories: Category[];
+  reminders: Reminder[];
 };
 
 export function toPlan(row: Tables<"habit_plans">): Plan {
@@ -26,14 +39,18 @@ export function toPlan(row: Tables<"habit_plans">): Plan {
   };
 }
 
+function toColor(value: string): HabitColor {
+  return (HABIT_COLORS as readonly string[]).includes(value) ? (value as HabitColor) : "green";
+}
+
 export function toHabit(row: Tables<"habits">, plans: Tables<"habit_plans">[]): Habit {
   return {
     id: row.id,
     name: row.name,
     kind: row.kind,
     unit: row.unit,
-    emoji: row.emoji,
-    color: row.color,
+    icon: row.icon,
+    color: toColor(row.color),
     categoryId: row.category_id,
     startDate: row.start_date,
     sortOrder: row.sort_order,
@@ -77,17 +94,20 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) throw authError ?? new Error("not_authenticated");
 
-  const [profile, habits, plans, entries, pauses] = await Promise.all([
+  const [profile, habits, plans, entries, pauses, categories, reminders] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", auth.user.id).single(),
     supabase.from("habits").select("*").order("sort_order"),
     supabase.from("habit_plans").select("*"),
     allEntries(supabase),
-    supabase.from("habit_pauses").select("*"),
+    supabase.from("habit_pauses").select("*").order("start_date"),
+    supabase.from("categories").select("*").order("sort_order"),
+    supabase.from("reminders").select("*").order("local_time"),
   ]);
-  for (const r of [profile, habits, plans, pauses]) if (r.error) throw r.error;
+  for (const r of [profile, habits, plans, pauses, categories, reminders]) if (r.error) throw r.error;
 
   return {
     userId: auth.user.id,
+    email: auth.user.email ?? null,
     settings: {
       timeZone: profile.data!.timezone,
       weekStart: profile.data!.week_start as WeekStart,
@@ -95,6 +115,19 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
     },
     habits: (habits.data ?? []).map((h) => toHabit(h, plans.data ?? [])),
     entries: entries.map(toEntry),
-    pauses: (pauses.data ?? []).map((p) => ({ habitId: p.habit_id, startDate: p.start_date, endDate: p.end_date })),
+    pauses: (pauses.data ?? []).map((p) => ({
+      id: p.id,
+      habitId: p.habit_id,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      reason: p.reason,
+    })),
+    categories: (categories.data ?? []).map((c) => ({ id: c.id, name: c.name, sortOrder: c.sort_order })),
+    reminders: (reminders.data ?? []).map((r) => ({
+      id: r.id,
+      habitId: r.habit_id,
+      localTime: r.local_time.slice(0, 5),
+      enabled: r.enabled,
+    })),
   };
 }

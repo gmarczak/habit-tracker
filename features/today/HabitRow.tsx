@@ -5,6 +5,7 @@ import { useEntryMutation } from "@/lib/data/hooks";
 import type { LocalDate } from "@/lib/domain/dates";
 import type { TodayItem } from "@/lib/domain/today";
 import { formatNumber, formatStreak } from "@/lib/format";
+import { HabitBadge } from "@/lib/ui/icons";
 import { EntrySheet } from "./EntrySheet";
 
 const LONG_PRESS_MS = 450;
@@ -73,33 +74,30 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
         ? null
         : `${formatNumber(value)} z ${formatNumber(target)} ${unit}`.trim();
 
-  const title = isDone && habit.kind !== "check" && week === null ? `${habit.name} · ${formatNumber(value)} ${unit}`.trim() : habit.name;
+  const weekMet = week?.result === "met" && !isDone;
+  const title =
+    isDone && habit.kind !== "check" && week === null ? `${habit.name} · ${formatNumber(value)} z ${formatNumber(target)} ${unit}`.trim() : habit.name;
   const detail = isSkipped
     ? "Pominięte"
     : isDone
       ? streakText
-      : [progressText, streakText].filter(Boolean).join(" · ") || "Zaczynasz nową serię";
+      : [progressText, streakText].filter(Boolean).join(" · ") ||
+        (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
 
   const actionLabel =
     habit.kind === "count" && !isDone && !isSkipped
       ? `${habit.name}: dodaj 1 (${formatNumber(value)} z ${formatNumber(target)})`
-      : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
+      : weekMet
+        ? `${habit.name}: tydzień zaliczony, odhacz kolejny raz`
+        : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
 
   return (
     <div className={`flex items-center gap-3.5 ${compact ? "py-2.5" : "border-b border-border py-4"}`}>
-      {!compact && (
-        <span
-          aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-semibold text-accent"
-          style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)" }}
-        >
-          {habit.emoji ?? habit.name.trim().charAt(0).toUpperCase()}
-        </span>
-      )}
+      {!compact && <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} />}
 
       <button type="button" onClick={() => setSheetOpen(true)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
         <span className={`w-full truncate ${compact ? "text-base font-medium text-done" : "text-[17px] font-semibold"}`}>{title}</span>
-        {detail && <span className={`text-[13px] ${isDone && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
+        {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
       </button>
 
       <button
@@ -119,17 +117,19 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
         className={`flex h-11 shrink-0 select-none items-center justify-center rounded-full text-[15px] font-bold transition-colors ${
           isDone
             ? "w-11 bg-accent text-accent-contrast"
-            : isSkipped
+            : weekMet
+              ? "w-11 border-2 border-accent text-accent"
+              : isSkipped
               ? "w-11 border-[1.5px] border-control text-muted"
               : habit.kind === "count"
                 ? "min-w-14 border-[1.5px] border-accent px-3 text-accent"
                 : "w-11 border-[1.5px] border-control"
         }`}
       >
-        {isDone ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}
+        {isDone || weekMet ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}
       </button>
 
-      <EntrySheet open={sheetOpen} onClose={() => setSheetOpen(false)} item={item} date={date} />
+      <EntrySheet open={sheetOpen} onClose={() => setSheetOpen(false)} habit={habit} plan={plan} entry={entry} date={date} />
     </div>
   );
 }

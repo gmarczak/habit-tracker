@@ -1,4 +1,5 @@
 import type { LocalDate } from "@/lib/domain/dates";
+import type { HabitKind, Plan } from "@/lib/domain/model";
 import type { Streak } from "@/lib/domain/progress";
 
 function asUtcDate(date: LocalDate): Date {
@@ -47,6 +48,36 @@ export function formatStreak(streak: Streak): string {
   return streak.unit === "days"
     ? `${n} ${plural(n, "dzień", "dni", "dni")}`
     : `${n} ${plural(n, "tydzień", "tygodnie", "tygodni")}`;
+}
+
+const WEEKDAY_SHORT = ["", "pn", "wt", "śr", "cz", "pt", "sb", "nd"] as const;
+
+/** "codziennie", "pn, śr, pt", "dni robocze", "3 razy w tygodniu", "co 2 dni" + cel dla ilościowych. */
+export function describePlan(plan: Plan, kind: HabitKind, unit: string | null): string {
+  let when: string;
+  switch (plan.frequency) {
+    case "daily":
+      when = "codziennie";
+      break;
+    case "weekdays": {
+      const days = [...(plan.weekdays ?? [])].sort();
+      const key = days.join(",");
+      when =
+        key === "1,2,3,4,5" ? "w dni robocze" : key === "6,7" ? "w weekendy" : key === "1,2,3,4,5,6,7" ? "codziennie" : days.map((d) => WEEKDAY_SHORT[d]).join(", ");
+      break;
+    }
+    case "weekly_count": {
+      const n = plan.timesPerWeek ?? 1;
+      when = `${n} ${plural(n, "raz", "razy", "razy")} w tygodniu`;
+      break;
+    }
+    case "every_n_days":
+      when = `co ${plan.intervalDays ?? 2} dni`;
+      break;
+  }
+  if (kind === "check") return when;
+  const u = kind === "duration" ? "min" : (unit ?? "");
+  return `${formatNumber(plan.targetValue)} ${u} · ${when}`.replace(/\s+·/, " ·");
 }
 
 export function formatNumber(n: number): string {

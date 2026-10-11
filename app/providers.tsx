@@ -4,7 +4,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { del, get, set } from "idb-keyval";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { entryMutationKey } from "@/lib/data/hooks";
 import { saveEntry, type EntryChange } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
@@ -39,6 +39,13 @@ const persister =
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(makeClient);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+      void navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    }
+  }, []);
+
   if (!persister) return null;
   return (
     <PersistQueryClientProvider

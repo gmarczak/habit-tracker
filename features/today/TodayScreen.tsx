@@ -1,27 +1,27 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { clear as clearIdb } from "idb-keyval";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { NewHabitDialog } from "@/features/habits/NewHabitDialog";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Onboarding } from "@/features/onboarding/Onboarding";
+import { ReminderPrompt } from "@/features/reminders/ReminderPrompt";
 import { snapshotKey, useSnapshot, useToday } from "@/lib/data/hooks";
 import { syncTimeZone } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 import type { LocalDate } from "@/lib/domain/dates";
+import { reachedMilestone } from "@/lib/domain/milestones";
 import { buildDay } from "@/lib/domain/today";
 import { formatDayMonth, formatWeekday } from "@/lib/format";
+import { Celebration, type CelebrationInfo } from "./Celebration";
 import { DayHeader } from "./DayHeader";
 import { HabitRow } from "./HabitRow";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayScreen() {
   const qc = useQueryClient();
-  const router = useRouter();
   const { data: snapshot, isPending, error, refetch } = useSnapshot();
   const today = useToday(snapshot);
   const [picked, setPicked] = useState<LocalDate | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [celebration, setCelebration] = useState<CelebrationInfo | null>(null);
   const date = picked && today && picked <= today ? picked : today;
 
   // Pierwsze logowanie: strefa czasowa profilu = strefa urządzenia.
@@ -41,21 +41,35 @@ export function TodayScreen() {
     [snapshot, date, today],
   );
 
-  async function signOut() {
-    await supabaseBrowser().auth.signOut();
-    qc.clear();
-    await clearIdb();
-    router.replace("/login");
-  }
+  // Kamienie milowe: porównanie serii z poprzednim renderem (tylko wzrost).
+  const lastStreaks = useRef<Map<string, number> | null>(null);
+  useEffect(() => {
+    if (!view) return;
+    const items = [...view.todo, ...view.thisWeek, ...view.done];
+    const prev = lastStreaks.current;
+    let hit: CelebrationInfo | null = null;
+    for (const item of items) {
+      const before = prev?.get(item.habit.id);
+      if (before === undefined) continue;
+      const m = reachedMilestone(item.streak.unit, before, item.streak.current);
+      if (m) hit = { habitName: item.habit.name, value: m, unit: item.streak.unit };
+    }
+    lastStreaks.current = new Map(items.map((i) => [i.habit.id, i.streak.current]));
+    if (hit) {
+      const info = hit;
+      const id = window.setTimeout(() => setCelebration(info), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [view]);
 
-  if (isPending) {
-    return <main className="mx-auto max-w-lg px-5 py-8 text-muted">Ładuję…</main>;
-  }
+  const closeCelebration = useCallback(() => setCelebration(null), []);
+
+  if (isPending) return <TodaySkeleton />;
   if (error || !snapshot || !view || !today || !date) {
     return (
-      <main className="mx-auto flex max-w-lg flex-col gap-3 px-5 py-8">
-        <p>Nie udało się wczytać danych.</p>
-        <button type="button" onClick={() => void refetch()} className="h-11 rounded-xl bg-accent px-4 font-semibold text-accent-contrast">
+      <main className="flex flex-col gap-3 px-6 py-8">
+        <p>Nie udało się wczytać danych. Sprawdź połączenie.</p>
+        <button type="button" onClick={() => void refetch()} className="h-12 self-start rounded-full bg-accent px-6 font-semibold text-accent-contrast">
           Spróbuj ponownie
         </button>
       </main>
@@ -64,29 +78,29 @@ export function TodayScreen() {
 
   const hasHabits = snapshot.habits.some((h) => h.archivedAt === null);
   const isToday = date === today;
-
   const open = [...view.todo, ...view.thisWeek];
+  const allDone = view.progress.total > 0 && view.progress.done === view.progress.total && view.todo.length === 0;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col pb-32">
+    <main className="flex flex-col">
       <div className="flex flex-col gap-[18px] px-6 pt-7">
         <DayHeader
           label={isToday ? formatWeekday(date) : `Uzupełniasz · ${formatWeekday(date)}`}
           title={formatDayMonth(date)}
           progress={view.progress}
         />
-        <WeekStrip today={today} selected={date} onSelect={(d) => setPicked(d === today ? null : d)} snapshot={snapshot} />
+        {hasHabits && <WeekStrip today={today} selected={date} onSelect={(d) => setPicked(d === today ? null : d)} snapshot={snapshot} />}
       </div>
 
       <div className="flex flex-col px-6 pt-3.5">
-        {!hasHabits && (
-          <section className="mt-4 flex flex-col items-start gap-3">
-            <p className="font-serif text-xl font-semibold">Zacznij od jednego nawyku.</p>
-            <p className="text-muted">Wystarczy nazwa i jak często. Resztę dopasujesz później.</p>
-            <button type="button" onClick={() => setAdding(true)} className="mt-1 h-12 rounded-full bg-accent px-6 font-semibold text-accent-contrast">
-              Dodaj nawyk
-            </button>
-          </section>
+        {!hasHabits && <Onboarding today={today} />}
+
+        {hasHabits && isToday && <ReminderPrompt snapshot={snapshot} />}
+
+        {allDone && (
+          <p className="mt-4 rounded-2xl bg-surface px-5 py-4 font-serif text-lg font-semibold">
+            {isToday ? "Wszystko na dziś zrobione." : "Ten dzień jest domknięty."}
+          </p>
         )}
 
         {open.length > 0 && (
@@ -117,26 +131,29 @@ export function TodayScreen() {
         {hasHabits && open.length + view.done.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-bg pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
-        <div className="mx-auto flex w-full max-w-lg items-center justify-between px-6">
-          <button type="button" onClick={() => void signOut()} className="h-11 min-w-16 text-xs font-medium text-muted">
-            Wyloguj
-          </button>
-          <button
-            type="button"
-            aria-label="Dodaj nawyk"
-            onClick={() => setAdding(true)}
-            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-accent text-accent-contrast"
-          >
-            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-          <span className="min-w-16" aria-hidden="true" />
-        </div>
-      </div>
+      {celebration && <Celebration info={celebration} onDone={closeCelebration} />}
+    </main>
+  );
+}
 
-      <NewHabitDialog open={adding} onClose={() => setAdding(false)} today={today} />
+function TodaySkeleton() {
+  return (
+    <main className="flex flex-col gap-6 px-6 pt-7" aria-busy="true" aria-label="Ładowanie">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="h-3 w-20 rounded bg-surface" />
+          <div className="h-8 w-48 rounded bg-surface" />
+        </div>
+        <div className="h-16 w-16 rounded-full bg-surface" />
+      </div>
+      <div className="h-16 rounded-2xl bg-surface" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-3.5">
+          <div className="h-10 w-10 rounded-full bg-surface" />
+          <div className="h-5 flex-1 rounded bg-surface" />
+          <div className="h-11 w-11 rounded-full bg-surface" />
+        </div>
+      ))}
     </main>
   );
 }

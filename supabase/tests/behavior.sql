@@ -37,3 +37,15 @@ select name from habits where id = :'h1';
 \echo '-- kasowanie konta kaskadowo'
 delete from auth.users where email='a@x';
 select (select count(*) from habits) h, (select count(*) from habit_entries) e, (select count(*) from habit_plans) p, (select count(*) from profiles) pr;
+\echo '-- kolejnosc i usuniecie konta (uzytkownik B)'
+set role authenticated;
+select set_config('request.jwt.claim.sub','22222222-2222-2222-2222-222222222222',false);
+select add_habit('Pierwszy','check',null,'book','blue',null,'daily',null,null,null,null) as b1 \gset
+select add_habit('Drugi','check',null,null,null,null,'daily',null,null,null,null) as b2 \gset
+select reorder_habits(array[:'b2', :'b1']::uuid[]);
+select name, sort_order from habits order by sort_order;
+insert into habits(name,kind,start_date,icon) values ('Zla ikona','check',current_date,'Not An Icon!');  -- blad
+insert into habits(name,kind,start_date,color) values ('Zly kolor','check',current_date,'pink');  -- blad
+select delete_my_account();
+reset role;
+select (select count(*) from auth.users) users_left, (select count(*) from habits) habits_left, (select count(*) from profiles) profiles_left;

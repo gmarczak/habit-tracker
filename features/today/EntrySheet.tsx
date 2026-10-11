@@ -1,112 +1,104 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { Modal } from "@/components/ui/Modal";
+import { btnPrimary, btnSecondary, field, label, labelText } from "@/components/ui/styles";
 import { useEntryMutation } from "@/lib/data/hooks";
 import type { LocalDate } from "@/lib/domain/dates";
-import type { TodayItem } from "@/lib/domain/today";
+import type { Entry, Habit, Plan } from "@/lib/domain/model";
 import { formatDayLong } from "@/lib/format";
 
-type Props = { open: boolean; onClose: () => void; item: TodayItem; date: LocalDate };
+type Props = { open: boolean; onClose: () => void; habit: Habit; plan: Plan; entry: Entry | undefined; date: LocalDate };
 
 /** Arkusz dnia: dokładna wartość, pominięcie, notatka, wyczyszczenie. */
-export function EntrySheet({ open, onClose, item, date }: Props) {
-  const ref = useRef<HTMLDialogElement>(null);
+export function EntrySheet(props: Props) {
+  return (
+    <Modal open={props.open} onClose={props.onClose} title={props.habit.name} subtitle={formatDayLong(props.date)}>
+      {props.open && <EntryForm {...props} />}
+    </Modal>
+  );
+}
+
+function EntryForm({ onClose, habit, plan, entry, date }: Props) {
   const mutation = useEntryMutation();
-  const { habit, plan, entry } = item;
-  const [value, setValue] = useState("");
-  const [note, setNote] = useState("");
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      setValue(entry && !entry.skipped && entry.value !== null ? String(entry.value) : "");
-      setNote(entry?.note ?? "");
-      dialog.showModal();
-    }
-    if (!open && dialog.open) dialog.close();
-  }, [open, entry]);
-
+  const [value, setValue] = useState(entry && !entry.skipped && entry.value !== null ? String(entry.value) : "");
+  const [note, setNote] = useState(entry?.note ?? "");
+  const [invalid, setInvalid] = useState(false);
   const noteValue = note.trim() === "" ? null : note.trim();
+  const unit = habit.kind === "duration" ? "min" : (habit.unit ?? "");
 
   function save(event: FormEvent) {
     event.preventDefault();
     const parsed = habit.kind === "check" ? 1 : Number(value.replace(",", "."));
-    if (!Number.isFinite(parsed) || parsed < 0) return;
+    if (!Number.isFinite(parsed) || parsed < 0 || (habit.kind !== "check" && value.trim() === "")) {
+      setInvalid(true);
+      return;
+    }
     mutation.mutate({ habitId: habit.id, date, kind: "set", value: parsed, note: noteValue });
     onClose();
   }
 
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-      className="m-auto w-[min(28rem,calc(100%-2rem))] rounded-3xl border border-border bg-bg p-0 text-text backdrop:bg-black/50"
-    >
-      <form onSubmit={save} className="flex flex-col gap-4 p-6">
-        <div>
-          <h2 className="text-xl font-bold">{habit.name}</h2>
-          <p className="text-sm text-muted first-letter:uppercase">{formatDayLong(date)}</p>
-        </div>
-
-        {habit.kind !== "check" && (
-          <label className="flex flex-col gap-1.5">
-            <span className="font-medium">
-              Ile? <span className="text-muted">(cel: {plan.targetValue} {habit.unit})</span>
-            </span>
-            <input
-              inputMode="decimal"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="h-12 rounded-xl border border-border bg-surface px-4 text-base"
-            />
-          </label>
-        )}
-
-        <label className="flex flex-col gap-1.5">
-          <span className="font-medium">Notatka</span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            maxLength={1000}
-            rows={3}
-            className="rounded-xl border border-border bg-surface px-4 py-3 text-base"
+    <form onSubmit={save} className="flex flex-col gap-5">
+      {habit.kind !== "check" && (
+        <label className={label}>
+          <span className={labelText}>
+            Ile? <span className="font-normal text-muted">cel: {plan.targetValue} {unit}</span>
+          </span>
+          <input
+            inputMode="decimal"
+            autoFocus
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setInvalid(false);
+            }}
+            aria-invalid={invalid}
+            className={field}
           />
+          {invalid && <span className="text-sm text-danger">Wpisz liczbę, np. 12</span>}
         </label>
+      )}
 
-        <button type="submit" className="h-12 rounded-xl bg-accent font-semibold text-accent-contrast">
-          {habit.kind === "check" ? "Zrobione" : "Zapisz"}
+      <label className={label}>
+        <span className={labelText}>Notatka</span>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={1000}
+          rows={3}
+          placeholder="Jak poszło? (opcjonalnie)"
+          className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base placeholder:text-muted"
+        />
+      </label>
+
+      <button type="submit" className={btnPrimary}>
+        {habit.kind === "check" ? "Zrobione" : "Zapisz"}
+      </button>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            mutation.mutate({ habitId: habit.id, date, kind: "skip", note: noteValue });
+            onClose();
+          }}
+          className={btnSecondary}
+        >
+          Pomiń dzień
         </button>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              mutation.mutate({ habitId: habit.id, date, kind: "skip", note: noteValue });
-              onClose();
-            }}
-            className="h-11 rounded-xl border border-border font-medium"
-          >
-            Pomiń dzień
-          </button>
-          <button
-            type="button"
-            disabled={!entry}
-            onClick={() => {
-              mutation.mutate({ habitId: habit.id, date, kind: "clear" });
-              onClose();
-            }}
-            className="h-11 rounded-xl border border-border font-medium disabled:opacity-40"
-          >
-            Wyczyść
-          </button>
-        </div>
-        <button type="button" onClick={onClose} className="h-10 text-muted">
-          Zamknij
+        <button
+          type="button"
+          disabled={!entry}
+          onClick={() => {
+            mutation.mutate({ habitId: habit.id, date, kind: "clear" });
+            onClose();
+          }}
+          className={btnSecondary}
+        >
+          Wyczyść
         </button>
-      </form>
-    </dialog>
+      </div>
+      <p className="text-center text-xs text-muted">Pominięcie (np. choroba) nie przerywa serii.</p>
+    </form>
   );
 }
