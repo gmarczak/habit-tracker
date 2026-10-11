@@ -1,75 +1,50 @@
-# Habit Tracker
+# Nawyki — habit tracker 2.0
 
-A modern, responsive habit tracking application to help you build and maintain positive daily routines. Built with Next.js 15, React 19, Tailwind CSS v4, and Supabase.
+Przepisany od zera tracker nawyków: odhacz w 3 sekundy i zobacz postęp. Plan remasteru i decyzje architektury są w dokumencie „Habit Tracker — plan remasteru” (Claude).
 
-## Features
+## Stos
 
-- **User Authentication:** Secure login and session management powered by Supabase Auth.
-- **Habit Management:** Create, track, and manage your daily habits easily.
-- **Streak Calculation:** Automatically calculates and displays your current streaks based on your logged progress.
-- **Responsive Design:** Optimized layouts providing a unified experience on both desktop and mobile devices.
-- **Data Visualization:** View your accomplishments with yearly summaries.
-- **Animations:** Engaging visual feedback (like confetti) when completing goals, using `canvas-confetti`.
-- **Polish Localization:** Date formatting and UI copy tailored for Polish users.
+- Next.js 16 (App Router) + TypeScript strict, Tailwind CSS v4
+- Supabase: Postgres + Auth (link na e-mail) + RLS; projekt `habit-tracker` (eu-central-1)
+- TanStack Query z trwałym cache w IndexedDB: odhaczanie bez czekania na sieć, kolejka zmian offline
+- Vitest dla logiki domenowej
 
-## Tech Stack
+## Struktura
 
-- **Framework:** [Next.js 15](https://nextjs.org/) (App Router)
-- **UI Library:** [React 19](https://react.dev/)
-- **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
-- **Database & Auth:** [Supabase](https://supabase.com/)
-- **Icons:** [Lucide React](https://lucide.dev/)
-- **Language:** TypeScript
+```
+app/                 trasy: / (Dziś), /login, /auth/callback
+features/            ekrany i komponenty per funkcja (today, habits, auth)
+lib/domain/          czysta logika: daty, harmonogramy, serie, statystyki (+ testy)
+lib/data/            pobieranie danych, mutacje, hooki
+lib/db/              klienci Supabase i typy wygenerowane z bazy
+supabase/migrations  cały schemat bazy
+supabase/tests       testy zachowania bazy (RLS, ograniczenia, RPC)
+```
 
-## Getting Started
+## Zasady (lekcje ze starej wersji)
 
-### Prerequisites
+- Dzień to data lokalna użytkownika z `lib/domain/dates` (`localDate`) albo `user_today()` w bazie. `toISOString()` na datach jest zabronione przez lint.
+- Jeden wpis na nawyk na dzień; zapis tylko przez RPC `set_entry` / `clear_entry` (upsert, bezpieczny przy powtórce offline).
+- Serie i statystyki liczy wyłącznie `lib/domain` — UI tylko je wyświetla.
+- Zmiana harmonogramu tworzy nową wersję planu (`habit_plans.valid_from`), historia się nie zmienia.
+- Bez `alert()` / `confirm()` i bez `any`.
 
-- Node.js (version 20 or higher recommended)
-- A Supabase account and a newly created project
+## Uruchomienie
 
-### Installation
+```bash
+cp .env.example .env.local   # uzupełnij klucz publishable z Supabase
+npm install
+npm run dev
+```
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd habit-tracker
-   ```
+Sprawdzenia: `npm run check` (typy, lint, testy). Typy bazy: `npm run db:types` (wymaga Supabase CLI).
 
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
+## Baza
 
-3. Configure Environment Variables:
-   Create a `.env.local` file in the root directory and add your Supabase credentials:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
+Migracje w `supabase/migrations` są źródłem prawdy. Testy bazy lokalnie (Postgres 15+):
 
-4. Run the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   ```
-
-5. Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
-
-## Project Structure
-
-- `app/`: Next.js App Router containing all routes, layouts, and middleware (e.g., dashboard, login).
-- `components/`: Reusable React components (`HabitList`, `AddHabitButton`, `DesktopLayout`, etc.).
-- `utils/`: Helper functions such as `streakCalculator` and Supabase server and client client configuration.
-- `public/`: Static assets.
-
-## Deployment
-
-The easiest way to deploy this Next.js app is to use the [Vercel Platform](https://vercel.com/new). Make sure to add your Supabase environment variables to your corresponding deployment settings.
+```bash
+psql -f supabase/tests/auth_stub.sql
+for f in supabase/migrations/*.sql; do psql -f "$f"; done
+psql -f supabase/tests/behavior.sql
+```
