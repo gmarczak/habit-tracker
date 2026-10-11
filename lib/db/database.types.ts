@@ -176,7 +176,6 @@ export type Database = {
           color: string
           created_at: string
           description: string | null
-          emoji: string | null
           icon: string | null
           id: string
           kind: Database["public"]["Enums"]["habit_kind"]
@@ -193,7 +192,6 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
-          emoji?: string | null
           icon?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["habit_kind"]
@@ -210,7 +208,6 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
-          emoji?: string | null
           icon?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["habit_kind"]
@@ -404,23 +401,6 @@ export type Database = {
       clear_entry: {
         Args: { p_date: string; p_habit_id: string }
         Returns: undefined
-      }
-      create_habit: {
-        Args: {
-          p_category_id: string
-          p_color: string
-          p_emoji: string
-          p_frequency: Database["public"]["Enums"]["plan_frequency"]
-          p_interval_days: number
-          p_kind: Database["public"]["Enums"]["habit_kind"]
-          p_name: string
-          p_start_date?: string
-          p_target_value: number
-          p_times_per_week: number
-          p_unit: string
-          p_weekdays: number[]
-        }
-        Returns: string
       }
       set_entry: {
         Args: {
