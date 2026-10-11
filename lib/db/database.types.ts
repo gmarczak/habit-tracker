@@ -381,6 +381,14 @@ export type Database = {
         Returns: string
       }
       delete_my_account: { Args: never; Returns: undefined }
+      push_config: {
+        Args: { p_secret: string }
+        Returns: {
+          vapid_private: string
+          vapid_public: string
+          vapid_subject: string
+        }[]
+      }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
       change_plan: {
         Args: {
