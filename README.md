@@ -89,6 +89,20 @@ supabase functions deploy send-reminders --no-verify-jwt --project-ref fswfdsooa
 
 **Klient:** klucz publiczny VAPID jest w zmiennej `NEXT_PUBLIC_VAPID_PUBLIC_KEY` w Vercelu (projekt `gm-habit-tracker`, Production/Preview/Development). Lokalnie wpisz go do `.env.local`. Musi być identyczny z `vapid_public` w Vault.
 
+## Logowanie
+
+Mailem, bez hasła: jedna wiadomość zawiera link (wygodny na komputerze) i 6-cyfrowy kod. Kod jest konieczny w aplikacji dodanej do ekranu głównego na iPhonie, bo link z maila otwiera się w Safari, które ma osobną pamięć i sesję.
+
+Wymaga szablonu w Supabase → Authentication → Emails → **Magic Link** z kodem `{{ .Token }}`, np.:
+
+```html
+<h2>Logowanie do Nawyków</h2>
+<p>Twój kod: <strong style="font-size:24px;letter-spacing:4px">{{ .Token }}</strong></p>
+<p>Albo kliknij: <a href="{{ .ConfirmationURL }}">zaloguj się</a></p>
+```
+
+Wbudowana poczta Supabase wysyła tylko kilka maili na godzinę (błąd 429 „email rate limit exceeded”). Przy większej liczbie użytkowników trzeba podpiąć własny SMTP (Authentication → Emails → SMTP).
+
 ## Wdrożenie
 
 Produkcja (gm-habit-tracker.vercel.app) wdraża się automatycznie z gałęzi `main` przez integrację Vercel ↔ GitHub; gałęzie i PR-y dostają podglądy. Jeśli push nie uruchamia builda, sprawdź Vercel → Settings → Git (błąd „Project Link not found” naprawia Disconnect + ponowne podłączenie repo).
