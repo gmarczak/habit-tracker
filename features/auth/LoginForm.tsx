@@ -80,6 +80,16 @@ export function LoginForm({ linkError }: { linkError: boolean }) {
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       if (error) return setStatus({ kind: "error", message: messageFor(error) });
+      // Adres już zarejestrowany: Supabase zwraca udawany sukces bez maila (ochrona przed sprawdzaniem adresów).
+      // Rozpoznajemy to po pustej liście tożsamości i przełączamy na logowanie z wpisanymi danymi.
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        setMode("password");
+        setStatus({
+          kind: "info",
+          message: "Konto z tym adresem już istnieje — kliknij Zaloguj. Nie pamiętasz hasła? Wybierz „Nie mam hasła / nie pamiętam”.",
+        });
+        return;
+      }
       if (data.session) {
         router.replace("/");
         router.refresh();
