@@ -87,6 +87,20 @@ supabase functions deploy send-reminders --no-verify-jwt --project-ref fswfdsooa
 
 `--no-verify-jwt` jest celowe, bo autoryzacją jest `x-cron-secret`. Sprawdzenie: `curl -X POST https://fswfdsooabadlcpekiyx.supabase.co/functions/v1/send-reminders` ma zwrócić `401`. Odpowiedzi crona są w `net._http_response`.
 
+**Testowe powiadomienie** (SQL Editor; sekret nie opuszcza bazy):
+
+```sql
+select net.http_post(
+  url := 'https://fswfdsooabadlcpekiyx.supabase.co/functions/v1/send-reminders',
+  headers := jsonb_build_object('Content-Type', 'application/json',
+    'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')),
+  body := jsonb_build_object('test_user_id', (select id::text from auth.users where email = '<adres>'))
+);
+-- wynik: select status_code, content from net._http_response order by created desc limit 1;
+```
+
+W odpowiedzi `results[].status` to kod usługi push (201 = przyjęte; 404/410 = subskrypcja wygasła).
+
 **Klient:** klucz publiczny VAPID jest w zmiennej `NEXT_PUBLIC_VAPID_PUBLIC_KEY` w Vercelu (projekt `gm-habit-tracker`, Production/Preview/Development). Lokalnie wpisz go do `.env.local`. Musi być identyczny z `vapid_public` w Vault.
 
 ## Logowanie

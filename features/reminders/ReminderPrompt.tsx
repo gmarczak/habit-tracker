@@ -75,7 +75,7 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
       )}
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={hide} className={btnQuiet}>
+        <button type="button" onClick={hide} className={`${btnQuiet} shrink-0 whitespace-nowrap`}>
           Nie teraz
         </button>
         {!iosInstall && (
