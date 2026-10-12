@@ -36,6 +36,27 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_vapid_config", detail: e instanceof Error ? e.message : String(e) }, 503);
   }
 
+  // Tryb testowy (tylko z sekretem crona): {"test_user_id": "..."} wysyła próbne powiadomienie na urządzenia użytkownika.
+  const body = (await req.json().catch(() => ({}))) as { test_user_id?: unknown };
+  if (typeof body.test_user_id === "string") {
+    const { data: subs } = await supabase.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", body.test_user_id);
+    const payload = JSON.stringify({ title: "Nawyki", body: "Testowe powiadomienie — przypomnienia działają.", url: "/", tag: "test" });
+    const results: { status: number | string }[] = [];
+    for (const s of (subs ?? []) as Row[]) {
+      try {
+        const res = await webpush.sendNotification(
+          { endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } },
+          payload,
+          { TTL: 600 },
+        );
+        results.push({ status: res.statusCode });
+      } catch (err) {
+        results.push({ status: (err as { statusCode?: number }).statusCode ?? String(err) });
+      }
+    }
+    return json({ test: true, subscriptions: results.length, results });
+  }
+
   const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, habit_id, local_time").eq("enabled", true);
   if (error) return json({ error: error.message }, 500);
 

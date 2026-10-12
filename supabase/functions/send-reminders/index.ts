@@ -306,6 +306,25 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: "invalid_vapid_config", detail: e instanceof Error ? e.message : String(e) }, 503);
   }
+  const body = await req.json().catch(() => ({}));
+  if (typeof body.test_user_id === "string") {
+    const { data: subs } = await supabase.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", body.test_user_id);
+    const payload = JSON.stringify({ title: "Nawyki", body: "Testowe powiadomienie \u2014 przypomnienia dzia\u0142aj\u0105.", url: "/", tag: "test" });
+    const results = [];
+    for (const s of subs ?? []) {
+      try {
+        const res = await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          payload,
+          { TTL: 600 }
+        );
+        results.push({ status: res.statusCode });
+      } catch (err) {
+        results.push({ status: err.statusCode ?? String(err) });
+      }
+    }
+    return json({ test: true, subscriptions: results.length, results });
+  }
   const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, habit_id, local_time").eq("enabled", true);
   if (error) return json({ error: error.message }, 500);
   const byUser = /* @__PURE__ */ new Map();
