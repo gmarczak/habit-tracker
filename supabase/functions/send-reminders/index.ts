@@ -88,7 +88,12 @@ function requirementOn(habit, pauses, date) {
       return "flexible";
   }
 }
-function entryOutcome(entry, plan) {
+function entryOutcome(entry, plan, goal = "build") {
+  if (goal === "quit") {
+    if (!entry) return "done";
+    if (entry.skipped) return "skipped";
+    return (entry.value ?? 0) > 0 ? "none" : "done";
+  }
   if (!entry) return "none";
   if (entry.skipped) return "skipped";
   const value = entry.value ?? 0;
@@ -110,6 +115,14 @@ function dayState(habit, entries, pauses, date, today) {
   if (date > today) return "future";
   const req = requirementOn(habit, pauses, date);
   if (req === "before_start") return "before_start";
+  if (habit.goal === "quit") {
+    const entry = entriesByDate(entries, habit.id).get(date);
+    if (entry?.skipped) return "skipped";
+    if (entry && (entry.value ?? 0) > 0) return "missed";
+    if (req === "paused") return "paused";
+    if (req === "not_required") return "not_required";
+    return "done";
+  }
   const outcome = entryOutcome(entriesByDate(entries, habit.id).get(date), planOn(habit, date));
   if (outcome === "done") return "done";
   if (outcome === "skipped") return "skipped";
@@ -128,7 +141,7 @@ function evaluateWeek(c, weekStartDate) {
   let available = 0;
   let done = 0;
   for (const d of covered) {
-    const outcome = entryOutcome(c.byDate.get(d), planOn(c.habit, d));
+    const outcome = entryOutcome(c.byDate.get(d), planOn(c.habit, d), c.habit.goal);
     if (outcome === "done") done++;
     if (outcome !== "skipped" && !isPaused(c.pauses, c.habit.id, d)) available++;
   }
@@ -149,9 +162,9 @@ function currentDays(c) {
     if (!plan || unitOf(plan.frequency) !== "days") break;
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
-    const outcome = entryOutcome(c.byDate.get(d), plan);
+    const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
     if (outcome === "done") streak++;
-    else if (outcome === "skipped" || d === c.today) continue;
+    else if (outcome === "skipped" || d === c.today && c.habit.goal !== "quit") continue;
     else break;
   }
   return streak;
@@ -177,9 +190,9 @@ function bestDays(c) {
     }
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
-    const outcome = entryOutcome(c.byDate.get(d), plan);
+    const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
     if (outcome === "done") best = Math.max(best, ++run);
-    else if (outcome === "skipped" || d === c.today) continue;
+    else if (outcome === "skipped" || d === c.today && c.habit.goal !== "quit") continue;
     else run = 0;
   }
   return best;
@@ -224,9 +237,9 @@ function completionRate(habit, entries, pauses, from, to, today, weekStart) {
     }
     const req = requirementOn(habit, pauses, d);
     if (req !== "required") continue;
-    const outcome = entryOutcome(c.byDate.get(d), plan);
+    const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
     if (outcome === "skipped") continue;
-    if (d === today && outcome !== "done") continue;
+    if (d === today && outcome !== "done" && habit.goal !== "quit") continue;
     chances++;
     if (outcome === "done") wins++;
   }
@@ -235,7 +248,7 @@ function completionRate(habit, entries, pauses, from, to, today, weekStart) {
 
 // lib/domain/today.ts
 function buildDay(habits, entries, pauses, date, today, weekStart) {
-  const view = { date, todo: [], thisWeek: [], done: [], progress: { done: 0, total: 0 } };
+  const view = { date, todo: [], thisWeek: [], done: [], quit: [], progress: { done: 0, total: 0 } };
   const active = habits.filter((h) => h.archivedAt === null).sort((a, b) => a.sortOrder - b.sortOrder);
   for (const habit of active) {
     const req = requirementOn(habit, pauses, date);
@@ -255,7 +268,8 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
       if (state !== "skipped") view.progress.total++;
       if (state === "done") view.progress.done++;
     }
-    if (state === "done" || state === "skipped") view.done.push(item);
+    if (habit.goal === "quit") view.quit.push(item);
+    else if (state === "done" || state === "skipped") view.done.push(item);
     else if (req === "flexible") {
       if (item.week?.result !== "met") view.thisWeek.push(item);
       else view.done.push(item);
@@ -492,6 +506,7 @@ Deno.serve(async (req) => {
       color: "green",
       categoryId: null,
       timeOfDay: h.time_of_day ?? null,
+      goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date,
       sortOrder: h.sort_order,
       archivedAt: null,

@@ -5,7 +5,7 @@ import { buildDay } from "./today";
 
 const daily: Plan = { validFrom: "2026-10-05", frequency: "daily", weekdays: null, timesPerWeek: null, intervalDays: null, targetValue: 1 };
 const h = (id: string, name: string, over: Partial<Habit> = {}): Habit => ({
-  id, name, kind: "check", unit: null, icon: null, color: "green", categoryId: null, timeOfDay: null, startDate: "2026-10-05", sortOrder: 0, archivedAt: null, plans: [daily], ...over,
+  id, name, kind: "check", unit: null, icon: null, color: "green", categoryId: null, timeOfDay: null, goal: "build", startDate: "2026-10-05", sortOrder: 0, archivedAt: null, plans: [daily], ...over,
 });
 const done = (habitId: string, date: string): Entry => ({ habitId, date, value: 1, skipped: false, note: null });
 

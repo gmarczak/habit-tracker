@@ -6,7 +6,7 @@ import { useAction } from "@/lib/data/hooks";
 import { createCategory, createHabit, habitFormSchema, updateHabit, type HabitForm } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
 import type { LocalDate } from "@/lib/domain/dates";
-import { HABIT_COLORS, type Frequency, type Habit, type HabitKind, type TimeOfDay } from "@/lib/domain/model";
+import { HABIT_COLORS, type Frequency, type Habit, type Goal, type HabitKind, type TimeOfDay } from "@/lib/domain/model";
 import { planOn } from "@/lib/domain/schedule";
 import { COLOR_LABELS, HabitBadge, ICONS, ICON_KEYS } from "@/lib/ui/icons";
 
@@ -31,6 +31,11 @@ const FREQUENCIES: { value: Frequency; label: string }[] = [
   { value: "weekdays", label: "W wybrane dni" },
   { value: "weekly_count", label: "X razy w tygodniu" },
   { value: "every_n_days", label: "Co kilka dni" },
+];
+
+const GOALS: { value: Goal; label: string; hint: string }[] = [
+  { value: "build", label: "Buduję", hint: "Odhaczasz, gdy zrobione — np. czytanie, spacer." },
+  { value: "quit", label: "Rzucam", hint: "Każdy dzień liczy się jako czysty; zaznaczasz tylko wpadkę — np. bez słodyczy, bez papierosów." },
 ];
 
 const PARTS: { value: TimeOfDay | null; label: string }[] = [
@@ -61,6 +66,7 @@ function initialForm(habit: Habit | undefined, today: LocalDate, preset?: HabitP
     color: habit?.color ?? preset?.color ?? "green",
     categoryId: habit?.categoryId ?? null,
     timeOfDay: habit ? habit.timeOfDay : (preset?.timeOfDay ?? null),
+    goal: habit?.goal ?? preset?.goal ?? "build",
     startDate: habit ? null : today,
     targetValue: plan?.targetValue ?? preset?.targetValue ?? 1,
     frequency: plan?.frequency ?? preset?.frequency ?? "daily",
@@ -92,8 +98,10 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const quit = form.goal === "quit";
     const candidate: HabitForm = {
       ...form,
+      ...(quit ? { kind: "check" as const, frequency: "daily" as const } : {}),
       unit: form.kind === "count" ? form.unit : null,
       targetValue: form.kind === "check" ? 1 : Number(targetText.replace(",", ".")),
       weekdays: form.frequency === "weekdays" ? form.weekdays : null,
@@ -128,6 +136,26 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
           {errors.name && <span className={errorText}>{errors.name}</span>}
         </label>
       </div>
+
+      <fieldset>
+        <legend className={`${labelText} mb-2`}>Cel</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {GOALS.map((g) => (
+            <button
+              key={g.value}
+              type="button"
+              aria-pressed={form.goal === g.value}
+              disabled={Boolean(habit)}
+              onClick={() => set("goal", g.value)}
+              className={`${chip(form.goal === g.value)} ${habit ? "opacity-60" : ""}`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-muted">{GOALS.find((g) => g.value === form.goal)?.hint}</p>
+        {errors.goal && <span className={errorText}>{errors.goal}</span>}
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className={`${labelText} mb-2`}>Ikona</legend>
@@ -178,8 +206,9 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend className={`${labelText} mb-2`}>Jak mierzysz?</legend>
+      {form.goal === "build" && (
+        <fieldset>
+          <legend className={`${labelText} mb-2`}>Jak mierzysz?</legend>
         {habit && <p className="mb-2 text-sm text-muted">Sposobu mierzenia nie można zmienić po utworzeniu nawyku.</p>}
         <div className="grid grid-cols-3 gap-2">
           {KINDS.map((k) => (
@@ -197,10 +226,11 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
             </label>
           ))}
         </div>
-        <p className="mt-2 text-sm text-muted">{KINDS.find((k) => k.value === form.kind)?.hint}</p>
-      </fieldset>
+          <p className="mt-2 text-sm text-muted">{KINDS.find((k) => k.value === form.kind)?.hint}</p>
+        </fieldset>
+      )}
 
-      {form.kind !== "check" && (
+      {form.goal === "build" && form.kind !== "check" && (
         <div className="grid grid-cols-2 gap-3">
           <label className={label}>
             <span className={labelText}>Cel dzienny</span>
@@ -219,6 +249,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
         </div>
       )}
 
+      {form.goal === "build" && (
       <fieldset className="flex flex-col gap-3">
         <legend className={`${labelText} mb-2`}>Jak często?</legend>
         <div className="grid grid-cols-2 gap-2">
@@ -259,6 +290,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
         )}
         {habit && <p className="text-sm text-muted">Zmiana harmonogramu lub celu obowiązuje od dziś. Historia zostaje policzona po staremu.</p>}
       </fieldset>
+      )}
 
       <fieldset>
         <legend className={`${labelText} mb-2`}>Pora dnia</legend>

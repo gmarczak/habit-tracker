@@ -40,6 +40,27 @@ export type Database = {
         }
         Relationships: []
       }
+      day_notes: {
+        Row: {
+          note: string
+          note_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          note: string
+          note_date: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          note?: string
+          note_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       habit_entries: {
         Row: {
           created_at: string
@@ -176,6 +197,7 @@ export type Database = {
           color: string
           created_at: string
           description: string | null
+          goal: string
           icon: string | null
           id: string
           kind: Database["public"]["Enums"]["habit_kind"]
@@ -193,6 +215,7 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
+          goal?: string
           icon?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["habit_kind"]
@@ -210,6 +233,7 @@ export type Database = {
           color?: string
           created_at?: string
           description?: string | null
+          goal?: string
           icon?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["habit_kind"]

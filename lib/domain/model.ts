@@ -6,6 +6,9 @@ export const HABIT_COLORS = ["green", "blue", "violet", "amber", "rose", "teal",
 export type HabitColor = (typeof HABIT_COLORS)[number];
 export type Frequency = "daily" | "weekdays" | "weekly_count" | "every_n_days";
 
+/** build – buduję (odhaczam, gdy zrobione); quit – rzucam (dzień bez wpisu = czysto, wpis = wpadka). */
+export type Goal = "build" | "quit";
+
 /** Pora dnia nawyku; null = kiedykolwiek. */
 export const TIMES_OF_DAY = ["morning", "day", "evening"] as const;
 export type TimeOfDay = (typeof TIMES_OF_DAY)[number];
@@ -33,6 +36,7 @@ export type Habit = {
   color: HabitColor;
   categoryId: string | null;
   timeOfDay: TimeOfDay | null;
+  goal: Goal;
   startDate: LocalDate;
   sortOrder: number;
   archivedAt: string | null;
@@ -69,6 +73,8 @@ export function unitOf(frequency: Frequency): StreakUnit {
 }
 
 export type Category = { id: string; name: string; sortOrder: number };
+
+export type DayNote = { date: LocalDate; note: string };
 
 export type PauseRecord = Pause & { id: string; reason: string | null };
 

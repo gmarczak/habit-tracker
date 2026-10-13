@@ -67,10 +67,13 @@ export const habitFormSchema = z
     color: z.enum(HABIT_COLORS),
     categoryId: z.string().uuid().nullable(),
     timeOfDay: z.enum(TIMES_OF_DAY).nullable(),
+    goal: z.enum(["build", "quit"]),
     startDate: z.string().refine(isLocalDate).nullable(),
     ...planShape,
   })
   .superRefine((v, ctx) => {
+    if (v.goal === "quit" && (v.kind !== "check" || v.frequency !== "daily"))
+      ctx.addIssue({ code: "custom", path: ["goal"], message: "Nawyk „rzucam” jest codzienny i typu tak/nie" });
     if (v.kind === "count" && !v.unit) ctx.addIssue({ code: "custom", path: ["unit"], message: "Podaj jednostkę, np. strony" });
     if (v.frequency === "weekdays" && !v.weekdays?.length)
       ctx.addIssue({ code: "custom", path: ["weekdays"], message: "Wybierz przynajmniej jeden dzień" });
@@ -106,7 +109,8 @@ export async function createHabit(supabase: Supabase, input: HabitForm): Promise
       ...(v.startDate ? { p_start_date: v.startDate } : {}),
     }),
   );
-  if (v.timeOfDay) check(await supabase.from("habits").update({ time_of_day: v.timeOfDay }).eq("id", data as string));
+  if (v.timeOfDay || v.goal === "quit")
+    check(await supabase.from("habits").update({ time_of_day: v.timeOfDay, goal: v.goal }).eq("id", data as string));
   return data as string;
 }
 
@@ -213,6 +217,26 @@ export function withDayOff(snapshot: Snapshot, date: LocalDate): Snapshot {
 
 export function withoutPause(snapshot: Snapshot, id: string): Snapshot {
   return { ...snapshot, pauses: snapshot.pauses.filter((p) => p.id !== id) };
+}
+
+// ---------- notatka do dnia ----------
+
+/** Zapis notatki dnia; pusty tekst usuwa notatkę. */
+export async function saveDayNote(supabase: Supabase, date: LocalDate, text: string): Promise<void> {
+  if (!isLocalDate(date)) throw new Error("Zła data");
+  const note = text.trim();
+  if (note.length > 1000) throw new Error("Notatka może mieć najwyżej 1000 znaków");
+  if (!note) {
+    check(await supabase.from("day_notes").delete().eq("note_date", date));
+    return;
+  }
+  check(await supabase.from("day_notes").upsert({ note_date: date, note, updated_at: new Date().toISOString() }, { onConflict: "user_id,note_date" })); // eslint-disable-line no-restricted-syntax -- znacznik czasu
+}
+
+export function withDayNote(snapshot: Snapshot, input: { date: LocalDate; text: string }): Snapshot {
+  const rest = snapshot.notes.filter((n) => n.date !== input.date);
+  const note = input.text.trim();
+  return { ...snapshot, notes: note ? [...rest, { date: input.date, note }] : rest };
 }
 
 // ---------- ustawienia ----------
