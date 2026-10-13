@@ -101,6 +101,8 @@ export function TodayScreen() {
   return (
     <main className="flex flex-col">
       <div className="flex flex-col gap-[18px] px-6 pt-7">
+        {/* Przypomnienie dla autora: kolejny etap to wersja w App Store (po teście ok. 26.10) */}
+        <p className="-mb-2 self-start rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted">App Store incoming · po teście ok. 26.10</p>
         <DayHeader
           label={isToday ? formatWeekday(date) : `Uzupełniasz · ${formatWeekday(date)}`}
           title={formatDayMonth(date)}
