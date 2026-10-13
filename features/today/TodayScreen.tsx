@@ -7,13 +7,15 @@ import { ReminderPrompt } from "@/features/reminders/ReminderPrompt";
 import { snapshotKey, useSnapshot, useToday } from "@/lib/data/hooks";
 import { syncTimeZone } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
-import type { LocalDate } from "@/lib/domain/dates";
+import { isLocalDate, type LocalDate } from "@/lib/domain/dates";
 import { reachedMilestone } from "@/lib/domain/milestones";
+import { PART_LABELS, groupByPart, yesterdayGap } from "@/lib/domain/nudges";
 import { buildDay } from "@/lib/domain/today";
 import { formatDayMonth, formatWeekday } from "@/lib/format";
 import { Celebration, type CelebrationInfo } from "./Celebration";
 import { DayHeader } from "./DayHeader";
 import { HabitRow } from "./HabitRow";
+import { DayOffButton, DayOffCard, YesterdayCard, pauseOn } from "./Nudges";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayScreen() {
@@ -23,6 +25,15 @@ export function TodayScreen() {
   const [picked, setPicked] = useState<LocalDate | null>(null);
   const [celebration, setCelebration] = useState<CelebrationInfo | null>(null);
   const date = picked && today && picked <= today ? picked : today;
+
+  // Link z powiadomienia „wczoraj niedomknięte”: /?date=RRRR-MM-DD otwiera ten dzień do uzupełnienia
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("date");
+    if (!fromUrl || !isLocalDate(fromUrl)) return;
+    const id = window.setTimeout(() => setPicked(fromUrl), 0);
+    window.history.replaceState(null, "", window.location.pathname);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Pierwsze logowanie: strefa czasowa profilu = strefa urządzenia.
   useEffect(() => {
@@ -79,6 +90,10 @@ export function TodayScreen() {
   const hasHabits = snapshot.habits.some((h) => h.archivedAt === null);
   const isToday = date === today;
   const open = [...view.todo, ...view.thisWeek];
+  const groups = groupByPart(open);
+  const grouped = groups.some((g) => g.part !== null);
+  const dayPause = pauseOn(snapshot, date);
+  const gap = isToday && hasHabits ? yesterdayGap(snapshot.habits, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart) : null;
   const allDone = view.progress.total > 0 && view.progress.done === view.progress.total && view.todo.length === 0;
 
   return (
@@ -95,7 +110,11 @@ export function TodayScreen() {
       <div className="flex flex-col px-6 pt-3.5">
         {!hasHabits && <Onboarding today={today} />}
 
+        {gap && <YesterdayCard gap={gap} onFill={() => setPicked(gap.date)} />}
+
         {hasHabits && isToday && <ReminderPrompt snapshot={snapshot} />}
+
+        {hasHabits && dayPause && <DayOffCard key={dayPause.id} pause={dayPause} isToday={isToday} />}
 
         {allDone && (
           <p className="mt-4 rounded-2xl bg-surface px-5 py-4 font-serif text-lg font-semibold">
@@ -103,7 +122,7 @@ export function TodayScreen() {
           </p>
         )}
 
-        {open.length > 0 && (
+        {open.length > 0 && !grouped && (
           <ul aria-label="Do zrobienia">
             {open.map((item) => (
               <li key={item.habit.id}>
@@ -112,6 +131,24 @@ export function TodayScreen() {
             ))}
           </ul>
         )}
+
+        {open.length > 0 &&
+          grouped &&
+          groups.map((g) => {
+            const title = g.part ? PART_LABELS[g.part] : "Kiedykolwiek";
+            return (
+              <section key={g.part ?? "any"} aria-label={title}>
+                <h2 className="pb-0.5 pt-4 text-xs font-bold uppercase tracking-wider text-muted">{title}</h2>
+                <ul>
+                  {g.items.map((item) => (
+                    <li key={item.habit.id}>
+                      <HabitRow item={item} date={date} compact={false} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
 
         {view.done.length > 0 && (
           <section aria-labelledby="done-heading">
@@ -128,7 +165,9 @@ export function TodayScreen() {
           </section>
         )}
 
-        {hasHabits && open.length + view.done.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
+        {hasHabits && !dayPause && open.length + view.done.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
+
+        {hasHabits && !dayPause && view.progress.total > 0 && !allDone && <DayOffButton date={date} isToday={isToday} />}
       </div>
 
       {celebration && <Celebration info={celebration} onDone={closeCelebration} />}

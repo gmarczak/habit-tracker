@@ -6,6 +6,10 @@ export const HABIT_COLORS = ["green", "blue", "violet", "amber", "rose", "teal",
 export type HabitColor = (typeof HABIT_COLORS)[number];
 export type Frequency = "daily" | "weekdays" | "weekly_count" | "every_n_days";
 
+/** Pora dnia nawyku; null = kiedykolwiek. */
+export const TIMES_OF_DAY = ["morning", "day", "evening"] as const;
+export type TimeOfDay = (typeof TIMES_OF_DAY)[number];
+
 /** Wersja planu obowiązująca od `validFrom` do dnia przed następną wersją. */
 export type Plan = {
   validFrom: LocalDate;
@@ -28,6 +32,7 @@ export type Habit = {
   icon: string | null;
   color: HabitColor;
   categoryId: string | null;
+  timeOfDay: TimeOfDay | null;
   startDate: LocalDate;
   sortOrder: number;
   archivedAt: string | null;
@@ -67,4 +72,12 @@ export type Category = { id: string; name: string; sortOrder: number };
 
 export type PauseRecord = Pause & { id: string; reason: string | null };
 
-export type Reminder = { id: string; habitId: string | null; localTime: string; enabled: boolean };
+/**
+ * summary – wieczorne podsumowanie wszystkiego, co zostało; habit – jeden nawyk;
+ * morning/day/evening – nawyki z tej pory dnia; yesterday – rano, gdy wczoraj coś zostało;
+ * weekly – podsumowanie tygodnia w jego ostatnim dniu.
+ */
+export const REMINDER_KINDS = ["summary", "habit", "morning", "day", "evening", "yesterday", "weekly"] as const;
+export type ReminderKind = (typeof REMINDER_KINDS)[number];
+
+export type Reminder = { id: string; kind: ReminderKind; habitId: string | null; localTime: string; enabled: boolean };

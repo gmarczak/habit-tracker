@@ -233,7 +233,7 @@ function HabitReminder({ habit }: { habit: Habit }) {
   const [error, setError] = useState<string | null>(null);
   const save = useAction(async (supabase, localTime: string) => {
     await enablePush(supabase);
-    await upsertReminder(supabase, { id: reminder?.id, habitId: habit.id, localTime, enabled: true });
+    await upsertReminder(supabase, { id: reminder?.id, kind: "habit", habitId: habit.id, localTime, enabled: true });
   });
   const remove = useAction((s, rid: string) => deleteReminder(s, rid));
 

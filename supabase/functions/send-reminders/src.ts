@@ -57,13 +57,13 @@ Deno.serve(async (req) => {
     return json({ test: true, subscriptions: results.length, results });
   }
 
-  const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, habit_id, local_time").eq("enabled", true);
+  const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, kind, habit_id, local_time").eq("enabled", true);
   if (error) return json({ error: error.message }, 500);
 
   const byUser = new Map<string, ReminderRow[]>();
   for (const r of reminders as Row[]) {
     const list = byUser.get(r.user_id as string) ?? [];
-    list.push({ id: r.id as string, habitId: (r.habit_id as string | null) ?? null, localTime: String(r.local_time).slice(0, 5) });
+    list.push({ id: r.id as string, kind: (r.kind as ReminderRow["kind"]) ?? (r.habit_id ? "habit" : "summary"), habitId: (r.habit_id as string | null) ?? null, localTime: String(r.local_time).slice(0, 5) });
     byUser.set(r.user_id as string, list);
   }
 
@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
       icon: (h.icon as string | null) ?? null,
       color: "green",
       categoryId: null,
+      timeOfDay: (h.time_of_day as Habit["timeOfDay"]) ?? null,
       startDate: h.start_date as string,
       sortOrder: h.sort_order as number,
       archivedAt: null,

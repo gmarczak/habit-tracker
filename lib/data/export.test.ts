@@ -15,6 +15,7 @@ const snapshot: Snapshot = {
       icon: "book-open",
       color: "amber",
       categoryId: null,
+      timeOfDay: null,
       startDate: "2026-10-01",
       sortOrder: 0,
       archivedAt: null,

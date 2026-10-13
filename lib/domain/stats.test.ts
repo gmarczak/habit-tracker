@@ -20,6 +20,7 @@ const habit = (id: string, p: Plan, startDate = "2026-09-01"): Habit => ({
   icon: null,
   color: "green",
   categoryId: null,
+  timeOfDay: null,
   startDate,
   sortOrder: 0,
   archivedAt: null,

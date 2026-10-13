@@ -182,6 +182,7 @@ export type Database = {
           name: string
           sort_order: number
           start_date: string
+          time_of_day: string | null
           unit: string | null
           updated_at: string
           user_id: string
@@ -198,6 +199,7 @@ export type Database = {
           name: string
           sort_order?: number
           start_date: string
+          time_of_day?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string
@@ -214,6 +216,7 @@ export type Database = {
           name?: string
           sort_order?: number
           start_date?: string
+          time_of_day?: string | null
           unit?: string | null
           updated_at?: string
           user_id?: string
@@ -326,6 +329,7 @@ export type Database = {
           enabled: boolean
           habit_id: string | null
           id: string
+          kind: string
           local_time: string
           user_id: string
         }
@@ -334,6 +338,7 @@ export type Database = {
           enabled?: boolean
           habit_id?: string | null
           id?: string
+          kind?: string
           local_time: string
           user_id?: string
         }
@@ -342,6 +347,7 @@ export type Database = {
           enabled?: boolean
           habit_id?: string | null
           id?: string
+          kind?: string
           local_time?: string
           user_id?: string
         }
