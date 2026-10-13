@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Supabase } from "@/lib/db/client";
 import { isLocalDate, type LocalDate, type WeekStart } from "@/lib/domain/dates";
-import { HABIT_COLORS, type Entry, type Plan } from "@/lib/domain/model";
+import { HABIT_COLORS, TIMES_OF_DAY, type Entry, type Plan, type ReminderKind } from "@/lib/domain/model";
 import type { Snapshot } from "./snapshot";
 
 function check<T extends { error: { message: string } | null }>(result: T): T {
@@ -66,6 +66,7 @@ export const habitFormSchema = z
     icon: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable(),
     color: z.enum(HABIT_COLORS),
     categoryId: z.string().uuid().nullable(),
+    timeOfDay: z.enum(TIMES_OF_DAY).nullable(),
     startDate: z.string().refine(isLocalDate).nullable(),
     ...planShape,
   })
@@ -105,6 +106,7 @@ export async function createHabit(supabase: Supabase, input: HabitForm): Promise
       ...(v.startDate ? { p_start_date: v.startDate } : {}),
     }),
   );
+  if (v.timeOfDay) check(await supabase.from("habits").update({ time_of_day: v.timeOfDay }).eq("id", data as string));
   return data as string;
 }
 
@@ -131,6 +133,7 @@ export async function updateHabit(supabase: Supabase, habitId: string, currentPl
         icon: v.icon,
         color: v.color,
         category_id: v.categoryId,
+        time_of_day: v.timeOfDay,
         unit: v.kind === "duration" ? "min" : v.kind === "count" ? v.unit : null,
       })
       .eq("id", habitId),
@@ -197,6 +200,21 @@ export async function deletePause(supabase: Supabase, id: string): Promise<void>
   check(await supabase.from("habit_pauses").delete().eq("id", id));
 }
 
+export const DAY_OFF_REASON = "Dzień wolny";
+
+/** „Dzień wolny”: jednodniowa pauza wszystkich nawyków — dzień neutralny, seria się nie przerywa. */
+export async function addDayOff(supabase: Supabase, date: LocalDate): Promise<void> {
+  await addPause(supabase, { habitId: null, startDate: date, endDate: date, reason: DAY_OFF_REASON });
+}
+
+export function withDayOff(snapshot: Snapshot, date: LocalDate): Snapshot {
+  return { ...snapshot, pauses: [...snapshot.pauses, { id: `day-off-${date}`, habitId: null, startDate: date, endDate: date, reason: DAY_OFF_REASON }] };
+}
+
+export function withoutPause(snapshot: Snapshot, id: string): Snapshot {
+  return { ...snapshot, pauses: snapshot.pauses.filter((p) => p.id !== id) };
+}
+
 // ---------- ustawienia ----------
 
 export type SettingsForm = { timeZone: string; weekStart: WeekStart; dayStartHour: number };
@@ -227,16 +245,19 @@ export async function deleteAccount(supabase: Supabase): Promise<void> {
 
 export async function upsertReminder(
   supabase: Supabase,
-  reminder: { id?: string; habitId: string | null; localTime: string; enabled: boolean },
+  reminder: { id?: string; kind: ReminderKind; habitId: string | null; localTime: string; enabled: boolean },
 ): Promise<void> {
   if (!/^\d{2}:\d{2}$/.test(reminder.localTime)) throw new Error("Godzina w formacie GG:MM");
+  if ((reminder.kind === "habit") !== (reminder.habitId !== null)) throw new Error("Przypomnienie nawyku wymaga nawyku");
   if (reminder.id) {
     check(
       await supabase.from("reminders").update({ local_time: reminder.localTime, enabled: reminder.enabled }).eq("id", reminder.id),
     );
   } else {
     check(
-      await supabase.from("reminders").insert({ habit_id: reminder.habitId, local_time: reminder.localTime, enabled: reminder.enabled }),
+      await supabase
+        .from("reminders")
+        .insert({ kind: reminder.kind, habit_id: reminder.habitId, local_time: reminder.localTime, enabled: reminder.enabled }),
     );
   }
 }

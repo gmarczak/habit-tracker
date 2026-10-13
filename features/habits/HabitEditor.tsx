@@ -6,7 +6,7 @@ import { useAction } from "@/lib/data/hooks";
 import { createCategory, createHabit, habitFormSchema, updateHabit, type HabitForm } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
 import type { LocalDate } from "@/lib/domain/dates";
-import { HABIT_COLORS, type Frequency, type Habit, type HabitKind } from "@/lib/domain/model";
+import { HABIT_COLORS, type Frequency, type Habit, type HabitKind, type TimeOfDay } from "@/lib/domain/model";
 import { planOn } from "@/lib/domain/schedule";
 import { COLOR_LABELS, HabitBadge, ICONS, ICON_KEYS } from "@/lib/ui/icons";
 
@@ -33,6 +33,13 @@ const FREQUENCIES: { value: Frequency; label: string }[] = [
   { value: "every_n_days", label: "Co kilka dni" },
 ];
 
+const PARTS: { value: TimeOfDay | null; label: string }[] = [
+  { value: null, label: "Kiedykolwiek" },
+  { value: "morning", label: "Rano" },
+  { value: "day", label: "W ciągu dnia" },
+  { value: "evening", label: "Wieczorem" },
+];
+
 export type HabitPreset = Partial<HabitForm> & { name: string };
 
 type Props = {
@@ -53,6 +60,7 @@ function initialForm(habit: Habit | undefined, today: LocalDate, preset?: HabitP
     icon: habit?.icon ?? preset?.icon ?? null,
     color: habit?.color ?? preset?.color ?? "green",
     categoryId: habit?.categoryId ?? null,
+    timeOfDay: habit ? habit.timeOfDay : (preset?.timeOfDay ?? null),
     startDate: habit ? null : today,
     targetValue: plan?.targetValue ?? preset?.targetValue ?? 1,
     frequency: plan?.frequency ?? preset?.frequency ?? "daily",
@@ -250,6 +258,18 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
           <Stepper label="Co ile dni" value={form.intervalDays ?? 2} min={2} max={365} onChange={(n) => set("intervalDays", n)} />
         )}
         {habit && <p className="text-sm text-muted">Zmiana harmonogramu lub celu obowiązuje od dziś. Historia zostaje policzona po staremu.</p>}
+      </fieldset>
+
+      <fieldset>
+        <legend className={`${labelText} mb-2`}>Pora dnia</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {PARTS.map((p) => (
+            <button key={p.label} type="button" aria-pressed={form.timeOfDay === p.value} onClick={() => set("timeOfDay", p.value)} className={chip(form.timeOfDay === p.value)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-muted">Na ekranie Dziś nawyki układają się według pory, a przypomnienie dla pory przychodzi tylko z tym, co jeszcze czeka.</p>
       </fieldset>
 
       <label className={label}>

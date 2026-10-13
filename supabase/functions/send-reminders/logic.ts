@@ -2,10 +2,11 @@
  * Czysta logika przypomnień (bez Deno i bez sieci), testowana w Vitest i wbudowywana do funkcji Edge.
  */
 import { localDate, type LocalDate, type WeekStart } from "../../../lib/domain/dates";
-import type { Entry, Habit, Pause } from "../../../lib/domain/model";
+import type { Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
+import { PART_LABELS, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
 import { buildDay } from "../../../lib/domain/today";
 
-export type ReminderRow = { id: string; habitId: string | null; localTime: string };
+export type ReminderRow = { id: string; kind: ReminderKind; habitId: string | null; localTime: string };
 export type UserContext = {
   timeZone: string;
   dayStartHour: number;
@@ -53,28 +54,58 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
   const out: Message[] = [];
 
   for (const r of due) {
-    if (r.habitId === null) {
-      if (open.length === 0) continue;
-      const names = open.map((i) => i.habit.name);
-      out.push({
-        reminderId: r.id,
-        localDate: today,
-        title: open.length === 1 ? "Został jeden nawyk" : `Zostały ${open.length} nawyki na dziś`,
-        body: list(names),
-        url: "/",
-        tag: "summary",
-      });
-    } else {
-      const item = open.find((i) => i.habit.id === r.habitId);
-      if (!item) continue;
-      out.push({
-        reminderId: r.id,
-        localDate: today,
-        title: item.habit.name,
-        body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : "Czas na dzisiejszy nawyk.",
-        url: "/",
-        tag: `habit-${item.habit.id}`,
-      });
+    const base = { reminderId: r.id, localDate: today };
+    switch (r.kind) {
+      case "summary": {
+        if (open.length === 0) break;
+        out.push({
+          ...base,
+          title: open.length === 1 ? "Został jeden nawyk" : `Zostały ${open.length} nawyki na dziś`,
+          body: list(open.map((i) => i.habit.name)),
+          url: "/",
+          tag: "summary",
+        });
+        break;
+      }
+      case "morning":
+      case "day":
+      case "evening": {
+        const part = open.filter((i) => i.habit.timeOfDay === r.kind);
+        if (part.length === 0) break;
+        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${part.length === 1 ? "1 nawyk" : `${part.length} nawyki`}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
+        break;
+      }
+      case "yesterday": {
+        const gap = yesterdayGap(user.habits, user.entries, user.pauses, today, user.weekStart);
+        if (!gap) break;
+        out.push({
+          ...base,
+          title: gap.missing.length === 1 ? "Wczoraj został 1 nawyk" : `Wczoraj zostały ${gap.missing.length} nawyki`,
+          body: `${list(gap.missing.map((i) => i.habit.name))} — uzupełnij, jeśli zrobiłeś.`,
+          url: `/?date=${gap.date}`,
+          tag: "yesterday",
+        });
+        break;
+      }
+      case "weekly": {
+        if (!isLastDayOfWeek(today, user.weekStart)) break;
+        const msg = weeklyMessage(weeklySummary(user.habits, user.entries, user.pauses, today, user.weekStart));
+        if (!msg) break;
+        out.push({ ...base, ...msg, url: "/stats", tag: "weekly" });
+        break;
+      }
+      case "habit": {
+        const item = open.find((i) => i.habit.id === r.habitId);
+        if (!item) break;
+        out.push({
+          ...base,
+          title: item.habit.name,
+          body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : "Czas na dzisiejszy nawyk.",
+          url: "/",
+          tag: `habit-${item.habit.id}`,
+        });
+        break;
+      }
     }
   }
   return out;

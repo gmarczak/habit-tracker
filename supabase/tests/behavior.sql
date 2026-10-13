@@ -46,6 +46,15 @@ select reorder_habits(array[:'b2', :'b1']::uuid[]);
 select name, sort_order from habits order by sort_order;
 insert into habits(name,kind,start_date,icon) values ('Zla ikona','check',current_date,'Not An Icon!');  -- blad
 insert into habits(name,kind,start_date,color) values ('Zly kolor','check',current_date,'pink');  -- blad
+\echo '-- przypomnienia: rodzaje i pory dnia'
+insert into reminders(kind, local_time) values ('yesterday','09:00'), ('weekly','19:00');
+insert into reminders(habit_id, kind, local_time) values (:'b1','habit','08:00');
+select kind, habit_id is not null as for_habit from reminders order by kind;
+insert into reminders(kind, local_time) values ('weekly','20:00');   -- blad: drugi tygodniowy
+insert into reminders(kind, local_time) values ('habit','08:00');    -- blad: habit bez nawyku
+update habits set time_of_day = 'noon' where id = :'b1';             -- blad
+update habits set time_of_day = 'morning' where id = :'b1';
+select time_of_day as b1_part from habits where id = :'b1';
 select delete_my_account();
 reset role;
 select (select count(*) from auth.users) users_left, (select count(*) from habits) habits_left, (select count(*) from profiles) profiles_left;

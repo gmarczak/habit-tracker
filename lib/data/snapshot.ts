@@ -3,6 +3,8 @@ import type { Supabase } from "@/lib/db/client";
 import type { WeekStart } from "@/lib/domain/dates";
 import {
   HABIT_COLORS,
+  REMINDER_KINDS,
+  TIMES_OF_DAY,
   type Category,
   type Entry,
   type Habit,
@@ -10,7 +12,9 @@ import {
   type PauseRecord,
   type Plan,
   type Reminder,
+  type ReminderKind,
   type Settings,
+  type TimeOfDay,
 } from "@/lib/domain/model";
 
 /**
@@ -52,6 +56,7 @@ export function toHabit(row: Tables<"habits">, plans: Tables<"habit_plans">[]): 
     icon: row.icon,
     color: toColor(row.color),
     categoryId: row.category_id,
+    timeOfDay: (TIMES_OF_DAY as readonly string[]).includes(row.time_of_day ?? "") ? (row.time_of_day as TimeOfDay) : null,
     startDate: row.start_date,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
@@ -125,6 +130,7 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
     categories: (categories.data ?? []).map((c) => ({ id: c.id, name: c.name, sortOrder: c.sort_order })),
     reminders: (reminders.data ?? []).map((r) => ({
       id: r.id,
+      kind: (REMINDER_KINDS as readonly string[]).includes(r.kind) ? (r.kind as ReminderKind) : r.habit_id ? "habit" : "summary",
       habitId: r.habit_id,
       localTime: r.local_time.slice(0, 5),
       enabled: r.enabled,

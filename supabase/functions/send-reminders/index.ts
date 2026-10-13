@@ -202,6 +202,36 @@ function streakOf(habit, entries, pauses, today, weekStart) {
   if (today < habit.startDate) return { current: 0, best: 0, unit };
   return unit === "days" ? { current: currentDays(c), best: bestDays(c), unit } : { current: currentWeeks(c), best: bestWeeks(c), unit };
 }
+function completionRate(habit, entries, pauses, from, to, today, weekStart) {
+  const c = ctx(habit, entries, pauses, today, weekStart);
+  const end = to <= today ? to : today;
+  let chances = 0;
+  let wins = 0;
+  const weeksSeen = /* @__PURE__ */ new Set();
+  for (let d = from > habit.startDate ? from : habit.startDate; d <= end; d = addDays(d, 1)) {
+    const plan = planOn(habit, d);
+    if (!plan) continue;
+    if (unitOf(plan.frequency) === "weeks") {
+      const ws = startOfWeek(d, weekStart);
+      if (weeksSeen.has(ws)) continue;
+      weeksSeen.add(ws);
+      const week = evaluateWeek(c, ws);
+      if (week.result === "met" || week.result === "failed") {
+        chances++;
+        if (week.result === "met") wins++;
+      }
+      continue;
+    }
+    const req = requirementOn(habit, pauses, d);
+    if (req !== "required") continue;
+    const outcome = entryOutcome(c.byDate.get(d), plan);
+    if (outcome === "skipped") continue;
+    if (d === today && outcome !== "done") continue;
+    chances++;
+    if (outcome === "done") wins++;
+  }
+  return chances === 0 ? null : wins / chances;
+}
 
 // lib/domain/today.ts
 function buildDay(habits, entries, pauses, date, today, weekStart) {
@@ -234,6 +264,78 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
   return view;
 }
 
+// lib/domain/stats.ts
+function dayTotals(habits, entries, pauses, date, today, weekStart) {
+  const { progress } = buildDay(habits, entries, pauses, date, today, weekStart);
+  return { date, ...progress };
+}
+function isPerfect(d) {
+  return d.total > 0 && d.done === d.total;
+}
+function weekReview(habits, entries, pauses, anyDayInWeek, today, weekStart) {
+  const first = startOfWeek(anyDayInWeek, weekStart);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(first, i)).map(
+    (d) => d > today ? { date: d, done: 0, total: 0 } : dayTotals(habits, entries, pauses, d, today, weekStart)
+  );
+  return {
+    days,
+    done: days.reduce((s, d) => s + d.done, 0),
+    total: days.reduce((s, d) => s + d.total, 0),
+    perfectDays: days.filter(isPerfect).length
+  };
+}
+
+// lib/domain/nudges.ts
+var PART_LABELS = { morning: "Rano", day: "W ci\u0105gu dnia", evening: "Wieczorem" };
+function yesterdayGap(habits, entries, pauses, today, weekStart) {
+  const date = addDays(today, -1);
+  const view = buildDay(habits, entries, pauses, date, today, weekStart);
+  if (view.progress.total === 0 || view.todo.length === 0) return null;
+  return { date, missing: view.todo, done: view.progress.done, total: view.progress.total };
+}
+function isLastDayOfWeek(date, weekStart) {
+  return addDays(startOfWeek(date, weekStart), 6) === date;
+}
+function weeklySummary(habits, entries, pauses, today, weekStart) {
+  const first = startOfWeek(today, weekStart);
+  const review = weekReview(habits, entries, pauses, today, today, weekStart);
+  const active = habits.filter((h) => h.archivedAt === null && h.startDate <= today);
+  const rated = [];
+  const weekly = [];
+  for (const habit of active) {
+    const plan = planOn(habit, today);
+    if (!plan) continue;
+    if (unitOf(plan.frequency) === "weeks") {
+      const w = currentWeekProgress(habit, entries, pauses, today, weekStart);
+      if (w.required > 0) weekly.push({ name: habit.name, done: w.done, required: w.required });
+      continue;
+    }
+    const rate = completionRate(habit, entries, pauses, first, today, today, weekStart);
+    if (rate !== null) rated.push({ name: habit.name, rate });
+  }
+  const sorted = [...rated].sort((a, b) => b.rate - a.rate);
+  const best = sorted.length >= 2 && sorted[0].rate > sorted[sorted.length - 1].rate ? sorted[0] : null;
+  const worst = best ? sorted[sorted.length - 1] : null;
+  return {
+    weekStart: first,
+    share: review.total === 0 ? null : review.done / review.total,
+    perfectDays: review.perfectDays,
+    daysSoFar: review.days.filter((d) => d.date <= today).length,
+    best,
+    worst,
+    weekly
+  };
+}
+function weeklyMessage(s) {
+  if (s.share === null && s.weekly.length === 0) return null;
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  const parts = [];
+  if (s.share !== null) parts.push(`Idealne dni: ${s.perfectDays} z ${s.daysSoFar}`);
+  if (s.best && s.worst) parts.push(`Najlepiej: ${s.best.name} (${pct(s.best.rate)})`, `Do poprawy: ${s.worst.name} (${pct(s.worst.rate)})`);
+  for (const w of s.weekly) parts.push(`${w.name} ${w.done}/${w.required}`);
+  return { title: s.share === null ? "Tw\xF3j tydzie\u0144" : `Tw\xF3j tydzie\u0144: ${pct(s.share)}`, body: parts.join(" \xB7 ") };
+}
+
 // supabase/functions/send-reminders/logic.ts
 function localMinutes(now, timeZone) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
@@ -262,28 +364,58 @@ function messagesFor(user, reminders, now) {
   const open = [...view.todo, ...view.thisWeek];
   const out = [];
   for (const r of due) {
-    if (r.habitId === null) {
-      if (open.length === 0) continue;
-      const names = open.map((i) => i.habit.name);
-      out.push({
-        reminderId: r.id,
-        localDate: today,
-        title: open.length === 1 ? "Zosta\u0142 jeden nawyk" : `Zosta\u0142y ${open.length} nawyki na dzi\u015B`,
-        body: list(names),
-        url: "/",
-        tag: "summary"
-      });
-    } else {
-      const item = open.find((i) => i.habit.id === r.habitId);
-      if (!item) continue;
-      out.push({
-        reminderId: r.id,
-        localDate: today,
-        title: item.habit.name,
-        body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : "Czas na dzisiejszy nawyk.",
-        url: "/",
-        tag: `habit-${item.habit.id}`
-      });
+    const base = { reminderId: r.id, localDate: today };
+    switch (r.kind) {
+      case "summary": {
+        if (open.length === 0) break;
+        out.push({
+          ...base,
+          title: open.length === 1 ? "Zosta\u0142 jeden nawyk" : `Zosta\u0142y ${open.length} nawyki na dzi\u015B`,
+          body: list(open.map((i) => i.habit.name)),
+          url: "/",
+          tag: "summary"
+        });
+        break;
+      }
+      case "morning":
+      case "day":
+      case "evening": {
+        const part = open.filter((i) => i.habit.timeOfDay === r.kind);
+        if (part.length === 0) break;
+        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${part.length === 1 ? "1 nawyk" : `${part.length} nawyki`}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
+        break;
+      }
+      case "yesterday": {
+        const gap = yesterdayGap(user.habits, user.entries, user.pauses, today, user.weekStart);
+        if (!gap) break;
+        out.push({
+          ...base,
+          title: gap.missing.length === 1 ? "Wczoraj zosta\u0142 1 nawyk" : `Wczoraj zosta\u0142y ${gap.missing.length} nawyki`,
+          body: `${list(gap.missing.map((i) => i.habit.name))} \u2014 uzupe\u0142nij, je\u015Bli zrobi\u0142e\u015B.`,
+          url: `/?date=${gap.date}`,
+          tag: "yesterday"
+        });
+        break;
+      }
+      case "weekly": {
+        if (!isLastDayOfWeek(today, user.weekStart)) break;
+        const msg = weeklyMessage(weeklySummary(user.habits, user.entries, user.pauses, today, user.weekStart));
+        if (!msg) break;
+        out.push({ ...base, ...msg, url: "/stats", tag: "weekly" });
+        break;
+      }
+      case "habit": {
+        const item = open.find((i) => i.habit.id === r.habitId);
+        if (!item) break;
+        out.push({
+          ...base,
+          title: item.habit.name,
+          body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : "Czas na dzisiejszy nawyk.",
+          url: "/",
+          tag: `habit-${item.habit.id}`
+        });
+        break;
+      }
     }
   }
   return out;
@@ -325,12 +457,12 @@ Deno.serve(async (req) => {
     }
     return json({ test: true, subscriptions: results.length, results });
   }
-  const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, habit_id, local_time").eq("enabled", true);
+  const { data: reminders, error } = await supabase.from("reminders").select("id, user_id, kind, habit_id, local_time").eq("enabled", true);
   if (error) return json({ error: error.message }, 500);
   const byUser = /* @__PURE__ */ new Map();
   for (const r of reminders) {
     const list2 = byUser.get(r.user_id) ?? [];
-    list2.push({ id: r.id, habitId: r.habit_id ?? null, localTime: String(r.local_time).slice(0, 5) });
+    list2.push({ id: r.id, kind: r.kind ?? (r.habit_id ? "habit" : "summary"), habitId: r.habit_id ?? null, localTime: String(r.local_time).slice(0, 5) });
     byUser.set(r.user_id, list2);
   }
   const now = /* @__PURE__ */ new Date();
@@ -359,6 +491,7 @@ Deno.serve(async (req) => {
       icon: h.icon ?? null,
       color: "green",
       categoryId: null,
+      timeOfDay: h.time_of_day ?? null,
       startDate: h.start_date,
       sortOrder: h.sort_order,
       archivedAt: null,

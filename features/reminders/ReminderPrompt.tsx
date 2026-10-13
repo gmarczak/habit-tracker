@@ -26,7 +26,7 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
   const [time, setTime] = useState("20:00");
   const [error, setError] = useState<string | null>(null);
 
-  const hasSummary = snapshot.reminders.some((r) => r.habitId === null && r.enabled);
+  const hasSummary = snapshot.reminders.some((r) => r.kind === "summary" && r.enabled);
   const hasHabits = snapshot.habits.some((h) => h.archivedAt === null);
 
   useEffect(() => {
@@ -38,8 +38,8 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
 
   const enable = useAction(async (supabase, localTime: string) => {
     await enablePush(supabase);
-    const existing = snapshot.reminders.find((r) => r.habitId === null);
-    await upsertReminder(supabase, { id: existing?.id, habitId: null, localTime, enabled: true });
+    const existing = snapshot.reminders.find((r) => r.kind === "summary");
+    await upsertReminder(supabase, { id: existing?.id, kind: "summary", habitId: null, localTime, enabled: true });
   });
 
   if (!visible) return null;

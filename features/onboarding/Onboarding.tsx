@@ -26,6 +26,7 @@ export function Onboarding({ today }: { today: LocalDate }) {
         icon: t.icon ?? null,
         color: t.color ?? "green",
         categoryId: null,
+        timeOfDay: t.timeOfDay ?? null,
         startDate: today,
         targetValue: t.targetValue ?? 1,
         frequency: t.frequency ?? "daily",

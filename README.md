@@ -53,6 +53,18 @@ psql -f supabase/tests/behavior.sql
 
 Web Push wysyła funkcja Edge `send-reminders`. Co 5 minut wywołuje ją `pg_cron` (zadanie `send-reminders`, migracja `reminders_cron`) z nagłówkiem `x-cron-secret`. Funkcja sprawdza sekret przez RPC `push_config`, które przy poprawnym sekrecie zwraca klucze VAPID. Bez sekretu odpowiada `401`.
 
+Rodzaje przypomnień (`reminders.kind`, logika w `supabase/functions/send-reminders/logic.ts` i `lib/domain/nudges.ts`):
+
+| Rodzaj | Kiedy wysyła |
+| --- | --- |
+| `summary` | o ustawionej godzinie, gdy coś zostało na dziś |
+| `habit` | jeden nawyk, gdy jeszcze niezrobiony |
+| `morning` / `day` / `evening` | nawyki z tej pory dnia (`habits.time_of_day`), które czekają |
+| `yesterday` | rano, gdy wczoraj zostały wymagane nawyki bez wpisu; link `/?date=…` otwiera ten dzień |
+| `weekly` | w ostatni dzień tygodnia: procent, idealne dni, najlepszy i najsłabszy nawyk, cele tygodniowe |
+
+„Dzień wolny” na ekranie Dziś to jednodniowa pauza wszystkich nawyków (`habit_pauses` z `habit_id = null`): dzień neutralny, serie trwają.
+
 **Sekrety w Supabase Vault** (nigdy w repo):
 
 | Nazwa | Co to jest |
