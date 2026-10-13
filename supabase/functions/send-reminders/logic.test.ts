@@ -12,6 +12,7 @@ const habit = (id: string, name: string): Habit => ({
   color: "green",
   categoryId: null,
   timeOfDay: null,
+  goal: "build",
   startDate: "2026-09-01",
   sortOrder: 0,
   archivedAt: null,

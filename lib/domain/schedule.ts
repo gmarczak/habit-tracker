@@ -1,5 +1,5 @@
 import { diffDays, isoWeekday, type LocalDate } from "./dates";
-import type { Entry, Habit, Pause, Plan } from "./model";
+import type { Entry, Goal, Habit, Pause, Plan } from "./model";
 
 /** Plan obowiązujący w danym dniu (ostatnia wersja z validFrom <= date). */
 export function planOn(habit: Habit, date: LocalDate): Plan | null {
@@ -49,7 +49,13 @@ export function requirementOn(habit: Habit, pauses: readonly Pause[], date: Loca
 /** Wynik pojedynczego wpisu względem celu planu. */
 export type EntryOutcome = "done" | "partial" | "skipped" | "none";
 
-export function entryOutcome(entry: Entry | undefined, plan: Plan | null): EntryOutcome {
+export function entryOutcome(entry: Entry | undefined, plan: Plan | null, goal: Goal = "build"): EntryOutcome {
+  if (goal === "quit") {
+    // Rzucam: brak wpisu = czysty dzień, wpis z wartością = wpadka
+    if (!entry) return "done";
+    if (entry.skipped) return "skipped";
+    return (entry.value ?? 0) > 0 ? "none" : "done";
+  }
   if (!entry) return "none";
   if (entry.skipped) return "skipped";
   const value = entry.value ?? 0;

@@ -21,6 +21,8 @@ export type TodayView = {
   thisWeek: TodayItem[];
   /** zrobione dziś (także tygodniowe) oraz świadomie pominięte */
   done: TodayItem[];
+  /** nawyki „rzucam”: czysto albo wpadka; poza listami do zrobienia */
+  quit: TodayItem[];
   /** pierścień dnia: tylko nawyki wymagane dziś, bez pominiętych */
   progress: { done: number; total: number };
 };
@@ -37,7 +39,7 @@ export function buildDay(
   today: LocalDate,
   weekStart: WeekStart,
 ): TodayView {
-  const view: TodayView = { date, todo: [], thisWeek: [], done: [], progress: { done: 0, total: 0 } };
+  const view: TodayView = { date, todo: [], thisWeek: [], done: [], quit: [], progress: { done: 0, total: 0 } };
 
   const active = habits.filter((h) => h.archivedAt === null).sort((a, b) => a.sortOrder - b.sortOrder);
   for (const habit of active) {
@@ -62,7 +64,8 @@ export function buildDay(
       if (state === "done") view.progress.done++;
     }
 
-    if (state === "done" || state === "skipped") view.done.push(item);
+    if (habit.goal === "quit") view.quit.push(item);
+    else if (state === "done" || state === "skipped") view.done.push(item);
     else if (req === "flexible") {
       if (item.week?.result !== "met") view.thisWeek.push(item);
       else view.done.push(item);

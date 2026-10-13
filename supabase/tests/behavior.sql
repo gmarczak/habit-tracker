@@ -55,6 +55,17 @@ insert into reminders(kind, local_time) values ('habit','08:00');    -- blad: ha
 update habits set time_of_day = 'noon' where id = :'b1';             -- blad
 update habits set time_of_day = 'morning' where id = :'b1';
 select time_of_day as b1_part from habits where id = :'b1';
+\echo '-- nawyk rzucam i notatki dnia'
+select add_habit('Bez slodyczy','check',null,null,null,null,'daily',null,null,null,null) as q1 \gset
+update habits set goal = 'quit' where id = :'q1';
+select add_habit('Woda','count','szklanek',null,null,null,'daily',null,null,null,8) as q2 \gset
+update habits set goal = 'quit' where id = :'q2';                     -- blad: rzucam tylko tak/nie
+select goal as q1_goal from habits where id = :'q1';
+update habits set goal = 'never' where id = :'q1';                    -- blad
+insert into day_notes(note_date, note) values (current_date, 'Spałem 5 godzin');
+insert into day_notes(note_date, note) values (current_date, 'drugi');  -- blad: jedna na dzien
+insert into day_notes(note_date, note) values (current_date - 1, '   '); -- blad: pusta
+select count(*) as b_notes from day_notes;
 select delete_my_account();
 reset role;
-select (select count(*) from auth.users) users_left, (select count(*) from habits) habits_left, (select count(*) from profiles) profiles_left;
+select (select count(*) from auth.users) users_left, (select count(*) from habits) habits_left, (select count(*) from profiles) profiles_left, (select count(*) from day_notes) notes_left;

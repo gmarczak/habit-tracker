@@ -6,6 +6,7 @@ import {
   REMINDER_KINDS,
   TIMES_OF_DAY,
   type Category,
+  type DayNote,
   type Entry,
   type Habit,
   type HabitColor,
@@ -30,6 +31,8 @@ export type Snapshot = {
   pauses: PauseRecord[];
   categories: Category[];
   reminders: Reminder[];
+  /** notatki do dni */
+  notes: DayNote[];
 };
 
 export function toPlan(row: Tables<"habit_plans">): Plan {
@@ -57,6 +60,7 @@ export function toHabit(row: Tables<"habits">, plans: Tables<"habit_plans">[]): 
     color: toColor(row.color),
     categoryId: row.category_id,
     timeOfDay: (TIMES_OF_DAY as readonly string[]).includes(row.time_of_day ?? "") ? (row.time_of_day as TimeOfDay) : null,
+    goal: row.goal === "quit" ? "quit" : "build",
     startDate: row.start_date,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
@@ -99,7 +103,7 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) throw authError ?? new Error("not_authenticated");
 
-  const [profile, habits, plans, entries, pauses, categories, reminders] = await Promise.all([
+  const [profile, habits, plans, entries, pauses, categories, reminders, notes] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", auth.user.id).single(),
     supabase.from("habits").select("*").order("sort_order"),
     supabase.from("habit_plans").select("*"),
@@ -107,8 +111,9 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
     supabase.from("habit_pauses").select("*").order("start_date"),
     supabase.from("categories").select("*").order("sort_order"),
     supabase.from("reminders").select("*").order("local_time"),
+    supabase.from("day_notes").select("note_date, note").order("note_date"),
   ]);
-  for (const r of [profile, habits, plans, pauses, categories, reminders]) if (r.error) throw r.error;
+  for (const r of [profile, habits, plans, pauses, categories, reminders, notes]) if (r.error) throw r.error;
 
   return {
     userId: auth.user.id,
@@ -135,5 +140,6 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
       localTime: r.local_time.slice(0, 5),
       enabled: r.enabled,
     })),
+    notes: (notes.data ?? []).map((n) => ({ date: n.note_date, note: n.note })),
   };
 }

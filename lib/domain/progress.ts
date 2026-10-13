@@ -50,6 +50,14 @@ export function dayState(
   if (date > today) return "future";
   const req = requirementOn(habit, pauses, date);
   if (req === "before_start") return "before_start";
+  if (habit.goal === "quit") {
+    const entry = entriesByDate(entries, habit.id).get(date);
+    if (entry?.skipped) return "skipped";
+    if (entry && (entry.value ?? 0) > 0) return "missed"; // wpadka, także dziś
+    if (req === "paused") return "paused";
+    if (req === "not_required") return "not_required";
+    return "done";
+  }
   const outcome = entryOutcome(entriesByDate(entries, habit.id).get(date), planOn(habit, date));
   if (outcome === "done") return "done";
   if (outcome === "skipped") return "skipped";
@@ -81,7 +89,7 @@ export function evaluateWeek(c: Ctx, weekStartDate: LocalDate): WeekProgress {
   let available = 0;
   let done = 0;
   for (const d of covered) {
-    const outcome = entryOutcome(c.byDate.get(d), planOn(c.habit, d));
+    const outcome = entryOutcome(c.byDate.get(d), planOn(c.habit, d), c.habit.goal);
     if (outcome === "done") done++;
     if (outcome !== "skipped" && !isPaused(c.pauses, c.habit.id, d)) available++;
   }
@@ -115,9 +123,9 @@ function currentDays(c: Ctx): number {
     if (!plan || unitOf(plan.frequency) !== "days") break;
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
-    const outcome = entryOutcome(c.byDate.get(d), plan);
+    const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
     if (outcome === "done") streak++;
-    else if (outcome === "skipped" || d === c.today) continue;
+    else if (outcome === "skipped" || (d === c.today && c.habit.goal !== "quit")) continue;
     else break;
   }
   return streak;
@@ -145,9 +153,9 @@ function bestDays(c: Ctx): number {
     }
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
-    const outcome = entryOutcome(c.byDate.get(d), plan);
+    const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
     if (outcome === "done") best = Math.max(best, ++run);
-    else if (outcome === "skipped" || d === c.today) continue;
+    else if (outcome === "skipped" || (d === c.today && c.habit.goal !== "quit")) continue;
     else run = 0;
   }
   return best;
@@ -220,9 +228,9 @@ export function completionRate(
     }
     const req = requirementOn(habit, pauses, d);
     if (req !== "required") continue;
-    const outcome = entryOutcome(c.byDate.get(d), plan);
+    const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
     if (outcome === "skipped") continue;
-    if (d === today && outcome !== "done") continue;
+    if (d === today && outcome !== "done" && habit.goal !== "quit") continue;
     chances++;
     if (outcome === "done") wins++;
   }

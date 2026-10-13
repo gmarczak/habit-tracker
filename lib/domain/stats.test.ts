@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Entry, Habit, Plan } from "./model";
-import { habitRates, isPerfect, perfectDayStreak, weekReview, weeklyTrend } from "./stats";
+import { habitRates, isPerfect, notedDays, perfectDayStreak, weekReview, weeklyTrend } from "./stats";
 
 const TODAY = "2026-10-11"; // niedziela; tydzień od pn 2026-10-05
 
@@ -21,6 +21,7 @@ const habit = (id: string, p: Plan, startDate = "2026-09-01"): Habit => ({
   color: "green",
   categoryId: null,
   timeOfDay: null,
+  goal: "build",
   startDate,
   sortOrder: 0,
   archivedAt: null,
@@ -71,5 +72,20 @@ describe("statystyki", () => {
     const rates = habitRates(habits, entries, [], TODAY, 1, 2);
     expect(rates.map((r) => r.habit.id)).toEqual(["b", "a"]);
     expect(rates[1]?.rate).toBe(1); // 10.10 zrobione, dziś niedokończone pomijane
+  });
+});
+
+describe("notatki dni", () => {
+  it("najnowsze pierwsze, z wynikiem dnia, bez przyszłych", () => {
+    const notes = [
+      { date: "2026-10-09", note: "Spałem 5 godzin" },
+      { date: "2026-10-10", note: "Wyjazd" },
+      { date: "2026-10-20", note: "przyszłość" },
+    ];
+    const out = notedDays(notes, habits, [e("a", "2026-10-09")], [], TODAY, 1);
+    expect(out.map((d) => [d.date, d.note, d.done, d.total])).toEqual([
+      ["2026-10-10", "Wyjazd", 0, 2],
+      ["2026-10-09", "Spałem 5 godzin", 1, 2],
+    ]);
   });
 });

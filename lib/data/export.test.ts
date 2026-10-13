@@ -16,6 +16,7 @@ const snapshot: Snapshot = {
       color: "amber",
       categoryId: null,
       timeOfDay: null,
+      goal: "build",
       startDate: "2026-10-01",
       sortOrder: 0,
       archivedAt: null,
@@ -29,6 +30,7 @@ const snapshot: Snapshot = {
   pauses: [],
   categories: [],
   reminders: [],
+  notes: [],
 };
 
 describe("eksport", () => {

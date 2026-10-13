@@ -9,5 +9,6 @@ export const TEMPLATES: (HabitPreset & { id: string; summary: string })[] = [
   { id: "gym", name: "Siłownia", kind: "check", icon: "dumbbell", color: "rose", frequency: "weekly_count", timesPerWeek: 3, summary: "3 razy w tygodniu" },
   { id: "phone", timeOfDay: "evening", name: "Bez telefonu po 22", kind: "check", icon: "phone-off", color: "teal", frequency: "daily", summary: "codziennie" },
   { id: "sleep", timeOfDay: "evening", name: "Sen przed 23", kind: "check", icon: "bed-double", color: "violet", frequency: "daily", summary: "codziennie" },
+  { id: "sweets", name: "Bez słodyczy", kind: "check", goal: "quit", icon: "apple", color: "rose", frequency: "daily", summary: "rzucam — liczą się dni bez wpadki" },
   { id: "lang", name: "Nauka języka", kind: "duration", targetValue: 15, icon: "languages", color: "blue", frequency: "weekdays", weekdays: [1, 2, 3, 4, 5], summary: "15 minut w dni robocze" },
 ];

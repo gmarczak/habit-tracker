@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { sectionTitle } from "@/components/ui/styles";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
-import { habitRates, perfectDayStreak, weekReview, weeklyTrend } from "@/lib/domain/stats";
-import { dayOfMonth, formatWeekdayShort, plural } from "@/lib/format";
+import { habitRates, notedDays, perfectDayStreak, weekReview, weeklyTrend } from "@/lib/domain/stats";
+import { dayOfMonth, formatDayLong, formatWeekdayShort, plural } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 
 function pct(share: number | null): string {
@@ -24,6 +24,7 @@ export function StatsScreen() {
       trend: weeklyTrend(habits, entries, pauses, today, settings.weekStart, 12),
       perfectStreak: perfectDayStreak(habits, entries, pauses, today, settings.weekStart),
       rates: habitRates(habits, entries, pauses, today, settings.weekStart, 30),
+      notes: notedDays(snapshot.notes, habits, entries, pauses, today, settings.weekStart),
     };
   }, [snapshot, today]);
 
@@ -39,7 +40,7 @@ export function StatsScreen() {
     );
   }
 
-  const { week, trend, perfectStreak, rates } = data;
+  const { week, trend, perfectStreak, rates, notes } = data;
   const maxTrend = 1;
 
   return (
@@ -131,6 +132,27 @@ export function StatsScreen() {
         </ul>
         <p className="pt-2 text-xs text-muted">Skuteczność = zrobione dni wymagane / wszystkie dni wymagane, bez pominięć i pauz. Od najsłabszego.</p>
       </section>
+      {notes.length > 0 && (
+        <section aria-labelledby="notes-title" className="flex flex-col gap-1">
+          <h2 id="notes-title" className={sectionTitle}>
+            Notatki dni
+          </h2>
+          <p className="pb-2 text-sm text-muted">Wynik dnia obok notatki — łatwiej zauważyć, co psuje gorsze dni.</p>
+          <ul className="flex flex-col">
+            {notes.map((n) => (
+              <li key={n.date} className="flex items-start justify-between gap-3 border-b border-border py-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted">{formatDayLong(n.date)}</p>
+                  <p className="whitespace-pre-wrap">{n.note}</p>
+                </div>
+                <span className={`shrink-0 font-semibold tabular-nums ${n.total > 0 && n.done / n.total < 0.5 ? "text-danger" : "text-accent"}`}>
+                  {n.total > 0 ? `${n.done}/${n.total}` : "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
 }

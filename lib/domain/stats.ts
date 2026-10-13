@@ -1,5 +1,5 @@
 import { addDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
-import type { Entry, Habit, Pause } from "./model";
+import type { DayNote, Entry, Habit, Pause } from "./model";
 import { completionRate } from "./progress";
 import { buildDay } from "./today";
 
@@ -103,4 +103,21 @@ export function habitRates(
     .filter((h) => h.archivedAt === null)
     .map((habit) => ({ habit, rate: completionRate(habit, entries, pauses, from, today, today, weekStart) }))
     .sort((a, b) => (a.rate ?? 2) - (b.rate ?? 2));
+}
+
+/** Ostatnie notatki dni z wynikiem dnia (od najnowszej), żeby widzieć, co towarzyszy słabszym dniom. */
+export function notedDays(
+  notes: readonly DayNote[],
+  habits: readonly Habit[],
+  entries: readonly Entry[],
+  pauses: readonly Pause[],
+  today: LocalDate,
+  weekStart: WeekStart,
+  limit = 10,
+): (DayTotals & { note: string })[] {
+  return [...notes]
+    .filter((n) => n.date <= today)
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, limit)
+    .map((n) => ({ ...dayTotals(habits, entries, pauses, n.date, today, weekStart), note: n.note }));
 }

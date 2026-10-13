@@ -15,7 +15,9 @@ import { formatDayMonth, formatWeekday } from "@/lib/format";
 import { Celebration, type CelebrationInfo } from "./Celebration";
 import { DayHeader } from "./DayHeader";
 import { HabitRow } from "./HabitRow";
+import { DayNote } from "./DayNote";
 import { DayOffButton, DayOffCard, YesterdayCard, pauseOn } from "./Nudges";
+import { QuitRow } from "./QuitRow";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayScreen() {
@@ -56,7 +58,7 @@ export function TodayScreen() {
   const lastStreaks = useRef<Map<string, number> | null>(null);
   useEffect(() => {
     if (!view) return;
-    const items = [...view.todo, ...view.thisWeek, ...view.done];
+    const items = [...view.todo, ...view.thisWeek, ...view.done, ...view.quit];
     const prev = lastStreaks.current;
     let hit: CelebrationInfo | null = null;
     for (const item of items) {
@@ -150,6 +152,21 @@ export function TodayScreen() {
             );
           })}
 
+        {view.quit.length > 0 && (
+          <section aria-labelledby="quit-heading">
+            <h2 id="quit-heading" className="pb-0.5 pt-4 text-xs font-bold uppercase tracking-wider text-muted">
+              Rzucam
+            </h2>
+            <ul>
+              {view.quit.map((item) => (
+                <li key={item.habit.id}>
+                  <QuitRow item={item} date={date} isToday={isToday} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {view.done.length > 0 && (
           <section aria-labelledby="done-heading">
             <h2 id="done-heading" className="pb-1 pt-5 font-serif text-lg font-semibold">
@@ -165,7 +182,11 @@ export function TodayScreen() {
           </section>
         )}
 
-        {hasHabits && !dayPause && open.length + view.done.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
+        {hasHabits && !dayPause && open.length + view.done.length + view.quit.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
+
+        {hasHabits && (
+          <DayNote key={`${date}:${snapshot.notes.find((n) => n.date === date)?.note ?? ""}`} date={date} note={snapshot.notes.find((n) => n.date === date)?.note ?? null} />
+        )}
 
         {hasHabits && !dayPause && view.progress.total > 0 && !allDone && <DayOffButton date={date} isToday={isToday} />}
       </div>
