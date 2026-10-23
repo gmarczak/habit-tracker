@@ -4,9 +4,21 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { sectionTitle } from "@/components/ui/styles";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
-import { habitRates, notedDays, perfectDayStreak, weekReview, weeklyTrend } from "@/lib/domain/stats";
+import { habitRates, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "@/lib/domain/stats";
 import { dayOfMonth, formatDayLong, formatWeekdayShort, plural } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
+
+const WEEKDAYS = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
+
+function Tile({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: boolean }) {
+  return (
+    <div className="rounded-xl bg-surface px-4 py-3">
+      <p className="text-[13px] font-semibold text-muted">{label}</p>
+      <p className={`mt-0.5 text-xl font-bold ${accent ? "text-accent" : ""}`}>{value}</p>
+      {hint && <p className="text-[12px] text-muted">{hint}</p>}
+    </div>
+  );
+}
 
 function pct(share: number | null): string {
   return share === null ? "—" : `${Math.round(share * 100)}%`;
@@ -25,6 +37,7 @@ export function StatsScreen() {
       perfectStreak: perfectDayStreak(habits, entries, pauses, today, settings.weekStart),
       rates: habitRates(habits, entries, pauses, today, settings.weekStart, 30),
       notes: notedDays(snapshot.notes, habits, entries, pauses, today, settings.weekStart),
+      weekdays: weekdayShares(habits, entries, pauses, today, 8),
     };
   }, [snapshot, today]);
 
@@ -40,72 +53,91 @@ export function StatsScreen() {
     );
   }
 
-  const { week, trend, perfectStreak, rates, notes } = data;
-  const maxTrend = 1;
+  const { week, trend, perfectStreak, rates, notes, weekdays } = data;
+  const last = trend.at(-1)?.share ?? null;
+  const prev = trend.at(-2)?.share ?? null;
+  const delta = last !== null && prev !== null ? Math.round((last - prev) * 100) : null;
+  const known = trend.filter((t) => t.share !== null).map((t) => t.share as number);
+  const average = known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
+  const ranked = weekdays.filter((w): w is { weekday: number; share: number } => w.share !== null).sort((a, b) => b.share - a.share);
+  const best = ranked.length >= 2 && ranked[0]!.share > ranked.at(-1)!.share ? ranked[0]! : null;
+  const worst = best ? ranked.at(-1)! : null;
 
   return (
     <main className="flex flex-col gap-8 px-4 pt-6">
       <h1 className="font-serif text-[34px] font-bold leading-tight">Statystyki</h1>
 
-      <section aria-labelledby="week-title" className="flex flex-col gap-4">
-        <div className="flex items-baseline justify-between">
-          <h2 id="week-title" className={sectionTitle}>
-            Ten tydzień
-          </h2>
-          <span className="text-sm text-muted">{week.total ? `${week.done} z ${week.total} wykonań` : "brak wymaganych"}</span>
-        </div>
-        <div className="grid grid-cols-7 gap-2" role="list" aria-label="Dni tygodnia">
-          {week.days.map((d) => {
-            const share = d.total ? d.done / d.total : 0;
-            const future = d.date > today;
-            return (
-              <div
-                key={d.date}
-                role="listitem"
-                aria-label={`${formatWeekdayShort(d.date)} ${dayOfMonth(d.date)}: ${future ? "jeszcze przed nami" : d.total ? `${d.done} z ${d.total}` : "nic wymaganego"}`}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div className="flex h-24 w-full items-end overflow-hidden rounded-xl bg-surface">
-                  <div className="w-full rounded-xl bg-accent transition-[height]" style={{ height: `${future ? 0 : Math.max(share * 100, d.done ? 8 : 0)}%` }} />
-                </div>
-                <span className={`text-[11px] font-semibold ${d.date === today ? "text-text" : "text-muted"}`}>{formatWeekdayShort(d.date)}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-surface px-4 py-3">
-            <p className="text-xs font-semibold text-muted">Idealne dni w tym tygodniu</p>
-            <p className="mt-0.5 text-xl font-bold">{week.perfectDays}</p>
-          </div>
-          <div className="rounded-xl bg-surface px-4 py-3">
-            <p className="text-xs font-semibold text-muted">Seria idealnych dni</p>
-            <p className="mt-0.5 text-xl font-bold text-accent">
-              {perfectStreak} {plural(perfectStreak, "dzień", "dni", "dni")}
+      <section aria-labelledby="week-title" className="flex flex-col gap-3">
+        <h2 id="week-title" className={sectionTitle}>
+          Ten tydzień
+        </h2>
+        <div className="flex flex-col gap-4 rounded-xl bg-surface p-4">
+          <div>
+            <p className="text-[13px] font-semibold uppercase tracking-[0.02em] text-muted">Zrobione z wymaganych</p>
+            <p className="font-serif text-[34px] font-bold leading-tight tabular-nums">{week.total ? pct(week.done / week.total) : "—"}</p>
+            <p className="text-[13px] text-muted">
+              {week.total ? `${week.done} z ${week.total} wykonań` : "brak wymaganych"}
+              {delta !== null && (
+                <span className={delta >= 0 ? "text-positive" : "text-danger"}>
+                  {" "}
+                  · {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)} pkt proc. vs poprzedni
+                </span>
+              )}
             </p>
           </div>
+          <div className="grid grid-cols-7 gap-2" role="list" aria-label="Dni tygodnia">
+            {week.days.map((d) => {
+              const share = d.total ? d.done / d.total : 0;
+              const future = d.date > today;
+              const perfect = d.total > 0 && d.done === d.total;
+              return (
+                <div
+                  key={d.date}
+                  role="listitem"
+                  aria-label={`${formatWeekdayShort(d.date)} ${dayOfMonth(d.date)}: ${future ? "jeszcze przed nami" : d.total ? `${d.done} z ${d.total}` : "nic wymaganego"}`}
+                  className="flex flex-col items-center gap-1.5"
+                >
+                  <div className="flex h-24 w-full items-end overflow-hidden rounded-lg bg-fill">
+                    <div
+                      className="w-full rounded-lg transition-[height]"
+                      style={{ height: `${future ? 0 : Math.max(share * 100, d.done ? 8 : 0)}%`, background: perfect ? "var(--c-green-bg)" : "var(--accent)" }}
+                    />
+                  </div>
+                  <span className={`text-[11px] font-semibold ${d.date === today ? "text-accent" : "text-muted"}`}>{formatWeekdayShort(d.date)}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <p className="text-xs text-muted">Idealny dzień: wszystkie nawyki wymagane tego dnia zrobione (pominięte się nie liczą).</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Tile label="Idealne dni" value={String(week.perfectDays)} hint="w tym tygodniu" />
+          <Tile label="Seria idealnych" value={`${perfectStreak} ${plural(perfectStreak, "dzień", "dni", "dni")}`} accent />
+          {best && <Tile label="Najlepiej idzie" value={WEEKDAYS[best.weekday - 1]!} hint={`${pct(best.share)} · ostatnie 8 tyg.`} />}
+          {worst && <Tile label="Najtrudniej" value={WEEKDAYS[worst.weekday - 1]!} hint={`${pct(worst.share)} · ostatnie 8 tyg.`} />}
+        </div>
+        <p className="px-1 text-xs text-muted">Idealny dzień: wszystkie nawyki wymagane tego dnia zrobione (pominięte się nie liczą). Zielony słupek = idealny dzień.</p>
       </section>
 
       <section aria-labelledby="trend-title" className="flex flex-col gap-3">
         <h2 id="trend-title" className={sectionTitle}>
           Ostatnie 12 tygodni
         </h2>
-        <figure className="flex flex-col gap-2">
+        <figure className="flex flex-col gap-2 rounded-xl bg-surface p-4">
           <div className="flex h-32 items-end gap-1.5" role="img" aria-label={`Udział zrobionych w wymaganych, tydzień po tygodniu: ${trend.map((t) => pct(t.share)).join(", ")}`}>
             {trend.map((t, i) => (
               <div key={t.weekStart} className="flex h-full flex-1 flex-col justify-end">
                 <div
-                  className={`w-full rounded-md ${i === trend.length - 1 ? "bg-accent" : "bg-accent/60"}`}
-                  style={{ height: `${t.share === null ? 0 : Math.max((t.share / maxTrend) * 100, 3)}%` }}
+                  className={`w-full rounded-md ${t.share === null ? "bg-fill" : i === trend.length - 1 ? "bg-accent" : "bg-accent/60"}`}
+                  style={{ height: t.share === null ? "4px" : `${Math.max(t.share * 100, 3)}%` }}
                 />
               </div>
             ))}
           </div>
           <figcaption className="flex justify-between text-xs text-muted">
             <span>12 tyg. temu</span>
-            <span>ten tydzień · {pct(trend.at(-1)?.share ?? null)}</span>
+            <span>
+              średnio {pct(average)} · ten tydzień {pct(trend.at(-1)?.share ?? null)}
+            </span>
           </figcaption>
         </figure>
       </section>

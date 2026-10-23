@@ -32,7 +32,7 @@ export function QuitRow({ item, date, isToday }: { item: TodayItem; date: LocalD
     <div className="flex items-center gap-3 border-b-[0.5px] border-border py-2.5">
       <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="w-full truncate text-[17px] font-semibold">{habit.name}</span>
+        <span className="w-full truncate text-[17px] font-medium">{habit.name}</span>
         <span className={`text-[13px] ${slipped ? "text-danger" : "font-semibold text-accent"}`}>{detail}</span>
       </div>
       <button
@@ -41,7 +41,7 @@ export function QuitRow({ item, date, isToday }: { item: TodayItem; date: LocalD
         aria-pressed={slipped}
         aria-label={slipped ? `${habit.name}: cofnij wpadkę` : `${habit.name}: zaznacz wpadkę`}
         className={`inline-flex h-11 shrink-0 items-center justify-center rounded-full px-4 text-sm font-semibold ${
-          slipped ? "border-[1.5px] border-control text-muted" : "border-[1.5px] border-danger text-danger"
+          slipped ? "bg-fill text-muted" : "bg-fill text-danger"
         }`}
       >
         {slipped ? "Cofnij" : "Wpadka"}

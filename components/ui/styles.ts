@@ -4,14 +4,19 @@ export const field =
 export const label = "flex flex-col gap-1.5";
 export const labelText = "px-1 text-[13px] font-normal uppercase tracking-[0.02em] text-muted";
 export const errorText = "px-1 text-[13px] text-danger";
-export const btnPrimary =
-  "inline-flex h-[50px] items-center justify-center rounded-[14px] bg-accent px-6 text-[17px] font-semibold text-accent-contrast transition-opacity active:opacity-70 disabled:opacity-40";
-export const btnSecondary =
-  "inline-flex h-[50px] items-center justify-center rounded-[14px] bg-fill px-6 text-[17px] font-semibold text-accent transition-opacity active:opacity-70 disabled:opacity-40";
-export const btnDanger =
-  "inline-flex h-[50px] items-center justify-center rounded-[14px] bg-fill px-6 text-[17px] font-semibold text-danger transition-opacity active:opacity-70 disabled:opacity-40";
+const btnBase = "inline-flex items-center justify-center font-semibold transition-opacity active:opacity-70 disabled:opacity-40";
+const large = "h-[50px] rounded-[14px] px-6 text-[17px]";
+const small = "h-11 rounded-xl px-3 text-[15px]";
+export const btnPrimary = `${btnBase} ${large} bg-accent text-accent-contrast`;
+export const btnSecondary = `${btnBase} ${large} bg-fill text-accent`;
+export const btnDanger = `${btnBase} ${large} bg-fill text-danger`;
+/** Mniejsze przyciski do kart i wierszy */
+export const btnPrimarySm = `${btnBase} ${small} bg-accent text-accent-contrast`;
+export const btnSecondarySm = `${btnBase} ${small} bg-fill text-accent`;
 export const btnQuiet = "inline-flex h-11 items-center justify-center rounded-full px-4 text-[17px] text-accent active:opacity-60";
 export const sectionTitle = "font-serif text-[22px] font-bold";
+/** Nagłówek grupy jak w Ustawieniach iOS: mały, wersalikami, szary, nad białą grupą */
+export const groupHeader = "px-4 pb-1.5 text-[13px] uppercase tracking-[0.02em] text-muted";
 export const chip = (on: boolean) =>
   `inline-flex h-11 items-center justify-center rounded-[10px] px-4 text-[15px] font-semibold transition-colors ${
     on ? "bg-accent text-accent-contrast" : "bg-surface text-text"

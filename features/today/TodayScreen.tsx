@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { groupHeader } from "@/components/ui/styles";
 import { Onboarding } from "@/features/onboarding/Onboarding";
 import { ReminderPrompt } from "@/features/reminders/ReminderPrompt";
 import { snapshotKey, useSnapshot, useToday } from "@/lib/data/hooks";
@@ -141,7 +142,7 @@ export function TodayScreen() {
             const title = g.part ? PART_LABELS[g.part] : "Kiedykolwiek";
             return (
               <section key={g.part ?? "any"} aria-label={title}>
-                <h2 className="px-4 pb-1.5 pt-6 text-[13px] uppercase tracking-[0.02em] text-muted">{title}</h2>
+                <h2 className={`${groupHeader} pt-6`}>{title}</h2>
                 <ul className="ios-group">
                   {g.items.map((item) => (
                     <li key={item.habit.id}>
@@ -155,7 +156,7 @@ export function TodayScreen() {
 
         {view.quit.length > 0 && (
           <section aria-labelledby="quit-heading">
-            <h2 id="quit-heading" className="px-4 pb-1.5 pt-6 text-[13px] uppercase tracking-[0.02em] text-muted">
+            <h2 id="quit-heading" className={`${groupHeader} pt-6`}>
               Rzucam
             </h2>
             <ul className="ios-group">
@@ -170,7 +171,7 @@ export function TodayScreen() {
 
         {view.done.length > 0 && (
           <section aria-labelledby="done-heading">
-            <h2 id="done-heading" className="px-4 pb-1.5 pt-6 text-[13px] uppercase tracking-[0.02em] text-muted">
+            <h2 id="done-heading" className={`${groupHeader} pt-6`}>
               Zrobione
             </h2>
             <ul className="ios-group">

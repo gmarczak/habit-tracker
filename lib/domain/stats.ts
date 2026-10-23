@@ -1,4 +1,4 @@
-import { addDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
+import { addDays, isoWeekday, startOfWeek, type LocalDate, type WeekStart } from "./dates";
 import type { DayNote, Entry, Habit, Pause } from "./model";
 import { completionRate } from "./progress";
 import { dayProgress } from "./today";
@@ -117,4 +117,26 @@ export function notedDays(
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, limit)
     .map((n) => ({ ...dayTotals(habits, entries, pauses, n.date), note: n.note }));
+}
+
+/**
+ * Udział zrobionych w wymaganych według dnia tygodnia (ISO 1..7) z ostatnich `weeks` pełnych tygodni
+ * (bez dzisiejszego, niedokończonego dnia). null = w ten dzień nic nie było wymagane.
+ */
+export function weekdayShares(
+  habits: readonly Habit[],
+  entries: readonly Entry[],
+  pauses: readonly Pause[],
+  today: LocalDate,
+  weeks = 8,
+): { weekday: number; share: number | null }[] {
+  const sums = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
+  for (let i = 1; i <= weeks * 7; i++) {
+    const d = addDays(today, -i);
+    const t = dayTotals(habits, entries, pauses, d);
+    const s = sums[isoWeekday(d) - 1]!;
+    s.done += t.done;
+    s.total += t.total;
+  }
+  return sums.map((s, i) => ({ weekday: i + 1, share: s.total === 0 ? null : s.done / s.total }));
 }

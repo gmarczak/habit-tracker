@@ -3,12 +3,20 @@
 import { useRef, useState } from "react";
 import { useEntryMutation } from "@/lib/data/hooks";
 import type { LocalDate } from "@/lib/domain/dates";
+import { METRIC_INFO } from "@/lib/domain/health";
 import type { TodayItem } from "@/lib/domain/today";
 import { formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { EntrySheet } from "./EntrySheet";
 
 const LONG_PRESS_MS = 450;
+
+/** Nawyk z Apple Zdrowie: skąd i od kiedy się odhaczy (np. „auto od 7000 kroków”). */
+function autoText(habit: TodayItem["habit"]): string | null {
+  if (!habit.source) return null;
+  const info = METRIC_INFO[habit.source];
+  return habit.kind === "check" && habit.sourceMin ? `auto od ${formatNumber(habit.sourceMin)} ${info.unit}` : `auto · ${info.label.toLowerCase()}`;
+}
 
 function haptic() {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(12);
@@ -81,7 +89,7 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
     ? "Pominięte"
     : isDone
       ? streakText
-      : [progressText, habit.source ? "z Apple Zdrowie" : null, streakText].filter(Boolean).join(" · ") ||
+      : [progressText, autoText(habit), streakText].filter(Boolean).join(" · ") ||
         (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
 
   const actionLabel =
@@ -96,7 +104,7 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
       <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size={compact ? "sm" : "md"} />
 
       <button type="button" onClick={() => setSheetOpen(true)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-        <span className={`w-full truncate ${compact ? "text-[17px] text-done line-through decoration-control" : "text-[17px] font-medium"}`}>{title}</span>
+        <span className={`w-full truncate ${compact ? "text-[17px] text-done" : "text-[17px] font-medium"}`}>{title}</span>
         {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
       </button>
 

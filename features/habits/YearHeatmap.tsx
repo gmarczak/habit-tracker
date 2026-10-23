@@ -47,7 +47,7 @@ export function YearHeatmap({ habit, entries, pauses, today, weekStart }: Props)
                 <span
                   key={cell.date}
                   className="block h-[11px] w-[11px] rounded-[3px]"
-                  style={{ background: FILL[cell.state] ?? "var(--surface)", opacity: cell.state === "future" ? 0 : 1 }}
+                  style={{ background: FILL[cell.state] ?? "var(--fill)", opacity: cell.state === "future" ? 0 : 1 }}
                 />
               ))}
             </div>
