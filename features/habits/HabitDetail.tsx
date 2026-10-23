@@ -34,11 +34,11 @@ export function HabitDetail({ id }: { id: string }) {
   const archive = useAction((s, v: { id: string; archived: boolean }) => setArchived(s, v.id, v.archived));
   const removePause = useAction((s, pauseId: string) => deletePause(s, pauseId));
 
-  if (isPending || !today) return <main className="px-6 pt-7 text-muted">Ładuję…</main>;
+  if (isPending || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
   const habit = snapshot?.habits.find((h) => h.id === id);
   if (!snapshot || !habit) {
     return (
-      <main className="flex flex-col gap-3 px-6 pt-7">
+      <main className="flex flex-col gap-3 px-4 pt-6">
         <p>Nie ma takiego nawyku.</p>
         <Link href="/habits" className="font-semibold text-accent">
           Wróć do listy
@@ -71,7 +71,7 @@ export function HabitDetail({ id }: { id: string }) {
   }
 
   return (
-    <main className="flex flex-col gap-7 px-6 pt-5">
+    <main className="flex flex-col gap-7 px-4 pt-4">
       <Link href="/habits" className="-ml-1 flex h-11 items-center gap-1 self-start text-sm font-medium text-muted">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M15 6l-6 6 6 6" />
@@ -82,7 +82,7 @@ export function HabitDetail({ id }: { id: string }) {
       <header className="flex items-center gap-4">
         <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size="lg" />
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-[28px] font-semibold leading-tight">{habit.name}</h1>
+          <h1 className="font-serif text-[30px] font-bold leading-tight">{habit.name}</h1>
           <p className="text-sm text-muted">
             {plan ? describePlan(plan, habit.kind, habit.unit) : ""}
             {isArchived ? " · w archiwum" : ""}
@@ -121,7 +121,7 @@ export function HabitDetail({ id }: { id: string }) {
         </h2>
         <p className="text-sm text-muted">Dni pauzy są neutralne: nie przerywają serii i nie obniżają skuteczności.</p>
         {habitPauses.map((p) => (
-          <div key={p.id} className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3">
+          <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
             <span className="text-sm">
               {formatDayLong(p.startDate)} – {formatDayLong(p.endDate)}
               {p.reason ? ` · ${p.reason}` : ""}
@@ -143,9 +143,9 @@ export function HabitDetail({ id }: { id: string }) {
           <h2 id="notes-title" className={sectionTitle}>
             Notatki
           </h2>
-          <ul className="flex flex-col">
+          <ul className="ios-group flex flex-col">
             {notes.map((n) => (
-              <li key={n.date} className="border-b border-border py-3">
+              <li key={n.date} className="border-b-[0.5px] border-border py-3">
                 <p className="text-xs font-semibold text-muted first-letter:uppercase">{formatDayLong(n.date)}</p>
                 <p className="whitespace-pre-line">{n.note}</p>
               </li>
@@ -183,7 +183,7 @@ export function HabitDetail({ id }: { id: string }) {
 
 function Stat({ label: text, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="rounded-2xl bg-surface px-4 py-3">
+    <div className="rounded-xl bg-surface px-4 py-3">
       <dt className="text-xs font-semibold text-muted">{text}</dt>
       <dd className={`mt-0.5 text-xl font-bold ${accent ? "text-accent" : ""}`}>{value}</dd>
     </div>

@@ -64,7 +64,7 @@ export function HealthSync() {
       </p>
 
       {linked.length > 0 ? (
-        <ul className="flex flex-col divide-y divide-border rounded-2xl bg-surface px-4">
+        <ul className="flex flex-col divide-y divide-border rounded-xl bg-surface px-4">
           {linked.map((h) => (
             <li key={h.id} className="flex items-center justify-between gap-3 py-3 text-sm">
               <span className="font-semibold">{h.name}</span>
@@ -76,7 +76,7 @@ export function HealthSync() {
           ))}
         </ul>
       ) : (
-        <p className="rounded-2xl bg-surface px-4 py-3 text-sm">
+        <p className="rounded-xl bg-surface px-4 py-3 text-sm">
           Żaden nawyk nie ma jeszcze źródła. Ustawisz je w edycji nawyku (
           <Link href="/habits" className="underline underline-offset-2">
             Nawyki
@@ -95,7 +95,7 @@ export function HealthSync() {
       )}
 
       {token && (
-        <div className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-accent px-4 py-3">
+        <div className="flex flex-col gap-2 rounded-xl border-[1.5px] border-accent px-4 py-3">
           <span className="text-sm font-semibold">Twój klucz — widać go tylko teraz</span>
           <code className="break-all text-sm">{token}</code>
           <button type="button" onClick={() => void copy(token, "token")} className={`${btnSecondary} self-start`}>
@@ -130,7 +130,7 @@ export function HealthSync() {
       {status.data && !token && <p className="text-xs text-muted">„Nowy klucz” unieważnia poprzedni — trzeba go wtedy podmienić w Skrócie.</p>}
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <details className="rounded-2xl bg-surface px-4 py-3 text-sm">
+      <details className="rounded-xl bg-surface px-4 py-3 text-sm">
         <summary className="cursor-pointer font-semibold">Jak zrobić Skrót (5 minut)</summary>
         <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5">
           <li>

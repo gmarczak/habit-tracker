@@ -44,7 +44,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4">
         {toast && (
-          <div key={toast.id} role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-2xl bg-text px-5 py-3 text-bg shadow-lg">
+          <div key={toast.id} role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-text px-5 py-3 text-bg shadow-lg">
             <span className="text-sm font-medium">{toast.message}</span>
             {toast.actionLabel && (
               <button

@@ -176,7 +176,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
                 aria-label={name}
                 aria-pressed={on}
                 onClick={() => set("icon", on ? null : key)}
-                className={`flex h-12 items-center justify-center rounded-2xl border-[1.5px] ${on ? "border-accent bg-surface" : "border-transparent"}`}
+                className={`flex h-12 items-center justify-center rounded-xl border-[1.5px] ${on ? "border-accent bg-surface" : "border-transparent"}`}
               >
                 <Icon size={22} strokeWidth={2} aria-hidden="true" />
               </button>
@@ -203,10 +203,10 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
               className="flex h-11 w-11 items-center justify-center rounded-full"
               style={{
                 background: `var(--c-${c}-bg)`,
-                boxShadow: form.color === c ? `0 0 0 2px var(--bg), 0 0 0 4px var(--c-${c}-fg)` : "none",
+                boxShadow: form.color === c ? `0 0 0 3px var(--bg), 0 0 0 5px var(--c-${c}-bg)` : "none",
               }}
             >
-              <span className="h-4 w-4 rounded-full" style={{ background: `var(--c-${c}-fg)` }} />
+              {form.color === c && <span className="h-3 w-3 rounded-full bg-white" />}
             </button>
           ))}
         </div>
@@ -402,7 +402,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
 
 function Stepper({ label: text, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (n: number) => void }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-surface px-4 py-2">
+    <div className="flex items-center justify-between rounded-xl bg-surface px-4 py-2">
       <span className="font-medium">{text}</span>
       <div className="flex items-center gap-3">
         <button type="button" aria-label="Mniej" disabled={value <= min} onClick={() => onChange(value - 1)} className="h-11 w-11 rounded-full border-[1.5px] border-control text-xl disabled:opacity-40">

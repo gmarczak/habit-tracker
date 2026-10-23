@@ -48,10 +48,10 @@ export function YesterdayCard({ gap, onFill }: { gap: DayGap; onFill: () => void
 
   const count = gap.missing.length;
   return (
-    <section aria-labelledby="yesterday-title" className="mt-4 flex flex-col gap-3 rounded-3xl bg-surface p-5">
+    <section aria-labelledby="yesterday-title" className="mt-4 flex flex-col gap-3 rounded-xl bg-surface p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 id="yesterday-title" className="font-serif text-lg font-semibold">
+          <h2 id="yesterday-title" className="font-serif text-lg font-bold">
             {count === 1 ? "Wczoraj został 1 nawyk" : `Wczoraj zostały ${count} nawyki`}
           </h2>
           <p className="text-sm text-muted">{names(gap)}</p>
@@ -85,8 +85,8 @@ export function DayOffCard({ pause, isToday }: { pause: PauseRecord; isToday: bo
   const single = pause.startDate === pause.endDate;
   const pending = pause.id.startsWith("day-off-");
   return (
-    <section className="mt-4 flex flex-col gap-2 rounded-3xl bg-surface p-5">
-      <h2 className="font-serif text-lg font-semibold">{single ? (isToday ? "Dziś masz wolne" : "Dzień wolny") : "Urlop"}</h2>
+    <section className="mt-4 flex flex-col gap-2 rounded-xl bg-surface p-5">
+      <h2 className="font-serif text-lg font-bold">{single ? (isToday ? "Dziś masz wolne" : "Dzień wolny") : "Urlop"}</h2>
       <p className="text-sm text-muted">
         {single ? "Nawyki tego dnia się nie liczą — serie trwają dalej." : `Pauza wszystkich nawyków do ${formatDayLong(pause.endDate)}. Zmienisz ją w Ustawieniach.`}
       </p>

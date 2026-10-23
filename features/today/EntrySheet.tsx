@@ -93,7 +93,7 @@ function EntryForm({ onClose, habit, plan, entry, date }: Props) {
           maxLength={1000}
           rows={3}
           placeholder="Jak poszło? (opcjonalnie)"
-          className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base placeholder:text-muted"
+          className="w-full rounded-[10px] bg-surface px-4 py-3 text-[17px] placeholder:text-muted"
         />
       </label>
 

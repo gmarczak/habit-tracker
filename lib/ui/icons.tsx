@@ -115,18 +115,18 @@ export const COLOR_LABELS: Record<HabitColor, string> = {
 
 type Props = { icon: string | null; color: HabitColor; name: string; size?: "sm" | "md" | "lg" };
 
-/** Kółko z ikoną w kolorze nawyku; bez ikony pierwsza litera nazwy. */
+/** Kafelek w kolorze nawyku z białą ikoną (jak w Ustawieniach iOS); bez ikony pierwsza litera nazwy. */
 export function HabitBadge({ icon, color, name, size = "md" }: Props) {
   const entry = icon ? ICONS[icon] : undefined;
-  const box = size === "lg" ? "h-14 w-14" : size === "sm" ? "h-8 w-8" : "h-10 w-10";
-  const px = size === "lg" ? 26 : size === "sm" ? 16 : 20;
+  const box = size === "lg" ? "h-14 w-14 rounded-[14px]" : size === "sm" ? "h-7 w-7 rounded-[7px]" : "h-9 w-9 rounded-[9px]";
+  const px = size === "lg" ? 28 : size === "sm" ? 16 : 20;
   return (
     <span
       aria-hidden="true"
-      className={`flex ${box} shrink-0 items-center justify-center rounded-full font-semibold`}
+      className={`flex ${box} shrink-0 items-center justify-center font-semibold`}
       style={{ background: `var(--c-${color}-bg)`, color: `var(--c-${color}-fg)` }}
     >
-      {entry ? <entry.Icon size={px} strokeWidth={2} /> : name.trim().charAt(0).toUpperCase()}
+      {entry ? <entry.Icon size={px} strokeWidth={2.2} /> : name.trim().charAt(0).toUpperCase()}
     </span>
   );
 }

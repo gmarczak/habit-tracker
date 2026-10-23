@@ -20,7 +20,7 @@ export function DayNote({ date, note }: { date: LocalDate; note: string | null }
 
   if (!editing) {
     return note ? (
-      <button type="button" onClick={() => setEditing(true)} className="mt-6 flex flex-col items-start gap-1 rounded-2xl bg-surface px-4 py-3 text-left">
+      <button type="button" onClick={() => setEditing(true)} className="mt-6 flex flex-col items-start gap-1 rounded-xl bg-surface px-4 py-3 text-left">
         <span className="text-xs font-bold uppercase tracking-wider text-muted">Notatka dnia</span>
         <span className="whitespace-pre-wrap">{note}</span>
       </button>
@@ -42,7 +42,7 @@ export function DayNote({ date, note }: { date: LocalDate; note: string | null }
           maxLength={1000}
           rows={3}
           placeholder="np. spałem 5 godzin, wyjazd, choroba"
-          className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-base placeholder:text-muted"
+          className="w-full rounded-[10px] bg-surface px-4 py-3 text-[17px] placeholder:text-muted"
         />
       </label>
       {error && <p className="text-sm text-danger">{error}</p>}

@@ -1,17 +1,18 @@
-/** Wspólne klasy pól i przycisków (tokeny z app/globals.css). */
-export const field = "h-12 w-full rounded-xl border border-border bg-surface px-4 text-base text-text placeholder:text-muted";
+/** Wspólne klasy pól i przycisków w stylu iOS (tokeny z app/globals.css). */
+export const field =
+  "h-11 w-full rounded-[10px] border-0 bg-surface px-4 text-[17px] text-text placeholder:text-muted focus:outline-2 focus:outline-accent";
 export const label = "flex flex-col gap-1.5";
-export const labelText = "text-sm font-semibold";
-export const errorText = "text-sm text-danger";
+export const labelText = "px-1 text-[13px] font-normal uppercase tracking-[0.02em] text-muted";
+export const errorText = "px-1 text-[13px] text-danger";
 export const btnPrimary =
-  "inline-flex h-12 items-center justify-center rounded-full bg-accent px-6 font-semibold text-accent-contrast disabled:opacity-60";
+  "inline-flex h-[50px] items-center justify-center rounded-[14px] bg-accent px-6 text-[17px] font-semibold text-accent-contrast transition-opacity active:opacity-70 disabled:opacity-40";
 export const btnSecondary =
-  "inline-flex h-12 items-center justify-center rounded-full border-[1.5px] border-control px-6 font-semibold text-text disabled:opacity-50";
+  "inline-flex h-[50px] items-center justify-center rounded-[14px] bg-fill px-6 text-[17px] font-semibold text-accent transition-opacity active:opacity-70 disabled:opacity-40";
 export const btnDanger =
-  "inline-flex h-12 items-center justify-center rounded-full border-[1.5px] border-danger px-6 font-semibold text-danger disabled:opacity-50";
-export const btnQuiet = "inline-flex h-11 items-center justify-center rounded-full px-4 font-medium text-muted";
-export const sectionTitle = "font-serif text-lg font-semibold";
+  "inline-flex h-[50px] items-center justify-center rounded-[14px] bg-fill px-6 text-[17px] font-semibold text-danger transition-opacity active:opacity-70 disabled:opacity-40";
+export const btnQuiet = "inline-flex h-11 items-center justify-center rounded-full px-4 text-[17px] text-accent active:opacity-60";
+export const sectionTitle = "font-serif text-[22px] font-bold";
 export const chip = (on: boolean) =>
-  `inline-flex h-11 items-center justify-center rounded-full border-[1.5px] px-4 text-sm font-semibold ${
-    on ? "border-accent bg-accent text-accent-contrast" : "border-border text-text"
+  `inline-flex h-11 items-center justify-center rounded-[10px] px-4 text-[15px] font-semibold transition-colors ${
+    on ? "bg-accent text-accent-contrast" : "bg-surface text-text"
   }`;

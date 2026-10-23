@@ -31,7 +31,7 @@ export function SettingsScreen() {
   const removePause = useAction((s, id: string) => deletePause(s, id));
   const removeCategory = useAction((s, id: string) => deleteCategory(s, id));
 
-  if (!snapshot || !today) return <main className="px-6 pt-7 text-muted">Ładuję…</main>;
+  if (!snapshot || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
 
   const vacations = snapshot.pauses.filter((p) => p.habitId === null && p.endDate >= today);
 
@@ -45,8 +45,8 @@ export function SettingsScreen() {
   const stamp = today;
 
   return (
-    <main className="flex flex-col gap-9 px-6 pt-7 pb-6">
-      <h1 className="font-serif text-[30px] font-semibold leading-tight">Ustawienia</h1>
+    <main className="flex flex-col gap-9 px-4 pt-6 pb-6">
+      <h1 className="font-serif text-[34px] font-bold leading-tight">Ustawienia</h1>
 
       <DayAndWeek key={JSON.stringify(snapshot.settings)} userId={snapshot.userId} initial={snapshot.settings} />
 
@@ -60,7 +60,7 @@ export function SettingsScreen() {
         </h2>
         <p className="text-sm text-muted">Pauza dla wszystkich nawyków naraz. Serie przetrwają, statystyki nie spadną.</p>
         {vacations.map((p) => (
-          <div key={p.id} className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3">
+          <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
             <span className="text-sm">
               {formatDayLong(p.startDate)} – {formatDayLong(p.endDate)}
               {p.reason ? ` · ${p.reason}` : ""}
@@ -80,11 +80,11 @@ export function SettingsScreen() {
           <h2 id="cat-title" className={sectionTitle}>
             Kategorie
           </h2>
-          <ul>
+          <ul className="ios-group">
             {snapshot.categories.map((c) => {
               const count = snapshot.habits.filter((h) => h.categoryId === c.id).length;
               return (
-                <li key={c.id} className="flex items-center justify-between border-b border-border py-2.5">
+                <li key={c.id} className="flex items-center justify-between border-b-[0.5px] border-border py-2.5">
                   <span>
                     {c.name} <span className="text-sm text-muted">· {count}</span>
                   </span>

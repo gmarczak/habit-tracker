@@ -92,11 +92,11 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
         : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
 
   return (
-    <div className={`flex items-center gap-3.5 ${compact ? "py-2.5" : "border-b border-border py-4"}`}>
-      {!compact && <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} />}
+    <div className={`flex items-center gap-3 border-b-[0.5px] border-border ${compact ? "py-2" : "py-2.5"}`}>
+      <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size={compact ? "sm" : "md"} />
 
       <button type="button" onClick={() => setSheetOpen(true)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-        <span className={`w-full truncate ${compact ? "text-base font-medium text-done" : "text-[17px] font-semibold"}`}>{title}</span>
+        <span className={`w-full truncate ${compact ? "text-[17px] text-done line-through decoration-control" : "text-[17px] font-medium"}`}>{title}</span>
         {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
       </button>
 
@@ -122,8 +122,8 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
               : isSkipped
               ? "w-11 border-[1.5px] border-control text-muted"
               : habit.kind === "count"
-                ? "min-w-14 border-[1.5px] border-accent px-3 text-accent"
-                : "w-11 border-[1.5px] border-control"
+                ? "min-w-14 bg-fill px-3 text-accent"
+                : "w-11 border-2 border-control"
         }`}
       >
         {isDone || weekMet ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}

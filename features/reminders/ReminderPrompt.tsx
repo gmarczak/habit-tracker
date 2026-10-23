@@ -56,8 +56,8 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
   }
 
   return (
-    <section aria-labelledby="reminder-title" className="mt-4 flex flex-col gap-3 rounded-3xl bg-surface p-5">
-      <h2 id="reminder-title" className="font-serif text-lg font-semibold">
+    <section aria-labelledby="reminder-title" className="mt-4 flex flex-col gap-3 rounded-xl bg-surface p-5">
+      <h2 id="reminder-title" className="font-serif text-lg font-bold">
         Przypomnieć Ci wieczorem?
       </h2>
       {iosInstall ? (
