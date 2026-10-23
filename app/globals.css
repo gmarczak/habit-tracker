@@ -18,6 +18,8 @@
   --control: #c7c7cc;
   --dot-off: #d1d1d6;
   --danger: #d70015;
+  /* zielony tekst czytelny na białym (iOS accessible green) */
+  --positive: #248a3d;
   --bar: rgba(249, 249, 249, 0.82);
 
   /* kolory nawyków (systemowe kolory iOS): tło kafelka / ikona */
@@ -52,6 +54,7 @@
     --control: #48484a;
     --dot-off: #3a3a3c;
     --danger: #ff453a;
+    --positive: #30d158;
     --bar: rgba(22, 22, 23, 0.82);
 
     --c-green-bg: #30d158;
@@ -78,6 +81,7 @@
   --color-control: var(--control);
   --color-dot-off: var(--dot-off);
   --color-danger: var(--danger);
+  --color-positive: var(--positive);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
   /* nagłówki: SF Pro Display (system dobiera krój do rozmiaru) */
   --font-serif: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;

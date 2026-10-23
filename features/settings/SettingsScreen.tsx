@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { btnDanger, btnPrimary, btnSecondary, chip, field, label, labelText, sectionTitle } from "@/components/ui/styles";
+import { btnDanger, btnSecondary, chip, field, label, labelText, sectionTitle } from "@/components/ui/styles";
 import { PasswordForm } from "@/features/auth/PasswordForm";
 import { PauseForm } from "@/features/habits/HabitDetail";
 import { disablePush } from "@/features/reminders/push";
@@ -28,6 +28,7 @@ export function SettingsScreen() {
   const router = useRouter();
   const [vacation, setVacation] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const removePause = useAction((s, id: string) => deletePause(s, id));
   const removeCategory = useAction((s, id: string) => deleteCategory(s, id));
@@ -53,11 +54,11 @@ export function SettingsScreen() {
     <main className="flex flex-col gap-9 px-4 pt-6 pb-6">
       <h1 className="font-serif text-[34px] font-bold leading-tight">Ustawienia</h1>
 
-      <DayAndWeek key={JSON.stringify(snapshot.settings)} userId={snapshot.userId} initial={snapshot.settings} />
-
       <ReminderSettings />
 
       <HealthSync />
+
+      <DayAndWeek key={JSON.stringify(snapshot.settings)} userId={snapshot.userId} initial={snapshot.settings} />
 
       <section aria-labelledby="vac-title" className="flex flex-col gap-3">
         <h2 id="vac-title" className={sectionTitle}>
@@ -127,7 +128,13 @@ export function SettingsScreen() {
           Konto
         </h2>
         {snapshot.email && <p className="text-sm text-muted">Zalogowano jako {snapshot.email}</p>}
-        <PasswordForm />
+        {changingPassword ? (
+          <PasswordForm />
+        ) : (
+          <button type="button" onClick={() => setChangingPassword(true)} className={`${btnSecondary} self-start`}>
+            Ustaw lub zmień hasło
+          </button>
+        )}
         <div className="flex flex-wrap gap-3">
           <button type="button" onClick={() => void signOut()} className={btnSecondary}>
             Wyloguj
@@ -157,8 +164,20 @@ export function SettingsScreen() {
 
 function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm }) {
   const [form, setForm] = useState<SettingsForm>(initial);
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const save = useAction((s, v: SettingsForm) => updateSettings(s, userId, v));
+
+  // Jak w Ustawieniach iOS: zmiana zapisuje się od razu, bez przycisku
+  function change(next: SettingsForm) {
+    setForm(next);
+    save.mutate(next, {
+      onSuccess: () => setStatus("saved"),
+      onError: () => {
+        setForm(initial);
+        setStatus("error");
+      },
+    });
+  }
   const zones = useMemo(() => {
     try {
       return Intl.supportedValuesOf("timeZone");
@@ -166,16 +185,20 @@ function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm
       return [initial.timeZone];
     }
   }, [initial.timeZone]);
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
   return (
     <section aria-labelledby="day-title" className="flex flex-col gap-4">
-      <h2 id="day-title" className={sectionTitle}>
-        Dzień i tydzień
-      </h2>
+      <div className="flex items-baseline justify-between">
+        <h2 id="day-title" className={sectionTitle}>
+          Dzień i tydzień
+        </h2>
+        <span className={`text-[13px] ${status === "error" ? "text-danger" : "text-muted"}`} aria-live="polite">
+          {save.isPending ? "Zapisuję…" : status === "saved" ? "Zapisano" : status === "error" ? "Nie zapisano" : ""}
+        </span>
+      </div>
       <label className={label}>
         <span className={labelText}>Strefa czasowa</span>
-        <select value={form.timeZone} onChange={(e) => setForm({ ...form, timeZone: e.target.value })} className={field}>
+        <select value={form.timeZone} onChange={(e) => change({ ...form, timeZone: e.target.value })} className={field}>
           {zones.map((z) => (
             <option key={z} value={z}>
               {z.replace(/_/g, " ")}
@@ -187,7 +210,7 @@ function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm
         <legend className={`${labelText} mb-2`}>Tydzień zaczyna się w</legend>
         <div className="grid grid-cols-2 gap-2">
           {([1, 7] as WeekStart[]).map((w) => (
-            <button key={w} type="button" aria-pressed={form.weekStart === w} onClick={() => setForm({ ...form, weekStart: w })} className={chip(form.weekStart === w)}>
+            <button key={w} type="button" aria-pressed={form.weekStart === w} onClick={() => change({ ...form, weekStart: w })} className={chip(form.weekStart === w)}>
               {w === 1 ? "Poniedziałek" : "Niedzielę"}
             </button>
           ))}
@@ -195,7 +218,7 @@ function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm
       </fieldset>
       <label className={label}>
         <span className={labelText}>Dzień kończy się</span>
-        <select value={form.dayStartHour} onChange={(e) => setForm({ ...form, dayStartHour: Number(e.target.value) })} className={field}>
+        <select value={form.dayStartHour} onChange={(e) => change({ ...form, dayStartHour: Number(e.target.value) })} className={field}>
           {DAY_END.map((h) => (
             <option key={h} value={h}>
               {h === 0 ? "o północy" : `o ${h}:00 w nocy`}
@@ -204,14 +227,6 @@ function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm
         </select>
         <span className="text-xs text-muted">Jeśli kładziesz się po północy, ustaw np. 3:00 — odhaczenie o 1:30 trafi jeszcze do „wczoraj”.</span>
       </label>
-      <button
-        type="button"
-        disabled={!dirty || save.isPending}
-        onClick={() => save.mutate(form, { onSuccess: () => setSaved(true) })}
-        className={`${btnPrimary} self-start`}
-      >
-        {save.isPending ? "Zapisuję…" : saved && !dirty ? "Zapisano" : "Zapisz"}
-      </button>
     </section>
   );
 }

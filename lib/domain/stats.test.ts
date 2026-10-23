@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Entry, Habit, Plan } from "./model";
-import { habitRates, isPerfect, notedDays, perfectDayStreak, weekReview, weeklyTrend } from "./stats";
+import { habitRates, isPerfect, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "./stats";
 
 const TODAY = "2026-10-11"; // niedziela; tydzień od pn 2026-10-05
 
@@ -87,5 +87,27 @@ describe("notatki dni", () => {
       ["2026-10-10", "Wyjazd", 0, 2],
       ["2026-10-09", "Spałem 5 godzin", 1, 2],
     ]);
+  });
+});
+
+describe("dni tygodnia", () => {
+  it("liczy udział z ostatnich pełnych tygodni, bez dzisiejszego dnia", () => {
+    // 2 tygodnie przed niedzielą 11.10: pn 28.09 – sb 10.10 (+ nd 4.10). Poniedziałki pełne, wtorki puste.
+    const entries = [
+      e("a", "2026-09-28"), e("b", "2026-09-28"), e("a", "2026-10-05"), e("b", "2026-10-05"),
+      e("a", "2026-10-04"), // niedziela 4.10: 1 z 2
+      e("a", "2026-10-11"), e("b", "2026-10-11"), // dziś — nie liczy się
+    ];
+    const shares = weekdayShares(habits, entries, [], TODAY, 2);
+    expect(shares.find((s) => s.weekday === 1)?.share).toBe(1);
+    expect(shares.find((s) => s.weekday === 2)?.share).toBe(0);
+    expect(shares.find((s) => s.weekday === 7)?.share).toBe(0.25); // nd 4.10 1/2 i nd 27.09 0/2
+  });
+
+  it("null, gdy w dany dzień nic nie było wymagane", () => {
+    const weekdaysOnly = [habit("w", plan({ frequency: "weekdays", weekdays: [1, 2, 3, 4, 5] }))];
+    const shares = weekdayShares(weekdaysOnly, [], [], TODAY, 2);
+    expect(shares.find((s) => s.weekday === 6)?.share).toBeNull();
+    expect(shares.find((s) => s.weekday === 1)?.share).toBe(0);
   });
 });

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
-import { btnQuiet, sectionTitle } from "@/components/ui/styles";
+import { btnPrimary, btnQuiet, groupHeader } from "@/components/ui/styles";
 import { useAddHabit } from "@/features/shell/AppShell";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { deleteHabit, reorderHabits, setArchived } from "@/lib/data/mutations";
@@ -81,7 +81,7 @@ export function HabitsScreen() {
       {active.length === 0 && (
         <div className="flex flex-col items-start gap-3">
           <p className="text-muted">Nie masz aktywnych nawyków.</p>
-          <button type="button" onClick={() => addHabit()} className="h-12 rounded-full bg-accent px-6 font-semibold text-accent-contrast">
+          <button type="button" onClick={() => addHabit()} className={btnPrimary}>
             Dodaj nawyk
           </button>
         </div>
@@ -89,7 +89,7 @@ export function HabitsScreen() {
 
       {groups.map((group) => (
         <section key={group.title ?? "all"} aria-label={group.title ?? "Aktywne nawyki"}>
-          {group.title && <h2 className={`${sectionTitle} pb-1`}>{group.title}</h2>}
+          {group.title && <h2 className={groupHeader}>{group.title}</h2>}
           <ul className="ios-group">
             {group.habits.map((habit) => {
               const plan = planOn(habit, today) ?? habit.plans.at(-1);
@@ -112,8 +112,11 @@ export function HabitsScreen() {
                     <Link href={`/habits/${habit.id}`} className="flex min-w-0 flex-1 items-center gap-3.5">
                       <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} />
                       <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-[17px] font-semibold">{habit.name}</span>
-                        <span className="truncate text-[13px] text-muted">{plan ? describePlan(plan, habit.kind, habit.unit) : ""}</span>
+                        <span className="truncate text-[17px] font-medium">{habit.name}</span>
+                        <span className="truncate text-[13px] text-muted">
+                          {plan ? describePlan(plan, habit.kind, habit.unit) : ""}
+                          {habit.source ? " · Apple Zdrowie" : ""}
+                        </span>
                       </span>
                       {streak.current > 0 && <span className="shrink-0 text-[13px] font-semibold text-accent">{formatStreak(streak)}</span>}
                       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-muted">
@@ -135,7 +138,7 @@ export function HabitsScreen() {
             id="archive-title"
             aria-expanded={showArchive}
             onClick={() => setShowArchive((s) => !s)}
-            className="flex h-11 items-center gap-2 font-semibold text-muted"
+            className={`${groupHeader} flex h-11 items-center gap-1.5`}
           >
             Archiwum ({archived.length})
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={showArchive ? "rotate-180" : ""}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { btnPrimary, btnQuiet, btnSecondary } from "@/components/ui/styles";
+import { btnPrimarySm, btnQuiet, btnSecondarySm } from "@/components/ui/styles";
 import { useAction } from "@/lib/data/hooks";
 import { addDayOff, deletePause, withDayOff, withoutPause } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
@@ -48,10 +48,10 @@ export function YesterdayCard({ gap, onFill }: { gap: DayGap; onFill: () => void
 
   const count = gap.missing.length;
   return (
-    <section aria-labelledby="yesterday-title" className="mt-4 flex flex-col gap-3 rounded-xl bg-surface p-5">
+    <section aria-labelledby="yesterday-title" className="mt-4 flex flex-col gap-3 rounded-xl bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 id="yesterday-title" className="font-serif text-lg font-bold">
+          <h2 id="yesterday-title" className="text-[17px] font-semibold">
             {count === 1 ? "Wczoraj został 1 nawyk" : `Wczoraj zostały ${count} nawyki`}
           </h2>
           <p className="text-sm text-muted">{names(gap)}</p>
@@ -62,11 +62,11 @@ export function YesterdayCard({ gap, onFill }: { gap: DayGap; onFill: () => void
           </svg>
         </button>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={onFill} className={btnPrimary}>
-          Uzupełnij wczoraj
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={onFill} className={btnPrimarySm}>
+          Uzupełnij
         </button>
-        <button type="button" disabled={dayOff.isPending} onClick={() => dayOff.mutate(gap.date)} className={btnSecondary}>
+        <button type="button" disabled={dayOff.isPending} onClick={() => dayOff.mutate(gap.date)} className={btnSecondarySm}>
           Miałem wolne
         </button>
       </div>
@@ -103,8 +103,11 @@ export function DayOffCard({ pause, isToday }: { pause: PauseRecord; isToday: bo
 export function DayOffButton({ date, isToday }: { date: LocalDate; isToday: boolean }) {
   const dayOff = useAction((s, d: LocalDate) => addDayOff(s, d), withDayOff);
   return (
-    <button type="button" disabled={dayOff.isPending} onClick={() => dayOff.mutate(date)} className={`${btnQuiet} mt-6 self-center`}>
-      {isToday ? "Dziś wolne (choroba, wyjazd) — bez zrywania serii" : "Ten dzień był wolny"}
-    </button>
+    <div className="mt-6 flex flex-col items-center gap-0.5">
+      <button type="button" disabled={dayOff.isPending} onClick={() => dayOff.mutate(date)} className={btnQuiet}>
+        {isToday ? "Dzień wolny" : "Ten dzień był wolny"}
+      </button>
+      <p className="text-center text-[12px] text-muted">Choroba, wyjazd — serie się nie przerywają</p>
+    </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { btnPrimary, btnSecondary, field, label, labelText, sectionTitle } from "@/components/ui/styles";
@@ -10,6 +10,7 @@ import { enablePush } from "@/features/reminders/push";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { addPause, deletePause, deleteReminder, setArchived, upsertReminder } from "@/lib/data/mutations";
 import { addDays, type LocalDate } from "@/lib/domain/dates";
+import { METRIC_INFO } from "@/lib/domain/health";
 import type { Habit } from "@/lib/domain/model";
 import { completionRate, streakOf } from "@/lib/domain/progress";
 import { planOn } from "@/lib/domain/schedule";
@@ -85,6 +86,7 @@ export function HabitDetail({ id }: { id: string }) {
           <h1 className="font-serif text-[30px] font-bold leading-tight">{habit.name}</h1>
           <p className="text-sm text-muted">
             {plan ? describePlan(plan, habit.kind, habit.unit) : ""}
+            {habit.source ? ` · z Apple Zdrowie (${METRIC_INFO[habit.source].label.toLowerCase()})` : ""}
             {isArchived ? " · w archiwum" : ""}
           </p>
         </div>
@@ -103,14 +105,18 @@ export function HabitDetail({ id }: { id: string }) {
         <h2 id="cal-title" className={sectionTitle}>
           Kalendarz
         </h2>
-        <MonthCalendar habit={habit} entries={entries} pauses={pauses} today={today} weekStart={settings.weekStart} />
+        <div className="rounded-xl bg-surface p-3" style={habitTint(habit)}>
+          <MonthCalendar habit={habit} entries={entries} pauses={pauses} today={today} weekStart={settings.weekStart} />
+        </div>
       </section>
 
       <section aria-labelledby="year-title" className="flex flex-col gap-3">
         <h2 id="year-title" className={sectionTitle}>
           Rok
         </h2>
-        <YearHeatmap habit={habit} entries={entries} pauses={pauses} today={today} weekStart={settings.weekStart} />
+        <div className="rounded-xl bg-surface p-3" style={habitTint(habit)}>
+          <YearHeatmap habit={habit} entries={entries} pauses={pauses} today={today} weekStart={settings.weekStart} />
+        </div>
       </section>
 
       {!isArchived && <HabitReminder habit={habit} />}
@@ -263,4 +269,9 @@ function HabitReminder({ habit }: { habit: Habit }) {
       {error && <p className="text-sm text-danger">{error}</p>}
     </section>
   );
+}
+
+/** Kalendarz i mapa roku w kolorze nawyku (podmiana akcentu tylko w tym fragmencie). */
+function habitTint(habit: Habit): CSSProperties {
+  return { "--accent": `var(--c-${habit.color}-bg)` } as CSSProperties;
 }
