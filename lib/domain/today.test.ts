@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Entry, Habit, Plan } from "./model";
-import { buildDay } from "./today";
+import { addDays } from "./dates";
+import { buildDay, dayProgress } from "./today";
 
 const TODAY = "2026-10-11"; // niedziela
 
@@ -81,5 +82,27 @@ describe("ekran Dziś", () => {
     const past = buildDay(habits, entries, [], "2026-10-09", TODAY, 1); // piątek
     expect(past.todo.map((i) => i.habit.id)).toEqual(["woda", "czytanie", "pn-pt", "medytacja"]);
     expect(past.todo.every((i) => i.state === "pending")).toBe(true);
+  });
+});
+
+describe("dayProgress", () => {
+  it("daje ten sam pierścień co buildDay dla każdego z ostatnich 14 dni", () => {
+    const habits = [
+      habit("a", plan({ frequency: "daily", targetValue: 3 }), { kind: "count", unit: "stron" }),
+      habit("b", plan({ frequency: "weekdays", weekdays: [1, 3, 5] })),
+      habit("c", plan({ frequency: "weekly_count", timesPerWeek: 2 })),
+      habit("d", plan({ frequency: "daily" }), { goal: "quit" }),
+      habit("e", plan({ frequency: "every_n_days", intervalDays: 2 })),
+      habit("f", plan({ frequency: "daily" }), { archivedAt: "2026-10-01T00:00:00Z" }),
+    ];
+    const entries = [
+      e("a", "2026-10-10", 3), e("a", "2026-10-09", 1), e("b", "2026-10-07"), e("c", "2026-10-06"),
+      e("d", "2026-10-05"), e("e", "2026-10-04", null, true), e("f", "2026-10-03"),
+    ];
+    const pauses = [{ habitId: "a", startDate: "2026-10-01", endDate: "2026-10-02" }];
+    for (let i = 0; i < 14; i++) {
+      const d = addDays(TODAY, -i);
+      expect(dayProgress(habits, entries, pauses, d)).toEqual(buildDay(habits, entries, pauses, d, TODAY, 1).progress);
+    }
   });
 });

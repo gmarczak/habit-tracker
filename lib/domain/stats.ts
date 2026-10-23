@@ -1,7 +1,7 @@
 import { addDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
 import type { DayNote, Entry, Habit, Pause } from "./model";
 import { completionRate } from "./progress";
-import { buildDay } from "./today";
+import { dayProgress } from "./today";
 
 /*
  * Statystyki globalne. Dzień liczy się z nawyków wymaganych tego dnia (jak pierścień na ekranie Dziś):
@@ -15,11 +15,8 @@ export function dayTotals(
   entries: readonly Entry[],
   pauses: readonly Pause[],
   date: LocalDate,
-  today: LocalDate,
-  weekStart: WeekStart,
 ): DayTotals {
-  const { progress } = buildDay(habits, entries, pauses, date, today, weekStart);
-  return { date, ...progress };
+  return { date, ...dayProgress(habits, entries, pauses, date) };
 }
 
 /** Idealny dzień: był przynajmniej jeden wymagany nawyk i wszystkie są zrobione (pominięte się nie liczą). */
@@ -39,7 +36,7 @@ export function weekReview(
 ): WeekReview {
   const first = startOfWeek(anyDayInWeek, weekStart);
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i)).map((d) =>
-    d > today ? { date: d, done: 0, total: 0 } : dayTotals(habits, entries, pauses, d, today, weekStart),
+    d > today ? { date: d, done: 0, total: 0 } : dayTotals(habits, entries, pauses, d),
   );
   return {
     days,
@@ -77,7 +74,7 @@ export function perfectDayStreak(
   let streak = 0;
   for (let i = 0; i < limit; i++) {
     const d = addDays(today, -i);
-    const t = dayTotals(habits, entries, pauses, d, today, weekStart);
+    const t = dayTotals(habits, entries, pauses, d);
     if (t.total === 0) {
       if (habits.every((h) => h.startDate > d)) break;
       continue;
@@ -119,5 +116,5 @@ export function notedDays(
     .filter((n) => n.date <= today)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, limit)
-    .map((n) => ({ ...dayTotals(habits, entries, pauses, n.date, today, weekStart), note: n.note }));
+    .map((n) => ({ ...dayTotals(habits, entries, pauses, n.date), note: n.note }));
 }

@@ -16,7 +16,7 @@ import { entriesByDate, entryOutcome, isPaused, planOn, requirementOn } from "./
 
 type Ctx = {
   habit: Habit;
-  byDate: Map<LocalDate, Entry>;
+  byDate: ReadonlyMap<LocalDate, Entry>;
   pauses: readonly Pause[];
   today: LocalDate;
   weekStart: WeekStart;
