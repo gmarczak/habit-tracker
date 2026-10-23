@@ -1,5 +1,5 @@
 /* Service worker: powłoka offline + powiadomienia push. Bez zależności, żeby był przewidywalny. */
-const VERSION = "v2-6";
+const VERSION = "v2-7";
 const SHELL_CACHE = `shell-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
 const SHELL = [
@@ -51,18 +51,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Nawigacja: sieć, a bez sieci ostatnia zapisana wersja strony
+  // Nawigacja: sieć, a bez sieci (albo gdy sieć milczy dłużej niż 4 s) ostatnia zapisana wersja strony
   if (request.mode === "navigate") {
+    const network = fetch(request).then((res) => {
+      if (res.ok && !res.redirected) {
+        const copy = res.clone();
+        event.waitUntil(caches.open(SHELL_CACHE).then((c) => c.put(url.pathname, copy)));
+      }
+      return res;
+    });
+    event.waitUntil(network.catch(() => {}));
     event.respondWith(
-      fetch(request)
-        .then((res) => {
-          if (res.ok && !res.redirected) {
-            const copy = res.clone();
-            caches.open(SHELL_CACHE).then((c) => c.put(url.pathname, copy));
-          }
-          return res;
-        })
-        .catch(async () => (await caches.match(url.pathname)) || (await caches.match("/")) || Response.error()),
+      new Promise((resolve) => {
+        let settled = false;
+        const finish = (res) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(res);
+        };
+        // Słaby zasięg albo Wi-Fi bez internetu: zapytanie wisi — pokaż zapisaną stronę, dane i tak są w IndexedDB
+        const timer = setTimeout(() => {
+          caches.match(url.pathname).then((hit) => hit && finish(hit));
+        }, 4000);
+        network.then(finish).catch(async () => finish((await caches.match(url.pathname)) || (await caches.match("/")) || Response.error()));
+      }),
     );
   }
 });

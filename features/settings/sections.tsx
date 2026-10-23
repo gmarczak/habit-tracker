@@ -1,11 +1,13 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clear as clearIdb } from "idb-keyval";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import { btnDanger, btnSecondary, chip, field, groupHeader, label, labelText } from "@/components/ui/styles";
 import { PasswordForm } from "@/features/auth/PasswordForm";
 import { PauseForm } from "@/features/habits/HabitDetail";
@@ -13,8 +15,8 @@ import { disablePush } from "@/features/reminders/push";
 import { ReminderSettings } from "@/features/reminders/ReminderSettings";
 import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { deleteAccount, deleteCategory, deletePause, updateSettings, type SettingsForm } from "@/lib/data/mutations";
-import type { Snapshot } from "@/lib/data/snapshot";
+import { deleteAccount, deleteCategory, endPause, updateSettings, withPauseEnded, type SettingsForm } from "@/lib/data/mutations";
+import { fetchAllHealth, type Snapshot } from "@/lib/data/snapshot";
 import { supabaseBrowser } from "@/lib/db/client";
 import type { LocalDate, WeekStart } from "@/lib/domain/dates";
 import { formatDayLong } from "@/lib/format";
@@ -25,7 +27,7 @@ const DAY_END = [0, 1, 2, 3, 4, 5, 6];
 
 /** Podstrona Ustawień jak w iOS: „‹ Ustawienia”, duży tytuł, treść. */
 function Subpage({ title, children }: { title: string; children: (snapshot: Snapshot, today: LocalDate) => ReactNode }) {
-  const { data: snapshot } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   return (
     <main className="flex flex-col gap-6 px-4 pt-4 pb-6">
@@ -36,7 +38,7 @@ function Subpage({ title, children }: { title: string; children: (snapshot: Snap
         Ustawienia
       </Link>
       <h1 className="-mt-3 font-serif text-[34px] font-bold leading-tight">{title}</h1>
-      {snapshot && today ? children(snapshot, today) : <p className="text-muted">Ładuję…</p>}
+      {snapshot && today ? children(snapshot, today) : <DataFallback inline pending={isPending} onRetry={() => void refetch()} />}
     </main>
   );
 }
@@ -56,7 +58,7 @@ export function SiriPage() {
 export function DayAndWeekPage() {
   return (
     <Subpage title="Dzień i tydzień">
-      {(snapshot) => <DayAndWeek key={JSON.stringify(snapshot.settings)} userId={snapshot.userId} initial={snapshot.settings} />}
+      {(snapshot) => <DayAndWeek key={snapshot.userId} userId={snapshot.userId} initial={snapshot.settings} />}
     </Subpage>
   );
 }
@@ -70,6 +72,8 @@ export function CategoriesPage() {
 }
 
 export function DataPage() {
+  // Całe Apple Zdrowie pobrane od razu, żeby przycisk zapisał plik jeszcze w tym samym dotknięciu (wymóg iOS)
+  const allHealth = useQuery({ queryKey: ["health-all"], queryFn: () => fetchAllHealth(supabaseBrowser()), staleTime: 60_000 });
   return (
     <Subpage title="Twoje dane">
       {(snapshot, today) => (
@@ -81,12 +85,16 @@ export function DataPage() {
             </button>
             <button
               type="button"
-              onClick={() => download(`nawyki-${today}.json`, snapshotJson(snapshot, new Date().toISOString()), "application/json")} // eslint-disable-line no-restricted-syntax -- znacznik czasu eksportu
+              disabled={allHealth.isPending && allHealth.fetchStatus === "fetching"}
+              onClick={() => download(`nawyki-${today}.json`, snapshotJson(snapshot, new Date().toISOString(), allHealth.data), "application/json")} // eslint-disable-line no-restricted-syntax -- znacznik czasu eksportu
               className={btnSecondary}
             >
               Eksport JSON
             </button>
           </div>
+          {!allHealth.data && allHealth.fetchStatus !== "fetching" && (
+            <p className="text-xs text-muted">Bez sieci w pliku JSON będzie Apple Zdrowie tylko z ostatnich 120 dni.</p>
+          )}
         </section>
       )}
     </Subpage>
@@ -99,7 +107,10 @@ export function AccountPage() {
 
 function Vacation({ snapshot, today }: { snapshot: Snapshot; today: LocalDate }) {
   const [planning, setPlanning] = useState(false);
-  const removePause = useAction((s, id: string) => deletePause(s, id));
+  // Trwający urlop kończy się wczoraj (minione dni zostają neutralne), przyszły znika
+  const removePause = useAction((s, p: { id: string; startDate: LocalDate }) => endPause(s, p, today), (snap, p) => withPauseEnded(snap, p, today), {
+    toastErrors: true,
+  });
   const vacations = snapshot.pauses.filter((p) => p.habitId === null && p.endDate >= today);
   return (
     <section className="flex flex-col gap-3">
@@ -112,8 +123,8 @@ function Vacation({ snapshot, today }: { snapshot: Snapshot; today: LocalDate })
                 {formatDayLong(p.startDate)} – {formatDayLong(p.endDate)}
                 {p.reason ? ` · ${p.reason}` : ""}
               </span>
-              <button type="button" onClick={() => removePause.mutate(p.id)} className="h-11 shrink-0 px-2 text-[15px] text-danger">
-                Usuń
+              <button type="button" onClick={() => removePause.mutate(p)} className="h-11 shrink-0 px-2 text-[15px] text-danger">
+                {p.startDate < today ? "Zakończ" : "Usuń"}
               </button>
             </li>
           ))}
@@ -130,21 +141,37 @@ function Vacation({ snapshot, today }: { snapshot: Snapshot; today: LocalDate })
 }
 
 function Categories({ snapshot }: { snapshot: Snapshot }) {
-  const removeCategory = useAction((s, id: string) => deleteCategory(s, id));
+  const toast = useToast();
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const removeCategory = useAction((s, id: string) => deleteCategory(s, id), undefined, { toastErrors: true });
+  const categories = snapshot.categories.filter((c) => !hiddenIds.includes(c.id));
+  const unhide = (id: string) => setHiddenIds((ids) => ids.filter((x) => x !== id));
+
+  // Jak przy nawykach: kategoria znika od razu, usunięcie rusza dopiero, gdy nie cofniesz
+  function remove(c: { id: string; name: string }) {
+    setHiddenIds((ids) => [...ids, c.id]);
+    toast({
+      message: `Usunięto kategorię „${c.name}”`,
+      actionLabel: "Cofnij",
+      onAction: () => unhide(c.id),
+      onExpire: () => removeCategory.mutate(c.id, { onError: () => unhide(c.id) }),
+    });
+  }
+
   return (
     <section className="flex flex-col gap-2">
-      {snapshot.categories.length === 0 ? (
+      {categories.length === 0 ? (
         <p className="text-sm text-muted">Nie masz jeszcze kategorii. Dodasz je w edycji nawyku → Kategoria → „Nowa kategoria…”.</p>
       ) : (
         <ul className="ios-group">
-          {snapshot.categories.map((c) => {
+          {categories.map((c) => {
             const count = snapshot.habits.filter((h) => h.categoryId === c.id).length;
             return (
               <li key={c.id} className="flex items-center justify-between border-b-[0.5px] border-border py-2.5">
                 <span className="text-[17px]">
                   {c.name} <span className="text-[15px] text-muted">· {count}</span>
                 </span>
-                <button type="button" onClick={() => removeCategory.mutate(c.id)} className="h-11 px-2 text-[15px] text-danger">
+                <button type="button" onClick={() => remove(c)} className="h-11 px-2 text-[15px] text-danger">
                   Usuń
                 </button>
               </li>
@@ -271,9 +298,14 @@ function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm
 function DeleteAccount({ onCancel }: { onCancel: () => void }) {
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const qc = useQueryClient();
   const remove = useAction(async (supabase) => {
+    // Najpierw to urządzenie (póki jest sesja): bez subskrypcji i bez liczby na ikonie
+    await disablePush(supabase).catch(() => {});
     await deleteAccount(supabase);
+    if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
     await supabase.auth.signOut();
+    qc.clear();
     await clearIdb();
   });
   const ok = typed.trim().toUpperCase() === "USUŃ";

@@ -84,7 +84,8 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
             disabled={enable.isPending}
             onClick={() =>
               enable.mutate(time, {
-                onSuccess: () => setVisible(false),
+                // włączone raz: karta nie wraca, nawet gdy później wyłączysz podsumowanie w Ustawieniach
+                onSuccess: hide,
                 onError: (e) => setError(e.message),
               })
             }

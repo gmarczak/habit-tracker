@@ -5,9 +5,10 @@ export const MILESTONES: Record<StreakUnit, readonly number[]> = {
   weeks: [4, 12, 26, 52],
 };
 
-/** Kamień milowy osiągnięty przy przejściu serii z `before` na `after` (tylko przy wzroście). */
+/**
+ * Kamień milowy osiągnięty właśnie teraz: seria urosła o jeden i trafiła w próg.
+ * Skok o więcej (cofnięta wpadka, uzupełniony dzień łączący dwie serie) to powrót do serii, którą już było widać.
+ */
 export function reachedMilestone(unit: StreakUnit, before: number, after: number): number | null {
-  if (after <= before) return null;
-  const hit = MILESTONES[unit].filter((m) => before < m && after >= m);
-  return hit.length ? (hit[hit.length - 1] as number) : null;
+  return after === before + 1 && MILESTONES[unit].includes(after) ? after : null;
 }

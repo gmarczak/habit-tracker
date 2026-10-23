@@ -1,6 +1,9 @@
 import type { LocalDate } from "@/lib/domain/dates";
 import type { HabitKind, Plan } from "@/lib/domain/model";
 import type { Streak } from "@/lib/domain/progress";
+import { plural } from "@/lib/domain/words";
+
+export { habitCount, habitsLeft, plural } from "@/lib/domain/words";
 
 function asUtcDate(date: LocalDate): Date {
   const [y, m, d] = date.split("-").map(Number) as [number, number, number];
@@ -33,14 +36,6 @@ export function formatWeekdayShort(date: LocalDate): string {
 
 export function dayOfMonth(date: LocalDate): number {
   return Number(date.slice(8, 10));
-}
-
-/** Polska odmiana: 1 dzień, 2 dni, 5 dni; 1 tydzień, 3 tygodnie, 5 tygodni. */
-export function plural(n: number, one: string, few: string, many: string): string {
-  if (n === 1) return one;
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  return mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
 }
 
 export function formatStreak(streak: Streak): string {

@@ -5,7 +5,7 @@ import { deletePushSubscription, savePushSubscription } from "@/lib/data/mutatio
 
 export type PushSupport = "supported" | "ios-needs-install" | "unsupported" | "denied";
 
-function isIos(): boolean {
+export function isIos(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
@@ -53,9 +53,14 @@ export async function enablePush(supabase: Supabase): Promise<void> {
   await savePushSubscription(supabase, sub.toJSON(), navigator.userAgent);
 }
 
+/** Wyłącza powiadomienia na tym urządzeniu. Subskrypcja w przeglądarce znika zawsze, także bez sieci. */
 export async function disablePush(supabase: Supabase): Promise<void> {
   const sub = await currentSubscription();
   if (!sub) return;
-  await deletePushSubscription(supabase, sub.endpoint);
-  await sub.unsubscribe();
+  try {
+    await deletePushSubscription(supabase, sub.endpoint);
+  } finally {
+    // wiersz w bazie bez subskrypcji usunie przy następnej wysyłce funkcja przypomnień (410)
+    await sub.unsubscribe().catch(() => false);
+  }
 }

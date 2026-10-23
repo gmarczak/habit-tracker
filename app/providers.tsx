@@ -6,20 +6,55 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { del, get, set } from "idb-keyval";
 import { useEffect, useState, type ReactNode } from "react";
 import { entryMutationKey, entryScope, snapshotKey } from "@/lib/data/hooks";
-import { saveEntry, type EntryChange } from "@/lib/data/mutations";
+import { NetworkError, saveEntry, type EntryChange } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 
-const CACHE_VERSION = "v2-2"; // v2-2: snapshot.health
+const CACHE_VERSION = "v2-2"; // v2-2: snapshot.health (zmiana kasuje też kolejkę offline — tylko przy niezgodnym kształcie danych)
+
+/*
+ * Stan sieci: TanStack zakłada „online”, dopóki nie przyjdzie zdarzenie „offline” — aplikacja otwarta
+ * bez zasięgu go nie dostaje. Dlatego stan bierzemy z navigator.onLine (też po powrocie do aplikacji),
+ * a zapis dnia, który nie dotarł do serwera (Wi-Fi bez internetu, słaby zasięg), przełącza na „offline”:
+ * zapis czeka wtedy w kolejce (i w IndexedDB) zamiast przepaść. Co 20 s próbujemy ponownie.
+ */
+if (typeof window !== "undefined") {
+  onlineManager.setEventListener((setOnline) => {
+    const sync = () => setOnline(navigator.onLine);
+    const probe = window.setInterval(() => {
+      if (!onlineManager.isOnline() && navigator.onLine) setOnline(true);
+    }, 20_000);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      window.clearInterval(probe);
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  });
+}
 
 function makeClient() {
   const client = new QueryClient({
     defaultOptions: {
       queries: { gcTime: 1000 * 60 * 60 * 24 * 7, retry: 1, networkMode: "offlineFirst" },
-      mutations: { networkMode: "online", retry: 3 },
+      mutations: { networkMode: "online", retry: false },
     },
   });
   client.setMutationDefaults(entryMutationKey, {
-    mutationFn: (change: EntryChange) => saveEntry(supabaseBrowser(), change),
+    mutationFn: async (change: EntryChange) => {
+      try {
+        await saveEntry(supabaseBrowser(), change);
+      } catch (error) {
+        if (error instanceof NetworkError) onlineManager.setOnline(false);
+        throw error;
+      }
+    },
+    // Bez sieci zapis nie przepada: czeka (wstrzymany) do powrotu połączenia. Błąd serwera — od razu.
+    retry: (_count, error) => error instanceof NetworkError,
+    retryDelay: 1000,
     scope: entryScope,
   });
   return client;
@@ -67,7 +102,10 @@ export function Providers({ children }: { children: ReactNode }) {
         // W IndexedDB przetrwają tylko zapisy dnia — dla nich jest funkcja w setMutationDefaults
         dehydrateOptions: { shouldDehydrateMutation: (m) => m.state.isPaused && m.options.mutationKey?.[0] === entryMutationKey[0] },
       }}
-      onSuccess={() => client.resumePausedMutations().then(() => client.invalidateQueries({ queryKey: snapshotKey }))}
+      // Bez czekania: ekran pokazuje dane z IndexedDB od razu, a kolejka wysyła się w tle
+      onSuccess={() => {
+        void client.resumePausedMutations().then(() => client.invalidateQueries({ queryKey: snapshotKey }));
+      }}
     >
       {children}
     </PersistQueryClientProvider>

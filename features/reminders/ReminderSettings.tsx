@@ -6,7 +6,7 @@ import { sectionTitle } from "@/components/ui/styles";
 import { useAction, useSnapshot } from "@/lib/data/hooks";
 import { deleteReminder, upsertReminder } from "@/lib/data/mutations";
 import type { Reminder, ReminderKind } from "@/lib/domain/model";
-import { currentSubscription, disablePush, enablePush, pushSupport, type PushSupport } from "./push";
+import { currentSubscription, disablePush, enablePush, isIos, pushSupport, type PushSupport } from "./push";
 
 type Kind = Exclude<ReminderKind, "habit">;
 
@@ -36,13 +36,17 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
   }, []);
 
   const turnOffDevice = useAction(async (supabase) => disablePush(supabase));
+  const turnOnDevice = useAction(async (supabase) => enablePush(supabase));
   if (!snapshot) return null;
 
   const byKind = (kind: Kind) => snapshot.reminders.find((r) => r.kind === kind);
   const habitReminders = snapshot.reminders.filter((r) => r.kind === "habit");
-  const withParts = snapshot.habits.filter((h) => h.archivedAt === null && h.timeOfDay !== null);
+  // Pory dnia przypominają tylko o nawykach „buduję” odhaczanych ręcznie (jak funkcja wysyłki)
+  const withParts = snapshot.habits.filter((h) => h.archivedAt === null && h.timeOfDay !== null && h.goal === "build" && !h.source);
   const lastDay = snapshot.settings.weekStart === 1 ? "niedzielę" : "sobotę";
   const canEnable = support === "supported";
+  // Przypomnienia włączone na koncie, ale to urządzenie nie ma subskrypcji (np. po wylogowaniu)
+  const deviceOff = canEnable && subscribed === false && snapshot.reminders.some((r) => r.enabled);
 
   return (
     <section aria-labelledby="rem-title" className="flex flex-col gap-4">
@@ -54,7 +58,26 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
           Na iPhonie powiadomienia działają po dodaniu aplikacji do ekranu głównego: Udostępnij → „Do ekranu początkowego”, potem otwórz ją z ikony.
         </p>
       )}
-      {support === "denied" && <p className="rounded-xl bg-surface px-4 py-3 text-sm">Powiadomienia są zablokowane w ustawieniach przeglądarki dla tej strony.</p>}
+      {support === "denied" && (
+        <p className="rounded-xl bg-surface px-4 py-3 text-sm">
+          {isIos()
+            ? "Powiadomienia są wyłączone. Włączysz je w Ustawieniach iPhone’a → Powiadomienia → Nawyki."
+            : "Powiadomienia są zablokowane w ustawieniach przeglądarki dla tej strony."}
+        </p>
+      )}
+      {deviceOff && (
+        <div className="flex flex-col gap-2 rounded-xl bg-surface px-4 py-3">
+          <p className="text-sm">Przypomnienia są włączone, ale to urządzenie ich nie dostaje.</p>
+          <button
+            type="button"
+            disabled={turnOnDevice.isPending}
+            onClick={() => turnOnDevice.mutate(undefined, { onSuccess: () => setSubscribed(true), onError: (e) => setError(e.message) })}
+            className="self-start text-sm font-semibold text-accent"
+          >
+            {turnOnDevice.isPending ? "Włączam…" : "Włącz powiadomienia na tym urządzeniu"}
+          </button>
+        </div>
+      )}
       {support === "unsupported" && <p className="text-sm text-muted">Ta przeglądarka nie obsługuje powiadomień push.</p>}
 
       <div className="flex flex-col divide-y divide-border rounded-xl bg-surface px-4">
@@ -67,6 +90,7 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
             defaultTime={o.defaultTime}
             reminder={byKind(o.kind)}
             canEnable={canEnable}
+            deviceOff={deviceOff}
             onError={setError}
             onSubscribed={() => setSubscribed(true)}
           />
@@ -92,6 +116,7 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
                 defaultTime={p.defaultTime}
                 reminder={byKind(p.kind)}
                 canEnable={canEnable}
+                deviceOff={deviceOff}
                 onError={setError}
                 onSubscribed={() => setSubscribed(true)}
               />
@@ -138,6 +163,7 @@ function ReminderToggle({
   defaultTime,
   reminder,
   canEnable,
+  deviceOff,
   onError,
   onSubscribed,
 }: {
@@ -147,6 +173,8 @@ function ReminderToggle({
   defaultTime: string;
   reminder: Reminder | undefined;
   canEnable: boolean;
+  /** to urządzenie nie ma subskrypcji: włączenie albo zmiana godziny ją odnowi */
+  deviceOff: boolean;
   onError: (message: string | null) => void;
   onSubscribed: () => void;
 }) {
@@ -154,7 +182,7 @@ function ReminderToggle({
   const on = Boolean(reminder?.enabled);
 
   const save = useAction(async (supabase, localTime: string) => {
-    if (!reminder) await enablePush(supabase);
+    if (!reminder || deviceOff) await enablePush(supabase);
     await upsertReminder(supabase, { id: reminder?.id, kind, habitId: null, localTime, enabled: true });
   });
   const remove = useAction((s, id: string) => deleteReminder(s, id));
@@ -168,7 +196,7 @@ function ReminderToggle({
 
   function changeTime(value: string) {
     setTime(value);
-    if (on && /^\d{2}:\d{2}$/.test(value)) save.mutate(value, { onError: (e) => onError(e.message) });
+    if (on && /^\d{2}:\d{2}$/.test(value)) save.mutate(value, { onError: (e) => onError(e.message), onSuccess: deviceOff ? onSubscribed : undefined });
   }
 
   return (
@@ -184,7 +212,7 @@ function ReminderToggle({
           onClick={toggle}
           className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${on ? "bg-accent" : "bg-dot-off"}`}
         >
-          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-bg shadow transition-[left] ${on ? "left-[22px]" : "left-0.5"}`} />
+          <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] ${on ? "left-[22px]" : "left-0.5"}`} />
         </button>
       </div>
       <p className="text-sm text-muted">{hint}</p>

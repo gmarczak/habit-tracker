@@ -1,3 +1,4 @@
+import type { HealthDay } from "@/lib/domain/health";
 import type { Snapshot } from "./snapshot";
 
 function csvCell(value: string | number | boolean | null): string {
@@ -16,22 +17,34 @@ export function entriesCsv(snapshot: Snapshot): string {
       const unit = h?.kind === "duration" ? "min" : h?.kind === "count" ? h.unit : null;
       return [e.date, h?.name ?? e.habitId, e.value, unit, e.skipped ? "tak" : "nie", e.note].map(csvCell).join(",");
     });
-  return ["data,nawyk,wartosc,jednostka,pominiete,notatka", ...rows].join("\n") + "\n";
+  // BOM: Excel inaczej czyta polskie znaki jako Windows-1250 („rozdziaĹ‚”)
+  return "\uFEFF" + ["data,nawyk,wartosc,jednostka,pominiete,notatka", ...rows].join("\r\n") + "\r\n";
 }
 
-/** Pełny eksport: nawyki z planami, wpisy, pauzy, kategorie, przypomnienia, ustawienia. */
-export function snapshotJson(snapshot: Snapshot, exportedAt: string): string {
+/** Pełny eksport: nawyki z planami, wpisy, pauzy, kategorie, przypomnienia, ustawienia, notatki i całe Apple Zdrowie. */
+export function snapshotJson(snapshot: Snapshot, exportedAt: string, allHealth?: HealthDay[]): string {
   const { userId: _userId, email: _email, ...data } = snapshot;
-  return JSON.stringify({ format: "nawyki-export", version: 1, exportedAt, ...data }, null, 2);
+  return JSON.stringify({ format: "nawyki-export", version: 1, exportedAt, ...data, health: allHealth ?? data.health }, null, 2);
 }
 
+/**
+ * Zapis pliku. Na telefonie arkusz udostępniania („Zachowaj w Plikach”) — w aplikacji z ekranu głównego
+ * zwykłe pobieranie bywa zawodne; gdzie indziej zwykłe pobieranie.
+ */
 export function download(filename: string, content: string, type: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+  const file = new File([content], filename, { type });
+  const touch = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  if (touch && navigator.canShare?.({ files: [file] })) {
+    void navigator.share({ files: [file] }).catch(() => {});
+    return;
+  }
+  const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // Safari czyta plik dopiero po potwierdzeniu pobierania: adres musi pożyć dłużej
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

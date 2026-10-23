@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { sectionTitle } from "@/components/ui/styles";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
 import { habitRates, moodInsights, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "@/lib/domain/stats";
 import { dayOfMonth, formatDayLong, formatWeekdayShort, plural } from "@/lib/format";
@@ -35,7 +36,7 @@ function pct(share: number | null): string {
 }
 
 export function StatsScreen() {
-  const { data: snapshot } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
 
   const data = useMemo(() => {
@@ -52,7 +53,7 @@ export function StatsScreen() {
     };
   }, [snapshot, today]);
 
-  if (!snapshot || !today || !data) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
+  if (!snapshot || !today || !data) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
 
   const hasHabits = snapshot.habits.some((h) => h.archivedAt === null);
   if (!hasHabits) {
@@ -145,7 +146,7 @@ export function StatsScreen() {
             ))}
           </div>
           <figcaption className="flex justify-between text-xs text-muted">
-            <span>12 tyg. temu</span>
+            <span>{trend.length - 1} tyg. temu</span>
             <span>
               średnio {pct(average)} · ten tydzień {pct(trend.at(-1)?.share ?? null)}
             </span>

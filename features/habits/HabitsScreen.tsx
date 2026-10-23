@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { useToast } from "@/components/ui/Toast";
 import { btnPrimary, btnQuiet, groupHeader } from "@/components/ui/styles";
 import { useAddHabit } from "@/features/shell/AppShell";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { deleteHabit, reorderHabits, setArchived } from "@/lib/data/mutations";
+import { archiveGap, deleteHabit, reorderHabits, restoreHabit } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
 import type { Habit } from "@/lib/domain/model";
 import { streakOf } from "@/lib/domain/progress";
@@ -22,7 +23,7 @@ function withOrder(snapshot: Snapshot, ids: string[]): Snapshot {
 }
 
 export function HabitsScreen() {
-  const { data: snapshot } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   const addHabit = useAddHabit();
   const toast = useToast();
@@ -30,9 +31,11 @@ export function HabitsScreen() {
   const [showArchive, setShowArchive] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
 
-  const reorder = useAction(reorderHabits, withOrder);
-  const archive = useAction((s, v: { id: string; archived: boolean }) => setArchived(s, v.id, v.archived));
-  const remove = useAction((s, id: string) => deleteHabit(s, id));
+  // Kolejne przesunięcia idą po kolei (każde wysyła całą kolejność)
+  const reorder = useAction(reorderHabits, withOrder, { scope: "reorder", toastErrors: true });
+  const restore = useAction((s, v: { id: string; gap: ReturnType<typeof archiveGap> }) => restoreHabit(s, v.id, v.gap), undefined, { toastErrors: true });
+  // Usunięcie rusza po zniknięciu komunikatu — ekran mógł się już zmienić, więc błąd też jako komunikat
+  const remove = useAction((s, id: string) => deleteHabit(s, id), undefined, { toastErrors: true });
 
   const active = useMemo(
     () => (snapshot?.habits ?? []).filter((h) => h.archivedAt === null).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -40,7 +43,7 @@ export function HabitsScreen() {
   );
   const archived = (snapshot?.habits ?? []).filter((h) => h.archivedAt !== null && !hiddenIds.includes(h.id));
 
-  if (!snapshot || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
+  if (!snapshot || !today) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
 
   const groups: { title: string | null; habits: Habit[] }[] = reordering
     ? [{ title: null, habits: active }]
@@ -65,7 +68,7 @@ export function HabitsScreen() {
       message: `Usunięto „${habit.name}” z całą historią`,
       actionLabel: "Cofnij",
       onAction: () => setHiddenIds((ids) => ids.filter((x) => x !== habit.id)),
-      onExpire: () => remove.mutate(habit.id),
+      onExpire: () => remove.mutate(habit.id, { onError: () => setHiddenIds((ids) => ids.filter((x) => x !== habit.id)) }),
     });
   }
 
@@ -160,7 +163,11 @@ export function HabitsScreen() {
                   <Link href={`/habits/${habit.id}`} className="flex-1 truncate font-medium text-done">
                     {habit.name}
                   </Link>
-                  <button type="button" onClick={() => archive.mutate({ id: habit.id, archived: false })} className="h-11 rounded-full px-3 text-sm font-semibold text-accent">
+                  <button
+                    type="button"
+                    onClick={() => restore.mutate({ id: habit.id, gap: archiveGap(habit, snapshot.entries, today) })}
+                    className="h-11 rounded-full px-3 text-sm font-semibold text-accent"
+                  >
                     Przywróć
                   </button>
                   <button type="button" onClick={() => deleteForever(habit)} className="h-11 rounded-full px-3 text-sm font-semibold text-danger">

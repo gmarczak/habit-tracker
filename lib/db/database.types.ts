@@ -85,6 +85,24 @@ export type Database = {
         }
         Relationships: []
       }
+      entry_adds: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       health_daily: {
         Row: {
           metric: string
@@ -450,20 +468,47 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_entry: {
+        Args: { p_date: string; p_delta: number; p_habit_id: string; p_request?: string }
+        Returns: {
+          created_at: string
+          entry_date: string
+          habit_id: string
+          id: string
+          note: string | null
+          skipped: boolean
+          updated_at: string
+          user_id: string
+          value: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "habit_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_habit: {
         Args: {
           p_category_id: string | null
           p_color: string | null
-          p_icon: string | null
+          p_cue?: string | null
           p_frequency: Database["public"]["Enums"]["plan_frequency"]
+          p_goal?: string
+          p_icon: string | null
+          p_id?: string
           p_interval_days: number | null
           p_kind: Database["public"]["Enums"]["habit_kind"]
           p_name: string
+          p_source?: string | null
+          p_source_min?: number | null
           p_start_date?: string
           p_target_value: number
+          p_time_of_day?: string | null
           p_times_per_week: number | null
           p_unit: string | null
           p_weekdays: number[] | null
+          p_why?: string | null
         }
         Returns: string
       }

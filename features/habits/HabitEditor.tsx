@@ -88,6 +88,8 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
   const [newCategory, setNewCategory] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showAllIcons, setShowAllIcons] = useState(false);
+  // Id nowego nawyku nadany raz: ponowny zapis po zerwanym połączeniu nie zrobi duplikatu
+  const [newId] = useState(() => crypto.randomUUID());
 
   const save = useAction(async (supabase, v: HabitForm) => {
     let categoryId = v.categoryId;
@@ -97,7 +99,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
       await updateHabit(supabase, habit.id, planOn(habit, today), input);
       return habit.id;
     }
-    return createHabit(supabase, input);
+    return createHabit(supabase, input, newId);
   });
 
   const set = <K extends keyof HabitForm>(key: K, value: HabitForm[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -105,21 +107,38 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
   async function submit(event: FormEvent) {
     event.preventDefault();
     const quit = form.goal === "quit";
+    // „Rzucam” jest zawsze codzienne i tak/nie — pola innych rodzajów się nie liczą
+    const kind = quit ? "check" : form.kind;
+    const frequency = quit ? "daily" : form.frequency;
+    const number = (text: string) => Number(text.replace(/\s/g, "").replace(",", "."));
     const candidate: HabitForm = {
       ...form,
-      ...(quit ? { kind: "check" as const, frequency: "daily" as const } : {}),
-      unit: form.kind === "count" ? form.unit : null,
-      targetValue: form.kind === "check" ? 1 : Number(targetText.replace(",", ".")),
-      weekdays: form.frequency === "weekdays" ? form.weekdays : null,
-      timesPerWeek: form.frequency === "weekly_count" ? form.timesPerWeek : null,
-      intervalDays: form.frequency === "every_n_days" ? form.intervalDays : null,
+      kind,
+      frequency,
+      unit: kind === "count" ? form.unit : null,
+      targetValue: kind === "check" ? 1 : number(targetText),
+      weekdays: frequency === "weekdays" ? form.weekdays : null,
+      timesPerWeek: frequency === "weekly_count" ? form.timesPerWeek : null,
+      intervalDays: frequency === "every_n_days" ? form.intervalDays : null,
       source: quit ? null : form.source,
-      sourceMin: !quit && form.source && form.kind === "check" ? Number(sourceMinText.replace(/\s/g, "").replace(",", ".")) || null : null,
+      sourceMin: !quit && form.source && kind === "check" ? number(sourceMinText) || null : null,
     };
     const parsed = habitFormSchema.safeParse(candidate);
+    // Dwa aktywne nawyki o tej samej nazwie: Siri i Skrót nie wiedziałyby, który odhaczyć
+    const sameName = snapshot.habits.some(
+      (h) => h.id !== habit?.id && h.archivedAt === null && h.name.trim().toLowerCase() === candidate.name.trim().toLowerCase(),
+    );
+    if (sameName && parsed.success) {
+      setErrors({ name: "Masz już nawyk o tej nazwie" });
+      return;
+    }
     if (!parsed.success) {
+      const shown = new Set(["name", "goal", "targetValue", "unit", "weekdays", "source", "sourceMin", "cue", "why"]);
       const next: Record<string, string> = {};
-      for (const issue of parsed.error.issues) next[String(issue.path[0] ?? "form")] ??= issue.message;
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0] ?? "form");
+        next[shown.has(key) ? key : "form"] ??= issue.message;
+      }
       setErrors(next);
       return;
     }
@@ -308,8 +327,10 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
               value={form.source ?? ""}
               onChange={(e) => {
                 const source = (e.target.value || null) as HealthMetric | null;
+                // Inna dana = inna skala (7000 kroków, 1 trening): próg zaczyna od domyślnego dla nowej danej
+                if (source && source === habit?.source && habit.sourceMin) setSourceMinText(String(habit.sourceMin));
+                else if (source && (source !== form.source || !sourceMinText)) setSourceMinText(String(METRIC_INFO[source].defaultMin));
                 set("source", source);
-                if (source && !sourceMinText) setSourceMinText(String(METRIC_INFO[source].defaultMin));
               }}
               className={field}
             >

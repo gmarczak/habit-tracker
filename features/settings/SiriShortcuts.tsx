@@ -9,7 +9,7 @@ import { ShortcutKey } from "./ShortcutKey";
 export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
   const [copied, setCopied] = useState<string | null>(null);
   const endpoint = typeof window === "undefined" ? "/api/log" : `${window.location.origin}/api/log`;
-  const names = snapshot.habits.filter((h) => h.archivedAt === null && h.goal === "build").map((h) => h.name);
+  const habits = snapshot.habits.filter((h) => h.archivedAt === null && h.goal === "build");
 
   async function copy(text: string) {
     try {
@@ -94,15 +94,15 @@ export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
         </ul>
       </div>
 
-      {names.length > 0 && (
+      {habits.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <h2 className={groupHeader}>Twoje nawyki — dotknij, by skopiować nazwę</h2>
           <ul className="ios-group">
-            {names.map((n) => (
-              <li key={n}>
-                <button type="button" onClick={() => void copy(n)} className="flex w-full items-center justify-between border-b-[0.5px] border-border py-3 text-left">
-                  <span>{n}</span>
-                  <span className="text-[13px] text-accent">{copied === n ? "Skopiowano" : "Kopiuj"}</span>
+            {habits.map(({ id, name }) => (
+              <li key={id}>
+                <button type="button" onClick={() => void copy(name)} className="flex w-full items-center justify-between border-b-[0.5px] border-border py-3 text-left">
+                  <span>{name}</span>
+                  <span className="text-[13px] text-accent">{copied === name ? "Skopiowano" : "Kopiuj"}</span>
                 </button>
               </li>
             ))}

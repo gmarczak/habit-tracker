@@ -1,6 +1,6 @@
 import type { Tables } from "@/lib/db/database.types";
 import type { Supabase } from "@/lib/db/client";
-import type { WeekStart } from "@/lib/domain/dates";
+import { localDate, type WeekStart } from "@/lib/domain/dates";
 import { isHealthMetric, type HealthDay } from "@/lib/domain/health";
 import {
   HABIT_COLORS,
@@ -90,20 +90,21 @@ export function toEntry(row: Pick<Tables<"habit_entries">, "habit_id" | "entry_d
 
 const PAGE = 1000;
 
-/** PostgREST zwraca maks. 1000 wierszy na zapytanie, więc wpisy pobieramy stronami. */
-async function allEntries(supabase: Supabase): Promise<Tables<"habit_entries">[]> {
-  const out: Tables<"habit_entries">[] = [];
+/** PostgREST zwraca maks. 1000 wierszy na zapytanie, więc rosnące tabele pobieramy stronami (stała kolejność!). */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const out: T[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("habit_entries")
-      .select("*")
-      .order("entry_date", { ascending: true })
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
+    const { data, error } = await page(from, from + PAGE - 1);
     if (error) throw error;
-    out.push(...data);
-    if (data.length < PAGE) return out;
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) return out;
   }
+}
+
+/** Całe Apple Zdrowie (snapshot trzyma ostatnie 120 dni) — do pełnego eksportu. */
+export async function fetchAllHealth(supabase: Supabase): Promise<HealthDay[]> {
+  const rows = await allRows((from, to) => supabase.from("health_daily").select("metric_date, metric, value").order("metric_date").order("metric").range(from, to));
+  return rows.flatMap((h) => (isHealthMetric(h.metric) ? [{ date: h.metric_date, metric: h.metric, value: Number(h.value) }] : []));
 }
 
 export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
@@ -114,27 +115,31 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
   const [profile, habits, plans, entries, pauses, categories, reminders, notes, health] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", auth.user.id).single(),
     supabase.from("habits").select("*").order("sort_order"),
-    supabase.from("habit_plans").select("*"),
-    allEntries(supabase),
-    supabase.from("habit_pauses").select("*").order("start_date"),
+    allRows((from, to) => supabase.from("habit_plans").select("*").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("habit_entries").select("*").order("entry_date").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("habit_pauses").select("*").order("start_date").order("id").range(from, to)),
     supabase.from("categories").select("*").order("sort_order"),
     supabase.from("reminders").select("*").order("local_time"),
-    supabase.from("day_notes").select("note_date, note, mood").order("note_date"),
-    supabase.from("health_daily").select("metric_date, metric, value").gte("metric_date", since),
+    allRows((from, to) => supabase.from("day_notes").select("note_date, note, mood").order("note_date").range(from, to)),
+    allRows((from, to) => supabase.from("health_daily").select("metric_date, metric, value").gte("metric_date", since).order("metric_date").order("metric").range(from, to)),
   ]);
-  for (const r of [profile, habits, plans, pauses, categories, reminders, notes, health]) if (r.error) throw r.error;
+  for (const r of [profile, habits, categories, reminders]) if (r.error) throw r.error;
 
+  const settings: Settings = {
+    timeZone: profile.data!.timezone,
+    weekStart: profile.data!.week_start as WeekStart,
+    dayStartHour: profile.data!.day_start_hour,
+  };
   return {
     userId: auth.user.id,
     email: auth.user.email ?? null,
-    settings: {
-      timeZone: profile.data!.timezone,
-      weekStart: profile.data!.week_start as WeekStart,
-      dayStartHour: profile.data!.day_start_hour,
-    },
-    habits: (habits.data ?? []).map((h) => toHabit(h, plans.data ?? [])),
+    settings,
+    habits: (habits.data ?? []).map((h) => ({
+      ...toHabit(h, plans),
+      archivedOn: h.archived_at ? localDate(new Date(h.archived_at), settings.timeZone, settings.dayStartHour) : null,
+    })),
     entries: entries.map(toEntry),
-    pauses: (pauses.data ?? []).map((p) => ({
+    pauses: pauses.map((p) => ({
       id: p.id,
       habitId: p.habit_id,
       startDate: p.start_date,
@@ -149,7 +154,7 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
       localTime: r.local_time.slice(0, 5),
       enabled: r.enabled,
     })),
-    notes: (notes.data ?? []).map((n) => ({ date: n.note_date, note: n.note, mood: n.mood })),
-    health: (health.data ?? []).flatMap((h) => (isHealthMetric(h.metric) ? [{ date: h.metric_date, metric: h.metric, value: Number(h.value) }] : [])),
+    notes: notes.map((n) => ({ date: n.note_date, note: n.note, mood: n.mood })),
+    health: health.flatMap((h) => (isHealthMetric(h.metric) ? [{ date: h.metric_date, metric: h.metric, value: Number(h.value) }] : [])),
   };
 }

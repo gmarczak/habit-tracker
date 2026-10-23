@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { addDays, startOfWeek, type LocalDate, type WeekStart } from "@/lib/domain/dates";
 import type { Entry, Habit, Pause } from "@/lib/domain/model";
 import { dayState } from "@/lib/domain/progress";
+import { plural } from "@/lib/format";
 
 type Props = { habit: Habit; entries: readonly Entry[]; pauses: readonly Pause[]; today: LocalDate; weekStart: WeekStart };
 
@@ -30,16 +31,16 @@ export function YearHeatmap({ habit, entries, pauses, today, weekStart }: Props)
     return { weeks: cols, doneCount: done };
   }, [habit, entries, pauses, today, weekStart]);
 
+  // Najnowsze tygodnie widoczne od razu — tylko przy pierwszym pokazaniu i zmianie dnia, nie przy każdym odświeżeniu
+  const scroller = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollLeft = scroller.current.scrollWidth;
+  }, [today]);
+  const summary = `${doneCount} ${plural(doneCount, "dzień", "dni", "dni")} ${habit.goal === "quit" ? "bez wpadki" : plural(doneCount, "zrobiony", "zrobione", "zrobionych")}`;
+
   return (
     <figure className="flex flex-col gap-2">
-      <div
-        ref={(el) => {
-          if (el) el.scrollLeft = el.scrollWidth; // najnowsze tygodnie widoczne od razu
-        }}
-        className="overflow-x-auto pb-1"
-        role="img"
-        aria-label={`Ostatni rok: ${doneCount} dni zrobione`}
-      >
+      <div ref={scroller} className="overflow-x-auto pb-1" role="img" aria-label={`Ostatni rok: ${summary}`}>
         <div className="flex w-max gap-[3px]">
           {weeks.map((col, i) => (
             <div key={i} className="flex flex-col gap-[3px]">
@@ -54,7 +55,7 @@ export function YearHeatmap({ habit, entries, pauses, today, weekStart }: Props)
           ))}
         </div>
       </div>
-      <figcaption className="text-xs text-muted">Ostatnie 12 miesięcy · {doneCount} dni zrobione</figcaption>
+      <figcaption className="text-xs text-muted">Ostatnie 12 miesięcy · {summary}</figcaption>
     </figure>
   );
 }

@@ -5,6 +5,7 @@ import { localDate, type LocalDate, type WeekStart } from "../../../lib/domain/d
 import type { Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
 import { PART_LABELS, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
 import { badgeCount, buildDay } from "../../../lib/domain/today";
+import { habitCount, habitsLeft } from "../../../lib/domain/words";
 
 export type ReminderRow = { id: string; kind: ReminderKind; habitId: string | null; localTime: string };
 export type UserContext = {
@@ -62,7 +63,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
         if (open.length === 0) break;
         out.push({
           ...base,
-          title: open.length === 1 ? "Został jeden nawyk" : `Zostały ${open.length} nawyki na dziś`,
+          title: open.length === 1 ? "Został jeden nawyk" : `${habitsLeft(open.length)} na dziś`,
           body: list(open.map((i) => i.habit.name)),
           url: "/",
           tag: "summary",
@@ -74,7 +75,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
       case "evening": {
         const part = open.filter((i) => i.habit.timeOfDay === r.kind);
         if (part.length === 0) break;
-        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${part.length === 1 ? "1 nawyk" : `${part.length} nawyki`}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
+        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${habitCount(part.length)}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
         break;
       }
       case "yesterday": {
@@ -82,7 +83,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
         if (!gap) break;
         out.push({
           ...base,
-          title: gap.missing.length === 1 ? "Wczoraj został 1 nawyk" : `Wczoraj zostały ${gap.missing.length} nawyki`,
+          title: `Wczoraj ${habitsLeft(gap.missing.length, false)}`,
           body: `${list(gap.missing.map((i) => i.habit.name))} — uzupełnij, jeśli zrobiłeś.`,
           url: `/?date=${gap.date}`,
           tag: "yesterday",

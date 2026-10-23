@@ -3,11 +3,13 @@
 import { useRef, useState } from "react";
 import { useEntryMutation, useSnapshot } from "@/lib/data/hooks";
 import type { LocalDate } from "@/lib/domain/dates";
-import { METRIC_INFO, healthValue } from "@/lib/domain/health";
+import { METRIC_INFO, healthValue, metricUnit, metricUnitOf } from "@/lib/domain/health";
+import { planOn } from "@/lib/domain/schedule";
 import type { TodayItem } from "@/lib/domain/today";
 import { formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { EntrySheet } from "./EntrySheet";
+import { clearTimer } from "./HabitTimer";
 
 const LONG_PRESS_MS = 450;
 
@@ -17,9 +19,10 @@ const LONG_PRESS_MS = 450;
  */
 function autoText(habit: TodayItem["habit"], measured: number | null): string | null {
   if (!habit.source || habit.kind !== "check") return habit.source ? `auto · ${METRIC_INFO[habit.source].label.toLowerCase()}` : null;
-  const unit = METRIC_INFO[habit.source].unit;
-  if (measured !== null) return habit.sourceMin ? `${formatNumber(measured)} z ${formatNumber(habit.sourceMin)} ${unit}` : `${formatNumber(measured)} ${unit}`;
-  return habit.sourceMin ? `auto od ${formatNumber(habit.sourceMin)} ${unit}` : null;
+  const min = habit.sourceMin;
+  if (measured !== null)
+    return min ? `${formatNumber(measured)} z ${formatNumber(min)} ${metricUnitOf(habit.source, min)}` : `${formatNumber(measured)} ${metricUnit(habit.source, measured)}`;
+  return min ? `auto od ${formatNumber(min)} ${metricUnitOf(habit.source, min)}` : null;
 }
 
 function haptic() {
@@ -35,9 +38,11 @@ function CheckIcon() {
 }
 
 /** Wiersz B1: monogram, nazwa + szczegół, przycisk akcji po prawej. Zrobione: bez ramki, pełne kółko. */
-export function HabitRow({ item, date, compact }: { item: TodayItem; date: LocalDate; compact: boolean }) {
+export function HabitRow({ item, date, today, compact }: { item: TodayItem; date: LocalDate; today: LocalDate; compact: boolean }) {
   const mutation = useEntryMutation();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  // Arkusz zapamiętuje dzień, w którym go otwarto: po północy dalej zapisuje do tego dnia
+  const [sheetDate, setSheetDate] = useState<LocalDate | null>(null);
+  const openSheet = () => setSheetDate(date);
   const pressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
 
@@ -59,12 +64,13 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
       return mutation.mutate({ habitId: habit.id, date, kind: "set", value: 1 });
     }
     if (habit.kind === "count" && !isDone) {
-      const next = value + 1;
-      if (next >= target) haptic();
-      return mutation.mutate({ habitId: habit.id, date, kind: "set", value: next });
+      if (value + 1 >= target) haptic();
+      // +1 liczy serwer, więc nie nadpisze tego, co w międzyczasie dodała Siri albo Skrót
+      return mutation.mutate({ habitId: habit.id, date, kind: "add", delta: 1, requestId: crypto.randomUUID() });
     }
-    if (isDone) return setSheetOpen(true);
+    if (isDone) return openSheet();
     haptic();
+    clearTimer(habit.id, date);
     return mutation.mutate({ habitId: habit.id, date, kind: "set", value: target });
   }
 
@@ -72,7 +78,7 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
     longPressed.current = false;
     pressTimer.current = window.setTimeout(() => {
       longPressed.current = true;
-      setSheetOpen(true);
+      openSheet();
     }, LONG_PRESS_MS);
   }
   function cancelPress() {
@@ -93,7 +99,7 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
     isDone && habit.kind !== "check" && week === null
       ? `${habit.name} · ${formatNumber(value)} z ${formatNumber(target)} ${unit}`.trim()
       : isDone && habit.source && measured !== null
-        ? `${habit.name} · ${formatNumber(measured)} ${METRIC_INFO[habit.source].unit}`
+        ? `${habit.name} · ${formatNumber(measured)} ${metricUnit(habit.source, measured)}`
         : habit.name;
   const detail = isSkipped
     ? "Pominięte"
@@ -107,13 +113,15 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
       ? `${habit.name}: dodaj 1 (${formatNumber(value)} z ${formatNumber(target)})`
       : weekMet
         ? `${habit.name}: tydzień zaliczony, odhacz kolejny raz`
-        : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
+        : isDone && habit.kind !== "check"
+          ? `${habit.name}: zrobione, zmień wpis`
+          : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
 
   return (
     <div className={`flex items-center gap-3 border-b-[0.5px] border-border ${compact ? "py-2" : "py-2.5"}`}>
       <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size={compact ? "sm" : "md"} />
 
-      <button type="button" onClick={() => setSheetOpen(true)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+      <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
         <span className={`w-full truncate ${compact ? "text-[17px] text-done" : "text-[17px] font-medium"}`}>{title}</span>
         {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
       </button>
@@ -130,7 +138,7 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
         onPointerLeave={cancelPress}
         onContextMenu={(e) => {
           e.preventDefault();
-          setSheetOpen(true);
+          openSheet();
         }}
         className={`flex h-11 shrink-0 select-none items-center justify-center rounded-full text-[15px] font-bold transition-colors ${
           isDone
@@ -147,7 +155,15 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
         {isDone || weekMet ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}
       </button>
 
-      <EntrySheet open={sheetOpen} onClose={() => setSheetOpen(false)} habit={habit} plan={plan} entry={entry} date={date} />
+      <EntrySheet
+        open={sheetDate !== null}
+        onClose={() => setSheetDate(null)}
+        habit={habit}
+        plan={sheetDate && sheetDate !== date ? (planOn(habit, sheetDate) ?? plan) : plan}
+        entry={sheetDate && sheetDate !== date ? snapshot?.entries.find((e) => e.habitId === habit.id && e.date === sheetDate) : entry}
+        date={sheetDate ?? date}
+        today={today}
+      />
     </div>
   );
 }

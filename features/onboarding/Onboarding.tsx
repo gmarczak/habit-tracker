@@ -14,6 +14,8 @@ export function Onboarding({ today }: { today: LocalDate }) {
   const addHabit = useAddHabit();
   const [picked, setPicked] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Jedno id na szablon: ponowne „Dodaj” po błędzie dokończy, a nie zdubluje już dodane nawyki
+  const [habitIds] = useState(() => new Map(TEMPLATES.map((t) => [t.id, crypto.randomUUID()])));
 
   const create = useAction(async (supabase, ids: string[]) => {
     for (const id of ids) {
@@ -37,7 +39,7 @@ export function Onboarding({ today }: { today: LocalDate }) {
         source: t.source ?? null,
         sourceMin: t.sourceMin ?? null,
       };
-      await createHabit(supabase, form);
+      await createHabit(supabase, form, habitIds.get(t.id));
     }
   });
 

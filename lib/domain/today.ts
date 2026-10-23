@@ -77,16 +77,18 @@ export function buildDay(
 /**
  * Sam pierścień dnia (bez serii i tygodni) — to samo co `buildDay(...).progress`, ale tanio.
  * Dla statystyk i paska tygodnia, które liczą wiele dni naraz.
+ * `history`: nawyk zarchiwizowany liczy się w dniach przed archiwizacją (statystyki nie zmieniają przeszłości).
  */
 export function dayProgress(
   habits: readonly Habit[],
   entries: readonly Entry[],
   pauses: readonly Pause[],
   date: LocalDate,
+  history = false,
 ): { done: number; total: number } {
   const progress = { done: 0, total: 0 };
   for (const habit of habits) {
-    if (habit.archivedAt !== null) continue;
+    if (habit.archivedAt !== null && !(history && habit.archivedOn && date < habit.archivedOn)) continue;
     if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
     const state = dayState(habit, entries, pauses, date, date);
     if (state !== "skipped") progress.total++;

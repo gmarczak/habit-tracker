@@ -7,6 +7,8 @@
 insert into auth.users(id, email) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'test-a@x'),
   ('aaaaaaaa-0000-0000-0000-000000000002', 'test-b@x');
+-- Dzień użytkownika = current_date serwera (inaczej między 22:00 a 24:00 UTC „dziś” w Warszawie to już jutro)
+update profiles set timezone = 'UTC';
 
 -- ---------- użytkownik A ----------
 set role authenticated;
@@ -49,6 +51,37 @@ do $$ begin
   update habits set goal = 'quit' where id = current_setting('t.read')::uuid;
   raise exception 'rzucam typu ilość przeszło';
 exception when check_violation then null;
+end $$;
+
+-- ---------- nowy nawyk w jednej transakcji, bez duplikatu przy powtórce ----------
+do $$ declare a uuid; b uuid; begin
+  a := add_habit('Bez słodyczy', 'check', null, null, 'rose', null, 'daily', null, null, null, null, current_date - 3,
+                 p_id => 'bbbbbbbb-0000-0000-0000-000000000001', p_goal => 'quit', p_time_of_day => 'evening', p_cue => ' po obiedzie ');
+  b := add_habit('Bez słodyczy', 'check', null, null, 'rose', null, 'daily', null, null, null, null, current_date - 3,
+                 p_id => 'bbbbbbbb-0000-0000-0000-000000000001', p_goal => 'quit');
+  assert a = b, 'powtórka add_habit zwróciła inny id';
+  assert (select count(*) from habits where name = 'Bez słodyczy') = 1, 'powtórka add_habit utworzyła duplikat';
+  assert (select count(*) from habit_plans where habit_id = a) = 1, 'powtórka add_habit dodała drugi plan';
+  assert (select goal = 'quit' and time_of_day = 'evening' and cue = 'po obiedzie' from habits where id = a),
+    'add_habit nie zapisał celu, pory dnia albo wyzwalacza';
+end $$;
+
+-- ---------- dopisywanie (+1, minutnik) na serwerze, bez podwójnego dopisania przy powtórce ----------
+do $$ declare r habit_entries; begin
+  r := add_entry(current_setting('t.read')::uuid, current_date - 2, 3, 'cccccccc-0000-0000-0000-000000000001');
+  r := add_entry(current_setting('t.read')::uuid, current_date - 2, 3, 'cccccccc-0000-0000-0000-000000000001');
+  assert r.value = 3, 'powtórzone dopisanie policzone dwa razy';
+  r := add_entry(current_setting('t.read')::uuid, current_date - 2, 2, 'cccccccc-0000-0000-0000-000000000002');
+  assert r.value = 5, 'add_entry nie dodało do wartości';
+  perform set_entry(current_setting('t.read')::uuid, current_date - 3, null, true);
+  r := add_entry(current_setting('t.read')::uuid, current_date - 3, 4);
+  assert r.value = 4 and not r.skipped, 'dopisanie do pominiętego dnia nie zaczęło od zera';
+end $$;
+
+do $$ begin
+  perform add_entry(current_setting('t.read')::uuid, current_date + 1, 1);
+  raise exception 'add_entry z przyszłą datą przeszło';
+exception when sqlstate '22023' then null;
 end $$;
 
 -- ---------- nastrój dnia, wyzwalacz i tożsamość ----------
@@ -106,6 +139,7 @@ end $$;
 -- Siri i Skróty: odhaczanie po nazwie
 do $$ declare r jsonb; begin
   assert jsonb_array_length(token_habits(current_setting('t.token'))) = 3, 'token_habits: zła lista';
+  assert (token_habits(current_setting('t.token')) -> 0 ->> 'id') = current_setting('t.read'), 'token_habits bez id';
   r := log_habit(current_setting('t.token'), 'czytanie', 5);
   assert (r ->> 'value')::numeric = 5 and not (r ->> 'done')::boolean, 'ilość: +5';
   r := log_habit(current_setting('t.token'), '  CZYTANIE ', 5);
@@ -118,6 +152,18 @@ do $$ begin
   perform log_habit(current_setting('t.token'), 'xyz');
   raise exception 'nieznany nawyk przeszedł';
 exception when sqlstate 'P0002' then null;
+end $$;
+
+do $$ begin
+  -- „_” i „%” to zwykłe znaki, nie wzorzec LIKE
+  perform log_habit(current_setting('t.token'), 'C_y');
+  raise exception 'log_habit potraktował _ jak dowolny znak';
+exception when sqlstate 'P0002' then null;
+end $$;
+
+do $$ declare r jsonb; begin
+  r := log_habit(current_setting('t.token'), current_setting('t.read'), 1);
+  assert (r ->> 'habit') = 'Czytanie' and (r ->> 'value')::numeric = 11, 'log_habit po id';
 end $$;
 
 do $$ begin
@@ -141,6 +187,12 @@ end $$;
 do $$ begin
   perform new_api_token();
   raise exception 'anon utworzył klucz';
+exception when insufficient_privilege then null;
+end $$;
+
+do $$ begin
+  perform add_entry(current_setting('t.read')::uuid, current_date, 1);
+  raise exception 'anon wywołał add_entry';
 exception when insufficient_privilege then null;
 end $$;
 
@@ -199,7 +251,7 @@ end $$;
 delete from auth.users where email in ('test-a@x', 'test-b@x');
 do $$ begin
   assert (select count(*) from habits) = 0 and (select count(*) from habit_entries) = 0 and (select count(*) from api_tokens) = 0
-    and (select count(*) from health_daily) = 0,
+    and (select count(*) from health_daily) = 0 and (select count(*) from entry_adds) = 0,
     'usunięcie konta zostawiło dane';
 end $$;
 

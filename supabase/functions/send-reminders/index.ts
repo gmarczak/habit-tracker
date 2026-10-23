@@ -82,11 +82,20 @@ function requirementOn(habit, pauses, date) {
       return (plan.weekdays ?? []).includes(isoWeekday(date)) ? "required" : "not_required";
     case "every_n_days": {
       const n = plan.intervalDays ?? 1;
-      return diffDays(plan.validFrom, date) % n === 0 ? "required" : "not_required";
+      return diffDays(cadenceAnchor(habit, plan), date) % n === 0 ? "required" : "not_required";
     }
     case "weekly_count":
       return "flexible";
   }
+}
+function cadenceAnchor(habit, plan) {
+  let anchor = plan.validFrom;
+  for (let i = habit.plans.indexOf(plan) - 1; i >= 0; i--) {
+    const prev = habit.plans[i];
+    if (prev.frequency !== "every_n_days" || prev.intervalDays !== plan.intervalDays) break;
+    anchor = prev.validFrom;
+  }
+  return anchor;
 }
 function entryOutcome(entry, plan, goal = "build") {
   if (goal === "quit") {
@@ -146,8 +155,7 @@ function evaluateWeek(c, weekStartDate) {
   const days = eachDay(weekStartDate, addDays(weekStartDate, 6));
   const covered = days.filter((d) => d >= c.habit.startDate && planOn(c.habit, d)?.frequency === "weekly_count");
   if (covered.length === 0) return { weekStart: weekStartDate, done: 0, required: 0, result: "boundary" };
-  const lastCovered = covered[covered.length - 1];
-  const timesPerWeek = planOn(c.habit, lastCovered)?.timesPerWeek ?? 1;
+  const timesPerWeek = Math.min(...covered.map((d) => planOn(c.habit, d)?.timesPerWeek ?? 1));
   let available = 0;
   let done = 0;
   for (const d of covered) {
@@ -287,10 +295,10 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
   }
   return view;
 }
-function dayProgress(habits, entries, pauses, date) {
+function dayProgress(habits, entries, pauses, date, history = false) {
   const progress = { done: 0, total: 0 };
   for (const habit of habits) {
-    if (habit.archivedAt !== null) continue;
+    if (habit.archivedAt !== null && !(history && habit.archivedOn && date < habit.archivedOn)) continue;
     if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
     const state = dayState(habit, entries, pauses, date, date);
     if (state !== "skipped") progress.total++;
@@ -304,7 +312,7 @@ function badgeCount(view) {
 
 // lib/domain/stats.ts
 function dayTotals(habits, entries, pauses, date) {
-  return { date, ...dayProgress(habits, entries, pauses, date) };
+  return { date, ...dayProgress(habits, entries, pauses, date, true) };
 }
 function isPerfect(d) {
   return d.total > 0 && d.done === d.total;
@@ -317,7 +325,7 @@ function weekReview(habits, entries, pauses, anyDayInWeek, today, weekStart) {
   return {
     days,
     done: days.reduce((s, d) => s + d.done, 0),
-    total: days.reduce((s, d) => s + d.total, 0),
+    total: days.reduce((s, d) => s + (d.date === today ? d.done : d.total), 0),
     perfectDays: days.filter(isPerfect).length
   };
 }
@@ -357,7 +365,7 @@ function weeklySummary(habits, entries, pauses, today, weekStart) {
     weekStart: first,
     share: review.total === 0 ? null : review.done / review.total,
     perfectDays: review.perfectDays,
-    daysSoFar: review.days.filter((d) => d.date <= today).length,
+    daysSoFar: review.days.filter((d) => d.date <= today && d.total > 0).length,
     best,
     worst,
     weekly
@@ -371,6 +379,21 @@ function weeklyMessage(s) {
   if (s.best && s.worst) parts.push(`Najlepiej: ${s.best.name} (${pct(s.best.rate)})`, `Do poprawy: ${s.worst.name} (${pct(s.worst.rate)})`);
   for (const w of s.weekly) parts.push(`${w.name} ${w.done}/${w.required}`);
   return { title: s.share === null ? "Tw\xF3j tydzie\u0144" : `Tw\xF3j tydzie\u0144: ${pct(s.share)}`, body: parts.join(" \xB7 ") };
+}
+
+// lib/domain/words.ts
+function plural(n, one, few, many) {
+  if (n === 1) return one;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  return Number.isInteger(n) && mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
+}
+function habitCount(n) {
+  return `${n} ${plural(n, "nawyk", "nawyki", "nawyk\xF3w")}`;
+}
+function habitsLeft(n, capital = true) {
+  const verb = plural(n, "zosta\u0142", "zosta\u0142y", "zosta\u0142o");
+  return `${capital ? verb.charAt(0).toUpperCase() + verb.slice(1) : verb} ${habitCount(n)}`;
 }
 
 // supabase/functions/send-reminders/logic.ts
@@ -407,7 +430,7 @@ function messagesFor(user, reminders, now) {
         if (open.length === 0) break;
         out.push({
           ...base,
-          title: open.length === 1 ? "Zosta\u0142 jeden nawyk" : `Zosta\u0142y ${open.length} nawyki na dzi\u015B`,
+          title: open.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(open.length)} na dzi\u015B`,
           body: list(open.map((i) => i.habit.name)),
           url: "/",
           tag: "summary"
@@ -419,7 +442,7 @@ function messagesFor(user, reminders, now) {
       case "evening": {
         const part = open.filter((i) => i.habit.timeOfDay === r.kind);
         if (part.length === 0) break;
-        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${part.length === 1 ? "1 nawyk" : `${part.length} nawyki`}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
+        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${habitCount(part.length)}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
         break;
       }
       case "yesterday": {
@@ -427,7 +450,7 @@ function messagesFor(user, reminders, now) {
         if (!gap) break;
         out.push({
           ...base,
-          title: gap.missing.length === 1 ? "Wczoraj zosta\u0142 1 nawyk" : `Wczoraj zosta\u0142y ${gap.missing.length} nawyki`,
+          title: `Wczoraj ${habitsLeft(gap.missing.length, false)}`,
           body: `${list(gap.missing.map((i) => i.habit.name))} \u2014 uzupe\u0142nij, je\u015Bli zrobi\u0142e\u015B.`,
           url: `/?date=${gap.date}`,
           tag: "yesterday"
