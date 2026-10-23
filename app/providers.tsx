@@ -1,11 +1,11 @@
 "use client";
 
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, onlineManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { del, get, set } from "idb-keyval";
 import { useEffect, useState, type ReactNode } from "react";
-import { entryMutationKey } from "@/lib/data/hooks";
+import { entryMutationKey, entryScope, snapshotKey } from "@/lib/data/hooks";
 import { saveEntry, type EntryChange } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 
@@ -20,6 +20,7 @@ function makeClient() {
   });
   client.setMutationDefaults(entryMutationKey, {
     mutationFn: (change: EntryChange) => saveEntry(supabaseBrowser(), change),
+    scope: entryScope,
   });
   return client;
 }
@@ -40,6 +41,15 @@ const persister =
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(makeClient);
 
+  // Po wysłaniu kolejki offline pobierz stan z serwera (optymistyczny cache mógł się rozjechać).
+  useEffect(
+    () =>
+      onlineManager.subscribe((online) => {
+        if (online) void client.resumePausedMutations().then(() => client.invalidateQueries({ queryKey: snapshotKey }));
+      }),
+    [client],
+  );
+
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       void navigator.serviceWorker.register("/sw.js", { scope: "/" });
@@ -50,8 +60,14 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <PersistQueryClientProvider
       client={client}
-      persistOptions={{ persister, buster: CACHE_VERSION, maxAge: 1000 * 60 * 60 * 24 * 7 }}
-      onSuccess={() => client.resumePausedMutations()}
+      persistOptions={{
+        persister,
+        buster: CACHE_VERSION,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+        // W IndexedDB przetrwają tylko zapisy dnia — dla nich jest funkcja w setMutationDefaults
+        dehydrateOptions: { shouldDehydrateMutation: (m) => m.state.isPaused && m.options.mutationKey?.[0] === entryMutationKey[0] },
+      }}
+      onSuccess={() => client.resumePausedMutations().then(() => client.invalidateQueries({ queryKey: snapshotKey }))}
     >
       {children}
     </PersistQueryClientProvider>
