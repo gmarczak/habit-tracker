@@ -66,6 +66,35 @@ insert into day_notes(note_date, note) values (current_date, 'Spałem 5 godzin')
 insert into day_notes(note_date, note) values (current_date, 'drugi');  -- blad: jedna na dzien
 insert into day_notes(note_date, note) values (current_date - 1, '   '); -- blad: pusta
 select count(*) as b_notes from day_notes;
+\echo '-- Apple Zdrowie: klucz i automatyczne wpisy'
+select add_habit('Spacer','check',null,null,null,null,'daily',null,null,null,null, current_date - 3) as s1 \gset
+select add_habit('Ruch','duration',null,null,null,null,'daily',null,null,null,30, current_date - 3) as s2 \gset
+update habits set source = 'steps' where id = :'s1';                         -- blad: tak/nie bez progu
+update habits set source = 'steps', source_min = 7000 where id = :'s1';
+update habits set source = 'exercise_min' where id = :'s2';
+update habits set source = 'heart_rate' where id = :'s2';                    -- blad: nieznane zrodlo
+update habits set source = 'steps', source_min = 1 where id = :'q1';          -- blad: rzucam bez zrodla
+select new_api_token() as tok \gset
+select count(*) as b_tokens, bool_and(token_hash <> convert_to(:'tok', 'UTF8')) as hashed from api_tokens;
+reset role;
+grant usage on schema public to anon;
+set role anon;
+select ingest_metrics(:'tok', '{"steps": 5000, "exercise_min": 12}');         -- spacer ponizej progu, ruch 12
+select ingest_metrics(:'tok', '{"steps": 8200, "exercise_min": 9}');          -- spacer zaliczony, ruch zostaje 12
+select ingest_metrics(:'tok', '{"steps": 9000}', current_date - 1);
+select ingest_metrics('ht_zly', '{"steps": 9000}');                           -- blad: invalid_token
+select ingest_metrics(:'tok', '{"steps": 9000}', current_date + 1);           -- blad: przyszlosc
+select ingest_metrics(:'tok', '[1]');                                         -- blad: nie obiekt
+select count(*) as anon_sees_entries from habit_entries;                     -- 0: anon nie czyta tabel
+reset role;
+select h.name, e.entry_date = current_date as today, e.value from habit_entries e join habits h on h.id = e.habit_id
+where h.source is not null order by h.name, e.entry_date;
+select last_used_at is not null as token_used from api_tokens;
+set role authenticated;
+select set_config('request.jwt.claim.sub','22222222-2222-2222-2222-222222222222',false);
+select new_api_token() <> :'tok' as rotated;
+select revoke_api_token();
+select count(*) as tokens_after_revoke from api_tokens;
 select delete_my_account();
 reset role;
 select (select count(*) from auth.users) users_left, (select count(*) from habits) habits_left, (select count(*) from profiles) profiles_left, (select count(*) from day_notes) notes_left;

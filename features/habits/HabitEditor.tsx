@@ -6,6 +6,7 @@ import { useAction } from "@/lib/data/hooks";
 import { createCategory, createHabit, habitFormSchema, updateHabit, type HabitForm } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
 import type { LocalDate } from "@/lib/domain/dates";
+import { HEALTH_METRICS, METRIC_INFO, type HealthMetric } from "@/lib/domain/health";
 import { HABIT_COLORS, type Frequency, type Habit, type Goal, type HabitKind, type TimeOfDay } from "@/lib/domain/model";
 import { planOn } from "@/lib/domain/schedule";
 import { COLOR_LABELS, HabitBadge, ICONS, ICON_KEYS } from "@/lib/ui/icons";
@@ -73,12 +74,15 @@ function initialForm(habit: Habit | undefined, today: LocalDate, preset?: HabitP
     weekdays: plan?.weekdays ?? preset?.weekdays ?? [1, 2, 3, 4, 5],
     timesPerWeek: plan?.timesPerWeek ?? preset?.timesPerWeek ?? 3,
     intervalDays: plan?.intervalDays ?? preset?.intervalDays ?? 2,
+    source: habit?.source ?? preset?.source ?? null,
+    sourceMin: habit?.sourceMin ?? preset?.sourceMin ?? null,
   };
 }
 
 export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }: Props) {
   const [form, setForm] = useState<HabitForm>(() => initialForm(habit, today, preset));
   const [targetText, setTargetText] = useState(String(form.targetValue));
+  const [sourceMinText, setSourceMinText] = useState(form.sourceMin ? String(form.sourceMin) : "");
   const [newCategory, setNewCategory] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showAllIcons, setShowAllIcons] = useState(false);
@@ -107,6 +111,8 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
       weekdays: form.frequency === "weekdays" ? form.weekdays : null,
       timesPerWeek: form.frequency === "weekly_count" ? form.timesPerWeek : null,
       intervalDays: form.frequency === "every_n_days" ? form.intervalDays : null,
+      source: quit ? null : form.source,
+      sourceMin: !quit && form.source && form.kind === "check" ? Number(sourceMinText.replace(/\s/g, "").replace(",", ".")) || null : null,
     };
     const parsed = habitFormSchema.safeParse(candidate);
     if (!parsed.success) {
@@ -290,6 +296,49 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
         )}
         {habit && <p className="text-sm text-muted">Zmiana harmonogramu lub celu obowiązuje od dziś. Historia zostaje policzona po staremu.</p>}
       </fieldset>
+      )}
+
+      {form.goal === "build" && (
+        <div className="flex flex-col gap-3">
+          <label className={label}>
+            <span className={labelText}>Z Apple Zdrowie</span>
+            <select
+              value={form.source ?? ""}
+              onChange={(e) => {
+                const source = (e.target.value || null) as HealthMetric | null;
+                set("source", source);
+                if (source && !sourceMinText) setSourceMinText(String(METRIC_INFO[source].defaultMin));
+              }}
+              className={field}
+            >
+              <option value="">Tylko ręcznie</option>
+              {HEALTH_METRICS.map((m) => (
+                <option key={m} value={m}>
+                  {METRIC_INFO[m].label} ({METRIC_INFO[m].unit})
+                </option>
+              ))}
+            </select>
+            {errors.source && <span className={errorText}>{errors.source}</span>}
+          </label>
+          {form.source && form.kind === "check" && (
+            <label className={label}>
+              <span className={labelText}>Zaliczone od</span>
+              <div className="flex items-center gap-3">
+                <input inputMode="decimal" value={sourceMinText} onChange={(e) => setSourceMinText(e.target.value)} className={field} />
+                <span className="shrink-0 text-muted">{METRIC_INFO[form.source].unit}</span>
+              </div>
+              {errors.sourceMin && <span className={errorText}>{errors.sourceMin}</span>}
+            </label>
+          )}
+          {form.source && (
+            <p className="text-sm text-muted">
+              {form.kind === "check"
+                ? "Odhacza się sam po przekroczeniu progu. Ręcznie też możesz."
+                : `Wartość dnia = suma z Apple Zdrowie (${METRIC_INFO[form.source].unit}). Ustaw cel w tej samej jednostce.`}{" "}
+              Skrót skonfigurujesz w Ustawieniach.
+            </p>
+          )}
+        </div>
       )}
 
       <fieldset>

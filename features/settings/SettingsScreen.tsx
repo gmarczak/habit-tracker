@@ -10,6 +10,7 @@ import { btnDanger, btnPrimary, btnSecondary, chip, field, label, labelText, sec
 import { PasswordForm } from "@/features/auth/PasswordForm";
 import { PauseForm } from "@/features/habits/HabitDetail";
 import { ReminderSettings } from "@/features/reminders/ReminderSettings";
+import { HealthSync } from "./HealthSync";
 import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { deleteAccount, deleteCategory, deletePause, updateSettings, type SettingsForm } from "@/lib/data/mutations";
@@ -50,6 +51,8 @@ export function SettingsScreen() {
       <DayAndWeek key={JSON.stringify(snapshot.settings)} userId={snapshot.userId} initial={snapshot.settings} />
 
       <ReminderSettings />
+
+      <HealthSync />
 
       <section aria-labelledby="vac-title" className="flex flex-col gap-3">
         <h2 id="vac-title" className={sectionTitle}>

@@ -49,6 +49,20 @@ for f in supabase/migrations/*.sql; do sed '/^create extension/d' "$f" | psql; d
 psql -f supabase/tests/behavior.sql
 ```
 
+## Apple Zdrowie (Garmin, Fitatu…)
+
+Garmin Connect i Fitatu nie mają publicznego API dla osób prywatnych, ale obie zapisują dane do Zdrowia na iPhonie. Skrót (automatyzacja o stałej godzinie) czyta dzienne sumy i wysyła je na `POST /api/ingest`:
+
+```
+Authorization: Bearer ht_…          # klucz z Ustawień → Apple Zdrowie
+{ "steps": 8234, "water_ml": 1500 }  # opcjonalnie "date": "RRRR-MM-DD"
+```
+
+- Klucz tworzy RPC `new_api_token` (w bazie tylko SHA-256 w `api_tokens`), wyłącza `revoke_api_token`.
+- Endpoint woła `ingest_metrics` jako `anon`; funkcja sprawdza klucz i zapisuje wpisy nawyków z ustawionym `habits.source`.
+- Tak/nie: wpis, gdy wartość ≥ `habits.source_min`. Ilość/czas: największa suma z dnia. Pominięte dni zostają nietknięte.
+- Dane: `steps`, `distance_km`, `exercise_min`, `active_kcal`, `mindful_min`, `water_ml`, `workouts` (`lib/domain/health.ts`).
+
 ## Przypomnienia
 
 Web Push wysyła funkcja Edge `send-reminders`. Co 5 minut wywołuje ją `pg_cron` (zadanie `send-reminders`, migracja `reminders_cron`) z nagłówkiem `x-cron-secret`. Funkcja sprawdza sekret przez RPC `push_config`, które przy poprawnym sekrecie zwraca klucze VAPID. Bez sekretu odpowiada `401`.

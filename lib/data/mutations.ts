@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Supabase } from "@/lib/db/client";
 import { isLocalDate, type LocalDate, type WeekStart } from "@/lib/domain/dates";
+import { HEALTH_METRICS } from "@/lib/domain/health";
 import { HABIT_COLORS, TIMES_OF_DAY, type Entry, type Plan, type ReminderKind } from "@/lib/domain/model";
 import type { Snapshot } from "./snapshot";
 
@@ -69,11 +70,17 @@ export const habitFormSchema = z
     timeOfDay: z.enum(TIMES_OF_DAY).nullable(),
     goal: z.enum(["build", "quit"]),
     startDate: z.string().refine(isLocalDate).nullable(),
+    source: z.enum(HEALTH_METRICS).nullable().optional(),
+    sourceMin: z.number().positive("Próg musi być większy od zera").nullable().optional(),
     ...planShape,
   })
   .superRefine((v, ctx) => {
     if (v.goal === "quit" && (v.kind !== "check" || v.frequency !== "daily"))
       ctx.addIssue({ code: "custom", path: ["goal"], message: "Nawyk „rzucam” jest codzienny i typu tak/nie" });
+    if (v.source && v.goal === "quit")
+      ctx.addIssue({ code: "custom", path: ["source"], message: "Nawyk „rzucam” wpisujesz tylko ręcznie" });
+    if (v.source && v.kind === "check" && !v.sourceMin)
+      ctx.addIssue({ code: "custom", path: ["sourceMin"], message: "Podaj próg, np. 7000 kroków" });
     if (v.kind === "count" && !v.unit) ctx.addIssue({ code: "custom", path: ["unit"], message: "Podaj jednostkę, np. strony" });
     if (v.frequency === "weekdays" && !v.weekdays?.length)
       ctx.addIssue({ code: "custom", path: ["weekdays"], message: "Wybierz przynajmniej jeden dzień" });
@@ -95,6 +102,11 @@ function planArgs(v: Pick<HabitForm, "kind" | keyof typeof planShape>) {
   };
 }
 
+function sourceColumns(v: HabitForm) {
+  const source = v.goal === "build" ? (v.source ?? null) : null;
+  return { source, source_min: source && v.kind === "check" ? (v.sourceMin ?? null) : null };
+}
+
 export async function createHabit(supabase: Supabase, input: HabitForm): Promise<string> {
   const v = habitFormSchema.parse(input);
   const { data } = check(
@@ -109,8 +121,8 @@ export async function createHabit(supabase: Supabase, input: HabitForm): Promise
       ...(v.startDate ? { p_start_date: v.startDate } : {}),
     }),
   );
-  if (v.timeOfDay || v.goal === "quit")
-    check(await supabase.from("habits").update({ time_of_day: v.timeOfDay, goal: v.goal }).eq("id", data as string));
+  if (v.timeOfDay || v.goal === "quit" || v.source)
+    check(await supabase.from("habits").update({ time_of_day: v.timeOfDay, goal: v.goal, ...sourceColumns(v) }).eq("id", data as string));
   return data as string;
 }
 
@@ -139,6 +151,7 @@ export async function updateHabit(supabase: Supabase, habitId: string, currentPl
         category_id: v.categoryId,
         time_of_day: v.timeOfDay,
         unit: v.kind === "duration" ? "min" : v.kind === "count" ? v.unit : null,
+        ...sourceColumns(v),
       })
       .eq("id", habitId),
   );
@@ -302,4 +315,23 @@ export async function savePushSubscription(supabase: Supabase, sub: PushSubscrip
 
 export async function deletePushSubscription(supabase: Supabase, endpoint: string): Promise<void> {
   check(await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint));
+}
+
+// ---------- Apple Zdrowie: klucz dla Skrótu ----------
+
+export type TokenStatus = { createdAt: string; lastUsedAt: string | null } | null;
+
+export async function fetchTokenStatus(supabase: Supabase): Promise<TokenStatus> {
+  const { data } = check(await supabase.from("api_tokens").select("created_at, last_used_at").maybeSingle());
+  return data ? { createdAt: data.created_at, lastUsedAt: data.last_used_at } : null;
+}
+
+/** Nowy klucz (poprzedni przestaje działać). Jawny klucz widać tylko teraz. */
+export async function newApiToken(supabase: Supabase): Promise<string> {
+  const { data } = check(await supabase.rpc("new_api_token"));
+  return data as string;
+}
+
+export async function revokeApiToken(supabase: Supabase): Promise<void> {
+  check(await supabase.rpc("revoke_api_token"));
 }
