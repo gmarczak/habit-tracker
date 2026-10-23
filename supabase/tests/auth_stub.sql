@@ -16,3 +16,7 @@ create schema vault;
 create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
 create schema cron;
 create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as $$ select 1::bigint $$;
+
+-- Jak w Supabase: role API mają dostęp do tabel w public (chroni je RLS), funkcje domyślnie wykonywalne przez PUBLIC
+grant usage on schema public to anon, authenticated;
+alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated;

@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { btnDanger, btnPrimary, btnSecondary, chip, field, label, labelText, sectionTitle } from "@/components/ui/styles";
 import { PasswordForm } from "@/features/auth/PasswordForm";
 import { PauseForm } from "@/features/habits/HabitDetail";
+import { disablePush } from "@/features/reminders/push";
 import { ReminderSettings } from "@/features/reminders/ReminderSettings";
 import { HealthSync } from "./HealthSync";
 import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
@@ -36,7 +37,11 @@ export function SettingsScreen() {
   const vacations = snapshot.pauses.filter((p) => p.habitId === null && p.endDate >= today);
 
   async function signOut() {
-    await supabaseBrowser().auth.signOut();
+    const supabase = supabaseBrowser();
+    // Wylogowane urządzenie nie dostaje już przypomnień; brak sieci nie blokuje wylogowania
+    await disablePush(supabase).catch(() => {});
+    if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
+    await supabase.auth.signOut();
     qc.clear();
     await clearIdb();
     router.replace("/login");

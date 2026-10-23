@@ -12,13 +12,13 @@ Przepisany od zera tracker nawyków: odhacz w 3 sekundy i zobacz postęp. Plan r
 ## Struktura
 
 ```
-app/                 trasy: / (Dziś), /login, /auth/callback
+app/                 trasy: / (Dziś), /habits, /stats, /settings, /login, /auth/callback, /api/ingest (Skrót z iPhone'a)
 features/            ekrany i komponenty per funkcja (today, habits, auth)
 lib/domain/          czysta logika: daty, harmonogramy, serie, statystyki (+ testy)
 lib/data/            pobieranie danych, mutacje, hooki
 lib/db/              klienci Supabase i typy wygenerowane z bazy
 supabase/migrations  cały schemat bazy
-supabase/tests       testy zachowania bazy (RLS, ograniczenia, RPC)
+supabase/tests       behavior.sql (podgląd zachowania) i assertions.sql (asercje: RLS, uprawnienia, RPC — w CI)
 ```
 
 ## Zasady (lekcje ze starej wersji)
@@ -47,6 +47,7 @@ Migracje w `supabase/migrations` są źródłem prawdy. Testy bazy lokalnie (Pos
 psql -f supabase/tests/auth_stub.sql
 for f in supabase/migrations/*.sql; do sed '/^create extension/d' "$f" | psql; done
 psql -f supabase/tests/behavior.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/assertions.sql
 ```
 
 ## Apple Zdrowie (Garmin, Fitatu…)
