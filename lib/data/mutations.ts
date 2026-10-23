@@ -73,6 +73,8 @@ export const habitFormSchema = z
     startDate: z.string().refine(isLocalDate).nullable(),
     source: z.enum(HEALTH_METRICS).nullable().optional(),
     sourceMin: z.number().positive("Próg musi być większy od zera").nullable().optional(),
+    cue: z.string().trim().max(80, "Maks. 80 znaków").nullable().optional(),
+    why: z.string().trim().max(120, "Maks. 120 znaków").nullable().optional(),
     ...planShape,
   })
   .superRefine((v, ctx) => {
@@ -105,7 +107,12 @@ function planArgs(v: Pick<HabitForm, "kind" | keyof typeof planShape>) {
 
 function sourceColumns(v: HabitForm) {
   const source = v.goal === "build" ? (v.source ?? null) : null;
-  return { source, source_min: source && v.kind === "check" ? (v.sourceMin ?? null) : null };
+  return {
+    source,
+    source_min: source && v.kind === "check" ? (v.sourceMin ?? null) : null,
+    cue: v.cue?.trim() || null,
+    why: v.why?.trim() || null,
+  };
 }
 
 export async function createHabit(supabase: Supabase, input: HabitForm): Promise<string> {
@@ -122,7 +129,7 @@ export async function createHabit(supabase: Supabase, input: HabitForm): Promise
       ...(v.startDate ? { p_start_date: v.startDate } : {}),
     }),
   );
-  if (v.timeOfDay || v.goal === "quit" || v.source)
+  if (v.timeOfDay || v.goal === "quit" || v.source || v.cue || v.why)
     check(await supabase.from("habits").update({ time_of_day: v.timeOfDay, goal: v.goal, ...sourceColumns(v) }).eq("id", data as string));
   return data as string;
 }
@@ -235,22 +242,29 @@ export function withoutPause(snapshot: Snapshot, id: string): Snapshot {
 
 // ---------- notatka do dnia ----------
 
-/** Zapis notatki dnia; pusty tekst usuwa notatkę. */
-export async function saveDayNote(supabase: Supabase, date: LocalDate, text: string): Promise<void> {
-  if (!isLocalDate(date)) throw new Error("Zła data");
-  const note = text.trim();
+export type DayNoteInput = { date: LocalDate; text: string; mood: number | null };
+
+/** Zapis notatki dnia (tekst i nastrój 1..5); bez tekstu i nastroju wiersz znika. */
+export async function saveDayNote(supabase: Supabase, input: DayNoteInput): Promise<void> {
+  if (!isLocalDate(input.date)) throw new Error("Zła data");
+  const note = input.text.trim();
   if (note.length > 1000) throw new Error("Notatka może mieć najwyżej 1000 znaków");
-  if (!note) {
-    check(await supabase.from("day_notes").delete().eq("note_date", date));
+  if (input.mood !== null && !(Number.isInteger(input.mood) && input.mood >= 1 && input.mood <= 5)) throw new Error("Nastrój od 1 do 5");
+  if (!note && input.mood === null) {
+    check(await supabase.from("day_notes").delete().eq("note_date", input.date));
     return;
   }
-  check(await supabase.from("day_notes").upsert({ note_date: date, note, updated_at: new Date().toISOString() }, { onConflict: "user_id,note_date" })); // eslint-disable-line no-restricted-syntax -- znacznik czasu
+  check(
+    await supabase
+      .from("day_notes")
+      .upsert({ note_date: input.date, note: note || null, mood: input.mood, updated_at: new Date().toISOString() }, { onConflict: "user_id,note_date" }), // eslint-disable-line no-restricted-syntax -- znacznik czasu
+  );
 }
 
-export function withDayNote(snapshot: Snapshot, input: { date: LocalDate; text: string }): Snapshot {
+export function withDayNote(snapshot: Snapshot, input: DayNoteInput): Snapshot {
   const rest = snapshot.notes.filter((n) => n.date !== input.date);
-  const note = input.text.trim();
-  return { ...snapshot, notes: note ? [...rest, { date: input.date, note }] : rest };
+  const note = input.text.trim() || null;
+  return { ...snapshot, notes: note || input.mood !== null ? [...rest, { date: input.date, note, mood: input.mood }] : rest };
 }
 
 // ---------- ustawienia ----------

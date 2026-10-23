@@ -69,6 +69,8 @@ export function toHabit(row: Tables<"habits">, plans: Tables<"habit_plans">[]): 
     archivedAt: row.archived_at,
     source: isHealthMetric(row.source) ? row.source : null,
     sourceMin: row.source_min === null ? null : Number(row.source_min),
+    cue: row.cue,
+    why: row.why,
     plans: plans
       .filter((p) => p.habit_id === row.id)
       .map(toPlan)
@@ -117,7 +119,7 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
     supabase.from("habit_pauses").select("*").order("start_date"),
     supabase.from("categories").select("*").order("sort_order"),
     supabase.from("reminders").select("*").order("local_time"),
-    supabase.from("day_notes").select("note_date, note").order("note_date"),
+    supabase.from("day_notes").select("note_date, note, mood").order("note_date"),
     supabase.from("health_daily").select("metric_date, metric, value").gte("metric_date", since),
   ]);
   for (const r of [profile, habits, plans, pauses, categories, reminders, notes, health]) if (r.error) throw r.error;
@@ -147,7 +149,7 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
       localTime: r.local_time.slice(0, 5),
       enabled: r.enabled,
     })),
-    notes: (notes.data ?? []).map((n) => ({ date: n.note_date, note: n.note })),
+    notes: (notes.data ?? []).map((n) => ({ date: n.note_date, note: n.note, mood: n.mood })),
     health: (health.data ?? []).flatMap((h) => (isHealthMetric(h.metric) ? [{ date: h.metric_date, metric: h.metric, value: Number(h.value) }] : [])),
   };
 }

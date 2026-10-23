@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
       categoryId: null,
       timeOfDay: (h.time_of_day as Habit["timeOfDay"]) ?? null,
       source: (h.source as Habit["source"]) ?? null,
+      cue: (h.cue as string | null) ?? null,
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date as string,
       sortOrder: h.sort_order as number,

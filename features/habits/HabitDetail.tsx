@@ -17,7 +17,9 @@ import { planOn } from "@/lib/domain/schedule";
 import { describePlan, formatDayLong, formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { HabitEditor } from "./HabitEditor";
+import { habitStrength } from "@/lib/domain/strength";
 import { MonthCalendar } from "./MonthCalendar";
+import { StrengthRing } from "./StrengthRing";
 import { YearHeatmap } from "./YearHeatmap";
 
 function pct(rate: number | null): string {
@@ -60,6 +62,7 @@ export function HabitDetail({ id }: { id: string }) {
     .slice(0, 30);
   const habitPauses = snapshot.pauses.filter((p) => p.habitId === habit.id && p.endDate >= today);
   const isArchived = habit.archivedAt !== null;
+  const strength = habitStrength(habit, entries, pauses, today);
   const health = snapshot.health ?? [];
   const metric = habit.source ? METRIC_INFO[habit.source] : null;
   const measuredToday = habit.source ? healthValue(health, habit.source, today) : null;
@@ -93,8 +96,22 @@ export function HabitDetail({ id }: { id: string }) {
             {habit.source ? ` · z Apple Zdrowie (${METRIC_INFO[habit.source].label.toLowerCase()})` : ""}
             {isArchived ? " · w archiwum" : ""}
           </p>
+          {habit.cue && <p className="text-sm text-muted">Po czym: {habit.cue}</p>}
         </div>
       </header>
+
+      {habit.why && <p className="-mt-3 rounded-xl bg-surface px-4 py-3 font-serif text-[17px] font-semibold">„{habit.why}”</p>}
+
+      <div className="flex items-center gap-4 rounded-xl bg-surface p-4">
+        <div className="relative flex h-16 w-16 items-center justify-center">
+          <StrengthRing value={strength} color={habit.color} size={64} />
+          <span className="absolute text-[15px] font-bold tabular-nums">{Math.round(strength * 100)}%</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[17px] font-semibold">Siła nawyku</p>
+          <p className="text-[13px] text-muted">{strengthHint(strength)} Jedna przerwa jej nie zeruje — każdy dzień trochę ją podnosi albo obniża.</p>
+        </div>
+      </div>
 
       <dl className="grid grid-cols-2 gap-3">
         <Stat label="Seria" value={formatStreak(streak)} accent />
@@ -287,4 +304,11 @@ function HabitReminder({ habit }: { habit: Habit }) {
 /** Kalendarz i mapa roku w kolorze nawyku (podmiana akcentu tylko w tym fragmencie). */
 function habitTint(habit: Habit): CSSProperties {
   return { "--accent": `var(--c-${habit.color}-bg)` } as CSSProperties;
+}
+
+function strengthHint(strength: number): string {
+  if (strength >= 0.8) return "Nawyk mocno siedzi.";
+  if (strength >= 0.5) return "Nawyk się utrwala.";
+  if (strength >= 0.2) return "Dopiero się buduje.";
+  return "Początek drogi.";
 }

@@ -447,7 +447,7 @@ function messagesFor(user, reminders, now) {
         out.push({
           ...base,
           title: item.habit.name,
-          body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : "Czas na dzisiejszy nawyk.",
+          body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : item.habit.cue ? `${item.habit.cue.charAt(0).toUpperCase()}${item.habit.cue.slice(1)} \u2014 czas na ten nawyk.` : "Czas na dzisiejszy nawyk.",
           url: "/",
           tag: `habit-${item.habit.id}`
         });
@@ -530,6 +530,7 @@ Deno.serve(async (req) => {
       categoryId: null,
       timeOfDay: h.time_of_day ?? null,
       source: h.source ?? null,
+      cue: h.cue ?? null,
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date,
       sortOrder: h.sort_order,

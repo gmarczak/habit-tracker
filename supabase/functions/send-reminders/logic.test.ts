@@ -67,6 +67,12 @@ describe("przypomnienia", () => {
     expect(m.map((x) => [x.body, x.badge])).toEqual([["Medytacja", 2]]);
   });
 
+  it("przypomnienie nawyku używa wyzwalacza", () => {
+    const withCue = { ...user, habits: [habit("a", "Czytanie"), { ...habit("b", "Spacer"), cue: "po obiedzie" }] };
+    const m = messagesFor(withCue, [{ id: "rb", kind: "habit" as const, habitId: "b", localTime: "20:00" }], at2005);
+    expect(m.map((x) => x.body)).toEqual(["Po obiedzie — czas na ten nawyk."]);
+  });
+
   it("pora dnia: tylko nawyki z tej pory, które czekają", () => {
     const parts = {
       ...user,

@@ -76,6 +76,8 @@ function initialForm(habit: Habit | undefined, today: LocalDate, preset?: HabitP
     intervalDays: plan?.intervalDays ?? preset?.intervalDays ?? 2,
     source: habit?.source ?? preset?.source ?? null,
     sourceMin: habit?.sourceMin ?? preset?.sourceMin ?? null,
+    cue: habit?.cue ?? preset?.cue ?? null,
+    why: habit?.why ?? preset?.why ?? null,
   };
 }
 
@@ -351,6 +353,33 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
           ))}
         </div>
         <p className="mt-2 text-sm text-muted">Na ekranie Dziś nawyki układają się według pory, a przypomnienie dla pory przychodzi tylko z tym, co jeszcze czeka.</p>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className={`${labelText} mb-2`}>Po czym i po co</legend>
+        <label className={label}>
+          <span className="px-1 text-sm">Wyzwalacz — po czym to robisz?</span>
+          <input
+            value={form.cue ?? ""}
+            onChange={(e) => set("cue", e.target.value || null)}
+            maxLength={80}
+            placeholder="np. po porannej kawie, po umyciu zębów"
+            className={field}
+          />
+          {errors.cue && <span className={errorText}>{errors.cue}</span>}
+        </label>
+        <label className={label}>
+          <span className="px-1 text-sm">Po co? Kim chcesz być?</span>
+          <input
+            value={form.why ?? ""}
+            onChange={(e) => set("why", e.target.value || null)}
+            maxLength={120}
+            placeholder="np. jestem osobą, która czyta"
+            className={field}
+          />
+          {errors.why && <span className={errorText}>{errors.why}</span>}
+        </label>
+        <p className="px-1 text-sm text-muted">Konkretny moment („po kawie”) działa lepiej niż „kiedyś dziś”. Wyzwalacz pojawi się na ekranie Dziś i w przypomnieniu.</p>
       </fieldset>
 
       <label className={label}>

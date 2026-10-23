@@ -1,6 +1,6 @@
 import { addDays, isoWeekday, startOfWeek, type LocalDate, type WeekStart } from "./dates";
 import type { DayNote, Entry, Habit, Pause } from "./model";
-import { completionRate } from "./progress";
+import { completionRate, dayState } from "./progress";
 import { dayProgress } from "./today";
 
 /*
@@ -113,7 +113,7 @@ export function notedDays(
   limit = 10,
 ): (DayTotals & { note: string })[] {
   return [...notes]
-    .filter((n) => n.date <= today)
+    .filter((n): n is DayNote & { note: string } => n.date <= today && Boolean(n.note))
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, limit)
     .map((n) => ({ ...dayTotals(habits, entries, pauses, n.date), note: n.note }));
@@ -139,4 +139,44 @@ export function weekdayShares(
     s.total += t.total;
   }
   return sums.map((s, i) => ({ weekday: i + 1, share: s.total === 0 ? null : s.done / s.total }));
+}
+
+export type MoodLink = { habit: Habit; withHabit: number; without: number; diff: number; days: number };
+
+/**
+ * Nastrój a nawyki z ostatnich `days` dni: średni nastrój oraz — dla nawyków z co najmniej `minEach`
+ * dniami w obu grupach — różnica średniego nastroju w dni zrobione i niezrobione (od największej).
+ * Dni neutralne (pauza, pominięcie, niewymagane, dzisiejszy niedokończony) się nie liczą.
+ */
+export function moodInsights(
+  notes: readonly DayNote[],
+  habits: readonly Habit[],
+  entries: readonly Entry[],
+  pauses: readonly Pause[],
+  today: LocalDate,
+  days = 60,
+  minEach = 3,
+): { average: number | null; count: number; links: MoodLink[] } {
+  const from = addDays(today, -(days - 1));
+  const moods = notes.filter((n): n is DayNote & { mood: number } => typeof n.mood === "number" && n.date >= from && n.date <= today);
+  if (moods.length === 0) return { average: null, count: 0, links: [] };
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+  const links: MoodLink[] = [];
+  for (const habit of habits.filter((h) => h.archivedAt === null)) {
+    const done: number[] = [];
+    const missed: number[] = [];
+    for (const m of moods) {
+      const state = dayState(habit, entries, pauses, m.date, today);
+      if (state === "done") done.push(m.mood);
+      else if (state === "missed" || state === "partial") missed.push(m.mood);
+    }
+    if (done.length >= minEach && missed.length >= minEach) {
+      const withHabit = mean(done);
+      const without = mean(missed);
+      links.push({ habit, withHabit, without, diff: withHabit - without, days: done.length + missed.length });
+    }
+  }
+  links.sort((a, b) => b.diff - a.diff);
+  return { average: mean(moods.map((m) => m.mood)), count: moods.length, links };
 }

@@ -4,9 +4,10 @@ import { useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { btnPrimary, btnSecondary, chip, field, label, labelText } from "@/components/ui/styles";
 import { useEntryMutation } from "@/lib/data/hooks";
-import type { LocalDate } from "@/lib/domain/dates";
+import { localDate, type LocalDate } from "@/lib/domain/dates";
 import type { Entry, Habit, Plan } from "@/lib/domain/model";
 import { formatDayLong } from "@/lib/format";
+import { HabitTimer, hasTimer } from "./HabitTimer";
 
 type Props = { open: boolean; onClose: () => void; habit: Habit; plan: Plan; entry: Entry | undefined; date: LocalDate };
 
@@ -21,6 +22,8 @@ export function EntrySheet(props: Props) {
 
 function EntryForm({ onClose, habit, plan, entry, date }: Props) {
   const mutation = useEntryMutation();
+  const canTime = habit.kind === "duration" && habit.goal === "build" && date === localDate(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [timing, setTiming] = useState(() => canTime && hasTimer(habit.id, date));
   const [value, setValue] = useState(entry && !entry.skipped && entry.value !== null ? String(entry.value) : "");
   const [note, setNote] = useState(entry?.note ?? "");
   const [invalid, setInvalid] = useState(false);
@@ -46,8 +49,22 @@ function EntryForm({ onClose, habit, plan, entry, date }: Props) {
     onClose();
   }
 
+  function finishTimer(minutes: number) {
+    mutation.mutate({ habitId: habit.id, date, kind: "set", value: current + minutes, note: noteValue });
+    onClose();
+  }
+
+  if (timing) {
+    return <HabitTimer habitId={habit.id} date={date} minutes={plan.targetValue} color={habit.color} onFinish={finishTimer} onBack={() => setTiming(false)} />;
+  }
+
   return (
     <form onSubmit={save} className="flex flex-col gap-5">
+      {canTime && (
+        <button type="button" onClick={() => setTiming(true)} className={btnPrimary}>
+          Minutnik · {plan.targetValue} min
+        </button>
+      )}
       {steps.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className={labelText}>
