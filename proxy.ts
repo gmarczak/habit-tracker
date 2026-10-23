@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/database.types";
 import { supabaseEnv } from "@/lib/db/env";
 
-// /api/ingest: Skrót z iPhone'a, uwierzytelnia się kluczem, nie sesją
-const PUBLIC_PATHS = ["/login", "/auth", "/api/ingest"];
+// /api/ingest i /api/log: Skróty z iPhone'a, uwierzytelniają się kluczem, nie sesją
+const PUBLIC_PATHS = ["/login", "/auth", "/api/ingest", "/api/log"];
 
 /** Odświeża sesję Supabase i odsyła niezalogowanych do /login. */
 export async function proxy(request: NextRequest) {

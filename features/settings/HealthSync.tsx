@@ -1,58 +1,32 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { btnDanger, btnPrimary, btnSecondary, groupHeader, sectionTitle } from "@/components/ui/styles";
-import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { fetchTokenStatus, newApiToken, revokeApiToken } from "@/lib/data/mutations";
-import { supabaseBrowser } from "@/lib/db/client";
+import { groupHeader, sectionTitle } from "@/components/ui/styles";
+import { useSnapshot, useToday } from "@/lib/data/hooks";
 import { HEALTH_METRICS, METRIC_INFO } from "@/lib/domain/health";
 import { formatNumber } from "@/lib/format";
-
-export const tokenKey = ["api-token"] as const;
-
-function formatStamp(iso: string): string {
-  return new Intl.DateTimeFormat("pl-PL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
-}
+import { ShortcutKey } from "./ShortcutKey";
 
 /** Apple Zdrowie przez Skróty: klucz, adres i instrukcja. Garmin i Fitatu zapisują do Zdrowia, Skrót przesyła dzienne sumy. */
 export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
   const { data: snapshot } = useSnapshot();
   const today = useToday(snapshot);
-  const qc = useQueryClient();
-  const status = useQuery({ queryKey: tokenKey, queryFn: () => fetchTokenStatus(supabaseBrowser()) });
-  const [token, setToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const create = useAction((s) => newApiToken(s));
-  const revoke = useAction((s) => revokeApiToken(s));
 
   if (!snapshot) return null;
   const todayValues = today ? (snapshot.health ?? []).filter((d) => d.date === today) : [];
   const endpoint = typeof window === "undefined" ? "/api/ingest" : `${window.location.origin}/api/ingest`;
   const linked = snapshot.habits.filter((h) => h.archivedAt === null && h.source);
 
-  async function copy(text: string, what: string) {
+  async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(what);
+      setCopied(true);
     } catch {
       setError("Nie udało się skopiować — zaznacz tekst i skopiuj ręcznie.");
     }
-  }
-
-  function makeToken() {
-    setError(null);
-    create.mutate(undefined, {
-      onSuccess: (t) => {
-        setToken(t);
-        setCopied(null);
-        void qc.invalidateQueries({ queryKey: tokenKey });
-      },
-      onError: (e) => setError(e.message),
-    });
   }
 
   return (
@@ -103,49 +77,7 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
         </p>
       )}
 
-      {status.data ? (
-        <p className="text-sm">
-          Klucz aktywny od {formatStamp(status.data.createdAt)}.{" "}
-          {status.data.lastUsedAt ? `Ostatnie dane: ${formatStamp(status.data.lastUsedAt)}.` : "Skrót jeszcze nic nie wysłał."}
-        </p>
-      ) : (
-        status.isSuccess && <p className="text-sm text-muted">Brak klucza — utwórz go, żeby Skrót mógł wysyłać dane.</p>
-      )}
-
-      {token && (
-        <div className="flex flex-col gap-2 rounded-xl border-[1.5px] border-accent px-4 py-3">
-          <span className="text-sm font-semibold">Twój klucz — widać go tylko teraz</span>
-          <code className="break-all text-sm">{token}</code>
-          <button type="button" onClick={() => void copy(token, "token")} className={`${btnSecondary} self-start`}>
-            {copied === "token" ? "Skopiowano" : "Kopiuj klucz"}
-          </button>
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-3">
-        <button type="button" disabled={create.isPending} onClick={makeToken} className={btnPrimary}>
-          {create.isPending ? "Tworzę…" : status.data ? "Nowy klucz" : "Utwórz klucz"}
-        </button>
-        {status.data && (
-          <button
-            type="button"
-            disabled={revoke.isPending}
-            onClick={() =>
-              revoke.mutate(undefined, {
-                onSuccess: () => {
-                  setToken(null);
-                  void qc.invalidateQueries({ queryKey: tokenKey });
-                },
-                onError: (e) => setError(e.message),
-              })
-            }
-            className={btnDanger}
-          >
-            Wyłącz
-          </button>
-        )}
-      </div>
-      {status.data && !token && <p className="text-xs text-muted">„Nowy klucz” unieważnia poprzedni — trzeba go wtedy podmienić w Skrócie.</p>}
+      <ShortcutKey />
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <details className="rounded-xl bg-surface px-4 py-3 text-sm">
@@ -159,8 +91,8 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
             <b>Pobierz zawartość adresu URL</b>:
             <span className="mt-1 flex items-center gap-2">
               <code className="break-all">{endpoint}</code>
-              <button type="button" onClick={() => void copy(endpoint, "url")} className="shrink-0 font-semibold text-accent">
-                {copied === "url" ? "Skopiowano" : "Kopiuj"}
+              <button type="button" onClick={() => void copy(endpoint)} className="shrink-0 font-semibold text-accent">
+                {copied ? "Skopiowano" : "Kopiuj"}
               </button>
             </span>
             Metoda <b>POST</b>, nagłówek <code>Authorization</code> = <code>Bearer </code> + klucz, treść <b>JSON</b> — pola typu Liczba z wynikami statystyk:

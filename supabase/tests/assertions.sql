@@ -51,6 +51,20 @@ do $$ begin
 exception when check_violation then null;
 end $$;
 
+-- ---------- nastrój dnia, wyzwalacz i tożsamość ----------
+insert into day_notes(note_date, mood) values (current_date, 4);
+do $$ begin
+  insert into day_notes(note_date) values (current_date - 1);
+  raise exception 'pusta notatka bez nastroju przeszła';
+exception when check_violation then null;
+end $$;
+do $$ begin
+  insert into day_notes(note_date, mood) values (current_date - 2, 6);
+  raise exception 'nastrój 6 przeszedł';
+exception when check_violation then null;
+end $$;
+update habits set cue = 'po porannej kawie', why = 'jestem osobą, która czyta' where id = current_setting('t.read')::uuid;
+
 -- ---------- Apple Zdrowie ----------
 do $$ begin
   update habits set source = 'steps' where id = current_setting('t.walk')::uuid;
@@ -89,6 +103,35 @@ do $$ begin
 exception when sqlstate '22023' then null;
 end $$;
 
+-- Siri i Skróty: odhaczanie po nazwie
+do $$ declare r jsonb; begin
+  assert jsonb_array_length(token_habits(current_setting('t.token'))) = 3, 'token_habits: zła lista';
+  r := log_habit(current_setting('t.token'), 'czytanie', 5);
+  assert (r ->> 'value')::numeric = 5 and not (r ->> 'done')::boolean, 'ilość: +5';
+  r := log_habit(current_setting('t.token'), '  CZYTANIE ', 5);
+  assert (r ->> 'value')::numeric = 10 and (r ->> 'done')::boolean, 'ilość: suma do celu';
+  r := log_habit(current_setting('t.token'), 'Ruch');
+  assert (r ->> 'value')::numeric = 42, 'czas: domyślnie cały cel dodany do 12 z Apple Zdrowie';
+end $$;
+
+do $$ begin
+  perform log_habit(current_setting('t.token'), 'xyz');
+  raise exception 'nieznany nawyk przeszedł';
+exception when sqlstate 'P0002' then null;
+end $$;
+
+do $$ begin
+  perform log_habit('ht_zly', 'Czytanie');
+  raise exception 'log_habit ze złym kluczem przeszedł';
+exception when sqlstate '28000' then null;
+end $$;
+
+do $$ begin
+  perform token_owner(current_setting('t.token'));
+  raise exception 'anon wywołał token_owner';
+exception when insufficient_privilege then null;
+end $$;
+
 do $$ begin
   perform set_entry(current_setting('t.read')::uuid, current_date, 1);
   raise exception 'anon wywołał set_entry';
@@ -112,7 +155,8 @@ reset role;
 do $$ begin
   assert (select value from habit_entries where habit_id = current_setting('t.walk')::uuid and entry_date = current_date) = 1,
     'spacer nie odhaczony po przekroczeniu progu';
-  assert (select value from habit_entries where habit_id = current_setting('t.move')::uuid and entry_date = current_date) = 12,
+  -- 12 z Apple Zdrowie (maksimum z 12 i 9) + 30 z log_habit
+  assert (select value from habit_entries where habit_id = current_setting('t.move')::uuid and entry_date = current_date) = 42,
     'ilość/czas nie wzięła maksimum dnia';
   assert (select last_used_at is not null from api_tokens), 'klucz bez daty użycia';
   -- prawdziwe wartości: kroki zapisane także poniżej progu, suma dnia tylko rośnie

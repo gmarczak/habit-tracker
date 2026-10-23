@@ -63,19 +63,22 @@ export type Database = {
       }
       day_notes: {
         Row: {
-          note: string
+          mood: number | null
+          note: string | null
           note_date: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          note: string
+          mood?: number | null
+          note?: string | null
           note_date: string
           updated_at?: string
           user_id?: string
         }
         Update: {
-          note?: string
+          mood?: number | null
+          note?: string | null
           note_date?: string
           updated_at?: string
           user_id?: string
@@ -241,6 +244,7 @@ export type Database = {
           category_id: string | null
           color: string
           created_at: string
+          cue: string | null
           description: string | null
           goal: string
           icon: string | null
@@ -255,12 +259,14 @@ export type Database = {
           unit: string | null
           updated_at: string
           user_id: string
+          why: string | null
         }
         Insert: {
           archived_at?: string | null
           category_id?: string | null
           color?: string
           created_at?: string
+          cue?: string | null
           description?: string | null
           goal?: string
           icon?: string | null
@@ -275,12 +281,14 @@ export type Database = {
           unit?: string | null
           updated_at?: string
           user_id?: string
+          why?: string | null
         }
         Update: {
           archived_at?: string | null
           category_id?: string | null
           color?: string
           created_at?: string
+          cue?: string | null
           description?: string | null
           goal?: string
           icon?: string | null
@@ -295,6 +303,7 @@ export type Database = {
           unit?: string | null
           updated_at?: string
           user_id?: string
+          why?: string | null
         }
         Relationships: [
           {
@@ -463,6 +472,10 @@ export type Database = {
         Args: { p_date?: string; p_metrics: Json; p_token: string }
         Returns: Json
       }
+      log_habit: {
+        Args: { p_date?: string; p_habit: string; p_token: string; p_value?: number }
+        Returns: Json
+      }
       new_api_token: { Args: never; Returns: string }
       push_config: {
         Args: { p_secret: string }
@@ -489,6 +502,7 @@ export type Database = {
         Returns: undefined
       }
       revoke_api_token: { Args: never; Returns: undefined }
+      token_habits: { Args: { p_token: string }; Returns: Json }
       set_entry: {
         Args: {
           p_date: string

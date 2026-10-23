@@ -1,14 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Bell, CalendarClock, CircleUserRound, Download, Folder, HeartPulse, Plane, type LucideIcon } from "lucide-react";
+import { AudioLines, Bell, CalendarClock, CircleUserRound, Download, Folder, HeartPulse, Plane, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
 import { fetchTokenStatus } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 import type { HabitColor } from "@/lib/domain/model";
 import { formatDayMonth } from "@/lib/format";
-import { tokenKey } from "./HealthSync";
+import { tokenKey } from "./ShortcutKey";
 
 type Row = { href: string; title: string; Icon: LucideIcon; color: HabitColor; value?: string };
 
@@ -30,6 +30,7 @@ export function SettingsScreen() {
     [
       { href: "/settings/reminders", title: "Przypomnienia", Icon: Bell, color: "rose", value: enabledReminders ? `Wł.: ${enabledReminders}` : "Wył." },
       { href: "/settings/health", title: "Apple Zdrowie", Icon: HeartPulse, color: "rose", value: token.data ? "Połączone" : token.isSuccess ? "Wył." : undefined },
+      { href: "/settings/siri", title: "Siri i Skróty", Icon: AudioLines, color: "violet", value: token.data ? "Wł." : token.isSuccess ? "Wył." : undefined },
     ],
     [
       { href: "/settings/day", title: "Dzień i tydzień", Icon: CalendarClock, color: "blue", value: zone },
