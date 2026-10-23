@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { healthAverage, healthValue, parseIngestBody, type HealthDay } from "./health";
+import { healthAverage, healthValue, parseIngestBody, parseLogBody, type HealthDay } from "./health";
 
 describe("parseIngestBody", () => {
   it("przyjmuje liczby i polski zapis z Shortcuts", () => {
@@ -46,5 +46,23 @@ describe("wartości z Apple Zdrowie", () => {
   it("średnia z ostatnich 7 dni bez dziś, tylko z dni z danymi", () => {
     expect(healthAverage(days, "steps", "2026-10-23", 7)).toBe(8000);
     expect(healthAverage(days, "mindful_min", "2026-10-23", 7)).toBeNull();
+  });
+});
+
+describe("parseLogBody", () => {
+  it("nazwa, opcjonalna liczba (także „1,5”) i data", () => {
+    expect(parseLogBody({ habit: " Medytacja " })).toEqual({ ok: true, value: { habit: "Medytacja", value: null, date: null } });
+    expect(parseLogBody({ habit: "Czytanie", value: "12", date: "2026-10-22T08:00:00+02:00" })).toEqual({
+      ok: true,
+      value: { habit: "Czytanie", value: 12, date: "2026-10-22" },
+    });
+    expect(parseLogBody({ habit: "Woda", value: "1,5" })).toEqual({ ok: true, value: { habit: "Woda", value: 1.5, date: null } });
+  });
+
+  it("odrzuca brak nazwy, zerową wartość i złą datę", () => {
+    expect(parseLogBody({}).ok).toBe(false);
+    expect(parseLogBody({ habit: "" }).ok).toBe(false);
+    expect(parseLogBody({ habit: "Czytanie", value: 0 }).ok).toBe(false);
+    expect(parseLogBody({ habit: "Czytanie", date: "jutro" }).ok).toBe(false);
   });
 });

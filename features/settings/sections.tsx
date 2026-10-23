@@ -19,6 +19,7 @@ import { supabaseBrowser } from "@/lib/db/client";
 import type { LocalDate, WeekStart } from "@/lib/domain/dates";
 import { formatDayLong } from "@/lib/format";
 import { HealthSync } from "./HealthSync";
+import { SiriShortcuts } from "./SiriShortcuts";
 
 const DAY_END = [0, 1, 2, 3, 4, 5, 6];
 
@@ -46,6 +47,10 @@ export function RemindersPage() {
 
 export function HealthPage() {
   return <Subpage title="Apple Zdrowie">{() => <HealthSync showTitle={false} />}</Subpage>;
+}
+
+export function SiriPage() {
+  return <Subpage title="Siri i Skróty">{(snapshot) => <SiriShortcuts snapshot={snapshot} />}</Subpage>;
 }
 
 export function DayAndWeekPage() {

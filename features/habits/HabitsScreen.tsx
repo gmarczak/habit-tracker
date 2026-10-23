@@ -12,7 +12,9 @@ import type { Habit } from "@/lib/domain/model";
 import { streakOf } from "@/lib/domain/progress";
 import { planOn } from "@/lib/domain/schedule";
 import { describePlan, formatStreak } from "@/lib/format";
+import { habitStrength } from "@/lib/domain/strength";
 import { HabitBadge } from "@/lib/ui/icons";
+import { StrengthRing } from "./StrengthRing";
 
 function withOrder(snapshot: Snapshot, ids: string[]): Snapshot {
   const pos = new Map(ids.map((id, i) => [id, i]));
@@ -94,6 +96,7 @@ export function HabitsScreen() {
             {group.habits.map((habit) => {
               const plan = planOn(habit, today) ?? habit.plans.at(-1);
               const streak = streakOf(habit, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart);
+              const strength = habitStrength(habit, snapshot.entries, snapshot.pauses, today);
               const index = active.findIndex((h) => h.id === habit.id);
               return (
                 <li key={habit.id} className="flex items-center gap-3 border-b-[0.5px] border-border py-3.5">
@@ -116,9 +119,13 @@ export function HabitsScreen() {
                         <span className="truncate text-[13px] text-muted">
                           {plan ? describePlan(plan, habit.kind, habit.unit) : ""}
                           {habit.source ? " · Apple Zdrowie" : ""}
+                          {streak.current > 0 ? ` · seria ${formatStreak(streak)}` : ""}
                         </span>
                       </span>
-                      {streak.current > 0 && <span className="shrink-0 text-[13px] font-semibold text-accent">{formatStreak(streak)}</span>}
+                      <span className="flex shrink-0 items-center gap-1.5" aria-label={`Siła nawyku ${Math.round(strength * 100)}%`}>
+                        <StrengthRing value={strength} color={habit.color} size={22} />
+                        <span className="w-9 text-right text-[13px] font-semibold tabular-nums text-muted">{Math.round(strength * 100)}%</span>
+                      </span>
                       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-muted">
                         <path d="M9 6l6 6-6 6" />
                       </svg>

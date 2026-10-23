@@ -100,6 +100,8 @@ export function TodayScreen() {
   const gap = isToday && hasHabits ? yesterdayGap(snapshot.habits, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart) : null;
   const allDone = view.progress.total > 0 && view.progress.done === view.progress.total && view.todo.length === 0;
 
+  const dayNote = snapshot.notes.find((n) => n.date === date);
+
   return (
     <main className="flex flex-col">
       <div className="flex flex-col gap-4 px-4 pt-6">
@@ -187,7 +189,12 @@ export function TodayScreen() {
         {hasHabits && !dayPause && open.length + view.done.length + view.quit.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
 
         {hasHabits && (
-          <DayNote key={`${date}:${snapshot.notes.find((n) => n.date === date)?.note ?? ""}`} date={date} note={snapshot.notes.find((n) => n.date === date)?.note ?? null} />
+          <DayNote
+            key={`${date}:${dayNote?.note ?? ""}`}
+            date={date}
+            note={dayNote?.note ?? null}
+            mood={dayNote?.mood ?? null}
+          />
         )}
 
         {hasHabits && !dayPause && view.progress.total > 0 && !allDone && <DayOffButton date={date} isToday={isToday} />}

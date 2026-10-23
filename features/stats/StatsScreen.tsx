@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { sectionTitle } from "@/components/ui/styles";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
-import { habitRates, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "@/lib/domain/stats";
+import { habitRates, moodInsights, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "@/lib/domain/stats";
 import { dayOfMonth, formatDayLong, formatWeekdayShort, plural } from "@/lib/format";
+import { MOODS } from "@/features/today/DayNote";
 import { HabitBadge } from "@/lib/ui/icons";
 
 const WEEKDAYS = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"];
@@ -17,6 +18,15 @@ function Tile({ label, value, hint, accent }: { label: string; value: string; hi
       <p className={`mt-0.5 text-xl font-bold ${accent ? "text-accent" : ""}`}>{value}</p>
       {hint && <p className="text-[12px] text-muted">{hint}</p>}
     </div>
+  );
+}
+
+function MoodFace({ value }: { value: number }) {
+  const { Icon, label } = MOODS[Math.min(4, Math.max(0, Math.round(value) - 1))]!;
+  return (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-fill text-accent" aria-label={label}>
+      <Icon size={28} strokeWidth={2} aria-hidden="true" />
+    </span>
   );
 }
 
@@ -38,6 +48,7 @@ export function StatsScreen() {
       rates: habitRates(habits, entries, pauses, today, settings.weekStart, 30),
       notes: notedDays(snapshot.notes, habits, entries, pauses, today, settings.weekStart),
       weekdays: weekdayShares(habits, entries, pauses, today, 8),
+      mood: moodInsights(snapshot.notes, habits, entries, pauses, today, 60),
     };
   }, [snapshot, today]);
 
@@ -53,7 +64,7 @@ export function StatsScreen() {
     );
   }
 
-  const { week, trend, perfectStreak, rates, notes, weekdays } = data;
+  const { week, trend, perfectStreak, rates, notes, weekdays, mood } = data;
   const last = trend.at(-1)?.share ?? null;
   const prev = trend.at(-2)?.share ?? null;
   const delta = last !== null && prev !== null ? Math.round((last - prev) * 100) : null;
@@ -164,6 +175,44 @@ export function StatsScreen() {
         </ul>
         <p className="pt-2 text-xs text-muted">Skuteczność = zrobione dni wymagane / wszystkie dni wymagane, bez pominięć i pauz. Od najsłabszego.</p>
       </section>
+      <section aria-labelledby="mood-title" className="flex flex-col gap-3">
+        <h2 id="mood-title" className={sectionTitle}>
+          Nastrój · ostatnie 60 dni
+        </h2>
+        {mood.average === null ? (
+          <p className="text-sm text-muted">Oceniaj nastrój na ekranie Dziś (jedno dotknięcie). Po kilku dniach zobaczysz tu, które nawyki idą w parze z lepszym dniem.</p>
+        ) : (
+          <>
+            <div className="flex items-center gap-4 rounded-xl bg-surface p-4">
+              <MoodFace value={mood.average} />
+              <div>
+                <p className="font-serif text-[28px] font-bold leading-tight tabular-nums">{mood.average.toFixed(1).replace(".", ",")} / 5</p>
+                <p className="text-[13px] text-muted">średnio z {mood.count} {plural(mood.count, "dnia", "dni", "dni")}</p>
+              </div>
+            </div>
+            {mood.links.length > 0 ? (
+              <ul className="ios-group">
+                {mood.links.map((l) => (
+                  <li key={l.habit.id} className="flex items-center gap-3 border-b-[0.5px] border-border py-3">
+                    <HabitBadge icon={l.habit.icon} color={l.habit.color} name={l.habit.name} size="sm" />
+                    <span className="flex-1 truncate">{l.habit.name}</span>
+                    <span className={`text-[15px] font-semibold tabular-nums ${l.diff >= 0 ? "text-positive" : "text-danger"}`}>
+                      {l.diff >= 0 ? "+" : "−"}
+                      {Math.abs(l.diff).toFixed(1).replace(".", ",")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">Za mało dni, żeby porównać nawyki — potrzeba co najmniej 3 dni z nawykiem i 3 bez.</p>
+            )}
+            {mood.links.length > 0 && (
+              <p className="px-1 text-xs text-muted">Różnica średniego nastroju w dni, gdy nawyk był zrobiony, i gdy nie. To korelacja, nie dowód — ale dobra podpowiedź.</p>
+            )}
+          </>
+        )}
+      </section>
+
       {notes.length > 0 && (
         <section aria-labelledby="notes-title" className="flex flex-col gap-1">
           <h2 id="notes-title" className={sectionTitle}>

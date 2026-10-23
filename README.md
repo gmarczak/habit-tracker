@@ -65,6 +65,10 @@ Authorization: Bearer ht_…          # klucz z Ustawień → Apple Zdrowie
 - Każda przysłana dana trafia też do `health_daily` (suma dnia, tylko rośnie): Dziś pokazuje np. „4312 z 7000 kroków”, szczegóły nawyku — dziś i średnią z 7 dni.
 - Dane: `steps`, `distance_km`, `exercise_min`, `active_kcal`, `mindful_min`, `water_ml`, `workouts` (`lib/domain/health.ts`).
 
+## Siri i Skróty
+
+`/api/log` (ten sam klucz co Apple Zdrowie): `GET` zwraca listę nawyków do menu w Skrócie, `POST { "habit": "Medytacja", "value"?: 10 }` odhacza po nazwie (bez wielkości liter, wystarczy jednoznaczny początek). Tak/nie → zrobione, ilość → +value (domyślnie 1), czas → +value minut (domyślnie cel). Odpowiedź ma `message` do odczytania przez Siri. Działa z Action Button, naklejką NFC i Apple Watch (RPC `log_habit`, `token_habits`).
+
 ## Przypomnienia
 
 Web Push wysyła funkcja Edge `send-reminders`. Co 5 minut wywołuje ją `pg_cron` (zadanie `send-reminders`, migracja `reminders_cron`) z nagłówkiem `x-cron-secret`. Funkcja sprawdza sekret przez RPC `push_config`, które przy poprawnym sekrecie zwraca klucze VAPID. Bez sekretu odpowiada `401`.

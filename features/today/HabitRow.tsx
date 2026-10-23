@@ -99,7 +99,7 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
     ? "Pominięte"
     : isDone
       ? streakText
-      : [progressText, autoText(habit, measured), streakText].filter(Boolean).join(" · ") ||
+      : [habit.cue, progressText, autoText(habit, measured), streakText].filter(Boolean).join(" · ") ||
         (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
 
   const actionLabel =

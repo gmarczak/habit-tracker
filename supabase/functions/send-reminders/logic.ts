@@ -102,7 +102,11 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
         out.push({
           ...base,
           title: item.habit.name,
-          body: item.week ? `${item.week.done} z ${item.week.required} w tym tygodniu` : "Czas na dzisiejszy nawyk.",
+          body: item.week
+            ? `${item.week.done} z ${item.week.required} w tym tygodniu`
+            : item.habit.cue
+              ? `${item.habit.cue.charAt(0).toUpperCase()}${item.habit.cue.slice(1)} — czas na ten nawyk.`
+              : "Czas na dzisiejszy nawyk.",
           url: "/",
           tag: `habit-${item.habit.id}`,
         });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Entry, Habit, Plan } from "./model";
-import { habitRates, isPerfect, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "./stats";
+import { habitRates, isPerfect, moodInsights, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "./stats";
 
 const TODAY = "2026-10-11"; // niedziela; tydzień od pn 2026-10-05
 
@@ -109,5 +109,28 @@ describe("dni tygodnia", () => {
     const shares = weekdayShares(weekdaysOnly, [], [], TODAY, 2);
     expect(shares.find((s) => s.weekday === 6)?.share).toBeNull();
     expect(shares.find((s) => s.weekday === 1)?.share).toBe(0);
+  });
+});
+
+describe("nastrój a nawyki", () => {
+  it("średnia i różnica nastroju w dni z nawykiem i bez", () => {
+    const days = ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06"];
+    const notes = days.map((date, i) => ({ date, note: null, mood: i < 3 ? 5 : 2 }));
+    // „a” zrobione w dni z nastrojem 5, „b” odwrotnie
+    const entries = [...days.slice(0, 3).map((d) => e("a", d)), ...days.slice(3).map((d) => e("b", d))];
+    const r = moodInsights(notes, habits, entries, [], TODAY, 60, 3);
+    expect(r.count).toBe(6);
+    expect(r.average).toBe(3.5);
+    expect(r.links.map((l) => [l.habit.id, l.diff])).toEqual([
+      ["a", 3],
+      ["b", -3],
+    ]);
+  });
+
+  it("pomija nawyki z za małą liczbą dni i dni bez nastroju", () => {
+    const notes = [{ date: "2026-10-01", note: "tylko tekst", mood: null }, { date: "2026-10-02", note: null, mood: 4 }];
+    const r = moodInsights(notes, habits, [e("a", "2026-10-02")], [], TODAY);
+    expect(r.count).toBe(1);
+    expect(r.links).toEqual([]);
   });
 });

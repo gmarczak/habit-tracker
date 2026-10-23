@@ -45,6 +45,10 @@ export type Habit = {
   source?: HealthMetric | null;
   /** próg dla nawyku tak/nie (np. 7000 kroków) */
   sourceMin?: number | null;
+  /** wyzwalacz: po czym robisz nawyk, np. „po porannej kawie” */
+  cue?: string | null;
+  /** po co / kim chcesz być, np. „jestem osobą, która czyta” */
+  why?: string | null;
   /** posortowane rosnąco po validFrom */
   plans: Plan[];
 };
@@ -79,7 +83,8 @@ export function unitOf(frequency: Frequency): StreakUnit {
 
 export type Category = { id: string; name: string; sortOrder: number };
 
-export type DayNote = { date: LocalDate; note: string };
+/** Notatka dnia: tekst i/lub nastrój 1..5 (co najmniej jedno). */
+export type DayNote = { date: LocalDate; note: string | null; mood?: number | null };
 
 export type PauseRecord = Pause & { id: string; reason: string | null };
 

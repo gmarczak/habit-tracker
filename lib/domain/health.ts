@@ -21,7 +21,7 @@ export function isHealthMetric(value: unknown): value is HealthMetric {
 export type IngestBody = { date: LocalDate | null; metrics: Partial<Record<HealthMetric, number>> };
 
 /** Liczba z Shortcuts: number albo tekst w polskim formacie („8 234”, „1,5”). */
-function toNumber(value: unknown): number | null {
+export function toNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string") return null;
   const cleaned = value.replace(/[\s  ]/g, "").replace(",", ".");
@@ -68,4 +68,28 @@ export function healthAverage(days: readonly HealthDay[], metric: HealthMetric, 
   const from = addDays(today, -span);
   const values = days.filter((d) => d.metric === metric && d.date >= from && d.date < today).map((d) => d.value);
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+export type LogBody = { habit: string; value: number | null; date: LocalDate | null };
+
+/** Treść żądania „odhacz nawyk” z Siri/Skrótu: { "habit": "Medytacja", "value": 10 } (value i date opcjonalne). */
+export function parseLogBody(body: unknown): { ok: true; value: LogBody } | { ok: false; error: string } {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return { ok: false, error: "Oczekuję obiektu JSON" };
+  const record = body as Record<string, unknown>;
+  const habit = typeof record.habit === "string" ? record.habit.trim() : "";
+  if (!habit || habit.length > 80) return { ok: false, error: "Pole habit: nazwa nawyku" };
+
+  let value: number | null = null;
+  if (record.value !== undefined && record.value !== null && record.value !== "") {
+    value = toNumber(record.value);
+    if (value === null || value <= 0) return { ok: false, error: "Pole value musi być liczbą > 0" };
+  }
+
+  let date: LocalDate | null = null;
+  if (record.date !== undefined && record.date !== null && record.date !== "") {
+    const text = typeof record.date === "string" ? record.date.slice(0, 10) : "";
+    if (!isLocalDate(text)) return { ok: false, error: "Pole date ma format RRRR-MM-DD" };
+    date = text;
+  }
+  return { ok: true, value: { habit, value, date } };
 }
