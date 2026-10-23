@@ -10,11 +10,11 @@ import { enablePush } from "@/features/reminders/push";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { addPause, deletePause, deleteReminder, setArchived, upsertReminder } from "@/lib/data/mutations";
 import { addDays, type LocalDate } from "@/lib/domain/dates";
-import { METRIC_INFO } from "@/lib/domain/health";
+import { METRIC_INFO, healthAverage, healthValue } from "@/lib/domain/health";
 import type { Habit } from "@/lib/domain/model";
 import { completionRate, streakOf } from "@/lib/domain/progress";
 import { planOn } from "@/lib/domain/schedule";
-import { describePlan, formatDayLong, formatStreak } from "@/lib/format";
+import { describePlan, formatDayLong, formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { HabitEditor } from "./HabitEditor";
 import { MonthCalendar } from "./MonthCalendar";
@@ -60,6 +60,10 @@ export function HabitDetail({ id }: { id: string }) {
     .slice(0, 30);
   const habitPauses = snapshot.pauses.filter((p) => p.habitId === habit.id && p.endDate >= today);
   const isArchived = habit.archivedAt !== null;
+  const health = snapshot.health ?? [];
+  const metric = habit.source ? METRIC_INFO[habit.source] : null;
+  const measuredToday = habit.source ? healthValue(health, habit.source, today) : null;
+  const measuredAvg = habit.source ? healthAverage(health, habit.source, today, 7) : null;
 
   function archiveHabit() {
     archive.mutate({ id: habit!.id, archived: true });
@@ -99,7 +103,16 @@ export function HabitDetail({ id }: { id: string }) {
         <Stat label="Skuteczność 90 dni" value={pct(rate90)} />
         <Stat label="Zrobione łącznie" value={String(doneTotal)} />
         <Stat label="Od" value={formatDayLong(habit.startDate).split(", ")[1] ?? habit.startDate} />
+        {metric && (
+          <>
+            <Stat label={`Dziś · ${metric.label.toLowerCase()}`} value={measuredToday === null ? "—" : `${formatNumber(Math.round(measuredToday))} ${metric.unit}`} />
+            <Stat label="Średnio z 7 dni" value={measuredAvg === null ? "—" : `${formatNumber(Math.round(measuredAvg))} ${metric.unit}`} />
+          </>
+        )}
       </dl>
+      {metric && measuredToday === null && measuredAvg === null && (
+        <p className="-mt-4 px-1 text-xs text-muted">Wartości pojawią się, gdy Skrót z Ustawień → Apple Zdrowie wyśle pierwsze dane.</p>
+      )}
 
       <section aria-labelledby="cal-title" className="flex flex-col gap-3">
         <h2 id="cal-title" className={sectionTitle}>

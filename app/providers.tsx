@@ -9,7 +9,7 @@ import { entryMutationKey, entryScope, snapshotKey } from "@/lib/data/hooks";
 import { saveEntry, type EntryChange } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 
-const CACHE_VERSION = "v2-1";
+const CACHE_VERSION = "v2-2"; // v2-2: snapshot.health
 
 function makeClient() {
   const client = new QueryClient({

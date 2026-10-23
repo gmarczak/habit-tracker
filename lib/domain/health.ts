@@ -1,4 +1,4 @@
-import { isLocalDate, type LocalDate } from "./dates";
+import { addDays, isLocalDate, type LocalDate } from "./dates";
 
 /** Dane z Apple Zdrowie, które mogą wypełniać nawyk. Klucze = habits.source i pola w żądaniu /api/ingest. */
 export const HEALTH_METRICS = ["steps", "distance_km", "exercise_min", "active_kcal", "mindful_min", "water_ml", "workouts"] as const;
@@ -53,4 +53,19 @@ export function parseIngestBody(body: unknown): { ok: true; value: IngestBody } 
   }
   if (Object.keys(metrics).length === 0) return { ok: false, error: `Brak danych. Pola: ${HEALTH_METRICS.join(", ")}` };
   return { ok: true, value: { date, metrics } };
+}
+
+/** Dzienna suma z Apple Zdrowie (np. 4312 kroków), także poniżej progu nawyku. */
+export type HealthDay = { date: LocalDate; metric: HealthMetric; value: number };
+
+/** Wartość danej z danego dnia albo null, gdy Skrót jej nie przysłał. */
+export function healthValue(days: readonly HealthDay[], metric: HealthMetric, date: LocalDate): number | null {
+  return days.find((d) => d.metric === metric && d.date === date)?.value ?? null;
+}
+
+/** Średnia z dni, w których przyszła wartość (ostatnie `days` dni, bez dziś). null = brak danych. */
+export function healthAverage(days: readonly HealthDay[], metric: HealthMetric, today: LocalDate, span = 7): number | null {
+  const from = addDays(today, -span);
+  const values = days.filter((d) => d.metric === metric && d.date >= from && d.date < today).map((d) => d.value);
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }

@@ -1,7 +1,7 @@
 import type { Tables } from "@/lib/db/database.types";
 import type { Supabase } from "@/lib/db/client";
 import type { WeekStart } from "@/lib/domain/dates";
-import { isHealthMetric } from "@/lib/domain/health";
+import { isHealthMetric, type HealthDay } from "@/lib/domain/health";
 import {
   HABIT_COLORS,
   REMINDER_KINDS,
@@ -34,6 +34,8 @@ export type Snapshot = {
   reminders: Reminder[];
   /** notatki do dni */
   notes: DayNote[];
+  /** dzienne sumy z Apple Zdrowie (ostatnie 120 dni) */
+  health: HealthDay[];
 };
 
 export function toPlan(row: Tables<"habit_plans">): Plan {
@@ -106,7 +108,8 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) throw authError ?? new Error("not_authenticated");
 
-  const [profile, habits, plans, entries, pauses, categories, reminders, notes] = await Promise.all([
+  const since = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10); // eslint-disable-line no-restricted-syntax -- przybliżony próg pobierania, nie data dnia
+  const [profile, habits, plans, entries, pauses, categories, reminders, notes, health] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", auth.user.id).single(),
     supabase.from("habits").select("*").order("sort_order"),
     supabase.from("habit_plans").select("*"),
@@ -115,8 +118,9 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
     supabase.from("categories").select("*").order("sort_order"),
     supabase.from("reminders").select("*").order("local_time"),
     supabase.from("day_notes").select("note_date, note").order("note_date"),
+    supabase.from("health_daily").select("metric_date, metric, value").gte("metric_date", since),
   ]);
-  for (const r of [profile, habits, plans, pauses, categories, reminders, notes]) if (r.error) throw r.error;
+  for (const r of [profile, habits, plans, pauses, categories, reminders, notes, health]) if (r.error) throw r.error;
 
   return {
     userId: auth.user.id,
@@ -144,5 +148,6 @@ export async function fetchSnapshot(supabase: Supabase): Promise<Snapshot> {
       enabled: r.enabled,
     })),
     notes: (notes.data ?? []).map((n) => ({ date: n.note_date, note: n.note })),
+    health: (health.data ?? []).flatMap((h) => (isHealthMetric(h.metric) ? [{ date: h.metric_date, metric: h.metric, value: Number(h.value) }] : [])),
   };
 }

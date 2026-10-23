@@ -31,6 +31,7 @@ const snapshot: Snapshot = {
   categories: [],
   reminders: [],
   notes: [],
+    health: [],
 };
 
 describe("eksport", () => {

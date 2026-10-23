@@ -82,6 +82,30 @@ export type Database = {
         }
         Relationships: []
       }
+      health_daily: {
+        Row: {
+          metric: string
+          metric_date: string
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          metric: string
+          metric_date: string
+          updated_at?: string
+          user_id?: string
+          value: number
+        }
+        Update: {
+          metric?: string
+          metric_date?: string
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
       habit_entries: {
         Row: {
           created_at: string
