@@ -1,5 +1,5 @@
 /* Service worker: powłoka offline + powiadomienia push. Bez zależności, żeby był przewidywalny. */
-const VERSION = "v2-1";
+const VERSION = "v2-2";
 const SHELL_CACHE = `shell-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
 const SHELL = ["/", "/habits", "/stats", "/settings", "/manifest.webmanifest", "/icon-192.png"];

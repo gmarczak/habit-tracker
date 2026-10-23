@@ -42,12 +42,12 @@ export function Onboarding({ today }: { today: LocalDate }) {
   return (
     <section className="flex flex-col gap-5 pt-2" aria-labelledby="onboarding-title">
       <div>
-        <h2 id="onboarding-title" className="font-serif text-2xl font-semibold">
+        <h2 id="onboarding-title" className="font-serif text-2xl font-bold">
           Od czego zaczynasz?
         </h2>
         <p className="mt-1 text-muted">Wybierz 2–3 nawyki. Lepiej mało i codziennie niż dużo i wcale. Każdy możesz potem zmienić.</p>
       </div>
-      <ul className="flex flex-col">
+      <ul className="ios-group flex flex-col">
         {TEMPLATES.map((t) => {
           const on = picked.includes(t.id);
           return (
@@ -56,7 +56,7 @@ export function Onboarding({ today }: { today: LocalDate }) {
                 type="button"
                 aria-pressed={on}
                 onClick={() => setPicked(on ? picked.filter((x) => x !== t.id) : [...picked, t.id])}
-                className="flex w-full items-center gap-3.5 border-b border-border py-3.5 text-left"
+                className="flex w-full items-center gap-3.5 border-b-[0.5px] border-border py-3.5 text-left"
               >
                 <HabitBadge icon={t.icon ?? null} color={t.color ?? "green"} name={t.name} />
                 <span className="flex flex-1 flex-col">

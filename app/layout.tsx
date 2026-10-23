@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import "@fontsource-variable/fraunces/opsz.css";
-import "@fontsource-variable/work-sans/index.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,8 +16,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f0e8" },
-    { media: "(prefers-color-scheme: dark)", color: "#18191b" },
+    { media: "(prefers-color-scheme: light)", color: "#f2f2f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 

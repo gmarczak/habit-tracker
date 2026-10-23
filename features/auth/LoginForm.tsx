@@ -121,16 +121,16 @@ export function LoginForm({ linkError }: { linkError: boolean }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6 py-10">
       <div className="flex flex-col gap-4">
-        <Image src="/icon-192.png" alt="" width={56} height={56} className="rounded-2xl" priority />
-        <h1 className="font-serif text-4xl font-semibold">Nawyki</h1>
+        <Image src="/icon-192.png" alt="" width={56} height={56} className="rounded-xl" priority />
+        <h1 className="font-serif text-4xl font-bold">Nawyki</h1>
         <p className="text-muted">Odhacz w 3 sekundy i zobacz postęp.</p>
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <h2 className="font-serif text-xl font-semibold">{title}</h2>
+        <h2 className="font-serif text-xl font-bold">{title}</h2>
 
         {mode === "link" && standalone ? (
-          <p className="rounded-2xl bg-surface px-4 py-3 text-sm">
+          <p className="rounded-xl bg-surface px-4 py-3 text-sm">
             W aplikacji z ekranu głównego link z maila nie zaloguje — otworzy się w Safari, które ma osobne logowanie. Otwórz{" "}
             <strong>gm-habit-tracker.vercel.app</strong> w Safari, zaloguj się tam linkiem i ustaw hasło w Ustawieniach. Potem
             wróć tutaj i zaloguj się hasłem.
@@ -171,7 +171,7 @@ export function LoginForm({ linkError }: { linkError: boolean }) {
         )}
 
         {status.kind === "error" && <p className="text-sm text-danger">{status.message}</p>}
-        {status.kind === "info" && <p className="rounded-2xl bg-surface px-4 py-3 text-sm">{status.message}</p>}
+        {status.kind === "info" && <p className="rounded-xl bg-surface px-4 py-3 text-sm">{status.message}</p>}
       </form>
 
       <div className="flex flex-col items-start gap-3 text-sm font-semibold text-accent">

@@ -28,13 +28,13 @@ export function StatsScreen() {
     };
   }, [snapshot, today]);
 
-  if (!snapshot || !today || !data) return <main className="px-6 pt-7 text-muted">Ładuję…</main>;
+  if (!snapshot || !today || !data) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
 
   const hasHabits = snapshot.habits.some((h) => h.archivedAt === null);
   if (!hasHabits) {
     return (
-      <main className="flex flex-col gap-3 px-6 pt-7">
-        <h1 className="font-serif text-[30px] font-semibold">Statystyki</h1>
+      <main className="flex flex-col gap-3 px-4 pt-6">
+        <h1 className="font-serif text-[34px] font-bold">Statystyki</h1>
         <p className="text-muted">Statystyki pojawią się, gdy dodasz pierwszy nawyk i zaczniesz odhaczać.</p>
       </main>
     );
@@ -44,8 +44,8 @@ export function StatsScreen() {
   const maxTrend = 1;
 
   return (
-    <main className="flex flex-col gap-8 px-6 pt-7">
-      <h1 className="font-serif text-[30px] font-semibold leading-tight">Statystyki</h1>
+    <main className="flex flex-col gap-8 px-4 pt-6">
+      <h1 className="font-serif text-[34px] font-bold leading-tight">Statystyki</h1>
 
       <section aria-labelledby="week-title" className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between">
@@ -74,11 +74,11 @@ export function StatsScreen() {
           })}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-surface px-4 py-3">
+          <div className="rounded-xl bg-surface px-4 py-3">
             <p className="text-xs font-semibold text-muted">Idealne dni w tym tygodniu</p>
             <p className="mt-0.5 text-xl font-bold">{week.perfectDays}</p>
           </div>
-          <div className="rounded-2xl bg-surface px-4 py-3">
+          <div className="rounded-xl bg-surface px-4 py-3">
             <p className="text-xs font-semibold text-muted">Seria idealnych dni</p>
             <p className="mt-0.5 text-xl font-bold text-accent">
               {perfectStreak} {plural(perfectStreak, "dzień", "dni", "dni")}
@@ -114,15 +114,15 @@ export function StatsScreen() {
         <h2 id="habits-title" className={`${sectionTitle} pb-1`}>
           Nawyki · ostatnie 30 dni
         </h2>
-        <ul>
+        <ul className="ios-group">
           {rates.map(({ habit, rate }) => (
             <li key={habit.id}>
-              <Link href={`/habits/${habit.id}`} className="flex items-center gap-3 border-b border-border py-3">
+              <Link href={`/habits/${habit.id}`} className="flex items-center gap-3 border-b-[0.5px] border-border py-3">
                 <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size="sm" />
                 <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <span className="truncate font-semibold">{habit.name}</span>
-                  <span className="h-1.5 w-full rounded-full bg-surface" aria-hidden="true">
-                    <span className="block h-1.5 rounded-full bg-accent" style={{ width: `${(rate ?? 0) * 100}%` }} />
+                  <span className="h-1.5 w-full rounded-full bg-fill" aria-hidden="true">
+                    <span className="block h-1.5 rounded-full" style={{ width: `${(rate ?? 0) * 100}%`, background: `var(--c-${habit.color}-bg)` }} />
                   </span>
                 </span>
                 <span className="w-12 shrink-0 text-right text-sm font-bold tabular-nums">{pct(rate)}</span>
@@ -138,9 +138,9 @@ export function StatsScreen() {
             Notatki dni
           </h2>
           <p className="pb-2 text-sm text-muted">Wynik dnia obok notatki — łatwiej zauważyć, co psuje gorsze dni.</p>
-          <ul className="flex flex-col">
+          <ul className="ios-group flex flex-col">
             {notes.map((n) => (
-              <li key={n.date} className="flex items-start justify-between gap-3 border-b border-border py-3">
+              <li key={n.date} className="flex items-start justify-between gap-3 border-b-[0.5px] border-border py-3">
                 <div className="min-w-0">
                   <p className="text-sm text-muted">{formatDayLong(n.date)}</p>
                   <p className="whitespace-pre-wrap">{n.note}</p>

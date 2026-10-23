@@ -19,8 +19,6 @@
     "build:functions": "esbuild supabase/functions/send-reminders/src.ts --bundle --format=esm --platform=neutral --target=es2022 \"--external:npm:*\" --banner:js=\"// WYGENEROWANE z src.ts przez npm run build:functions. Nie edytuj ręcznie.\" --outfile=supabase/functions/send-reminders/index.ts"
   },
   "dependencies": {
-    "@fontsource-variable/fraunces": "^5.3.0",
-    "@fontsource-variable/work-sans": "^5.3.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
     "@tanstack/query-async-storage-persister": "^5.104.2",

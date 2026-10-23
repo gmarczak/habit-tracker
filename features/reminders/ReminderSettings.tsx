@@ -49,14 +49,14 @@ export function ReminderSettings() {
         Przypomnienia
       </h2>
       {support === "ios-needs-install" && (
-        <p className="rounded-2xl bg-surface px-4 py-3 text-sm">
+        <p className="rounded-xl bg-surface px-4 py-3 text-sm">
           Na iPhonie powiadomienia działają po dodaniu aplikacji do ekranu głównego: Udostępnij → „Do ekranu początkowego”, potem otwórz ją z ikony.
         </p>
       )}
-      {support === "denied" && <p className="rounded-2xl bg-surface px-4 py-3 text-sm">Powiadomienia są zablokowane w ustawieniach przeglądarki dla tej strony.</p>}
+      {support === "denied" && <p className="rounded-xl bg-surface px-4 py-3 text-sm">Powiadomienia są zablokowane w ustawieniach przeglądarki dla tej strony.</p>}
       {support === "unsupported" && <p className="text-sm text-muted">Ta przeglądarka nie obsługuje powiadomień push.</p>}
 
-      <div className="flex flex-col divide-y divide-border rounded-2xl bg-surface px-4">
+      <div className="flex flex-col divide-y divide-border rounded-xl bg-surface px-4">
         {OPTIONS.map((o) => (
           <ReminderToggle
             key={o.kind}
@@ -79,7 +79,7 @@ export function ReminderSettings() {
             ? "Żaden nawyk nie ma jeszcze pory dnia — ustawisz ją w edycji nawyku."
             : "Przypomnienie przychodzi tylko z nawykami tej pory, które jeszcze czekają."}
         </p>
-        <div className="flex flex-col divide-y divide-border rounded-2xl bg-surface px-4">
+        <div className="flex flex-col divide-y divide-border rounded-xl bg-surface px-4">
           {PARTS.map((p) => {
             const names = withParts.filter((h) => h.timeOfDay === p.kind).map((h) => h.name);
             return (
@@ -100,11 +100,11 @@ export function ReminderSettings() {
       </div>
 
       {habitReminders.length > 0 && (
-        <ul className="flex flex-col">
+        <ul className="ios-group flex flex-col">
           {habitReminders.map((r) => {
             const habit = snapshot.habits.find((h) => h.id === r.habitId);
             return (
-              <li key={r.id} className="flex items-center justify-between border-b border-border py-2.5">
+              <li key={r.id} className="flex items-center justify-between border-b-[0.5px] border-border py-2.5">
                 <Link href={`/habits/${r.habitId}`} className="font-medium">
                   {habit?.name ?? "Nawyk"}
                 </Link>

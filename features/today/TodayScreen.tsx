@@ -100,7 +100,7 @@ export function TodayScreen() {
 
   return (
     <main className="flex flex-col">
-      <div className="flex flex-col gap-[18px] px-6 pt-7">
+      <div className="flex flex-col gap-4 px-4 pt-6">
         <DayHeader
           label={isToday ? formatWeekday(date) : `Uzupełniasz · ${formatWeekday(date)}`}
           title={formatDayMonth(date)}
@@ -109,7 +109,7 @@ export function TodayScreen() {
         {hasHabits && <WeekStrip today={today} selected={date} onSelect={(d) => setPicked(d === today ? null : d)} snapshot={snapshot} />}
       </div>
 
-      <div className="flex flex-col px-6 pt-3.5">
+      <div className="flex flex-col px-4 pt-2">
         {!hasHabits && <Onboarding today={today} />}
 
         {gap && <YesterdayCard gap={gap} onFill={() => setPicked(gap.date)} />}
@@ -119,13 +119,13 @@ export function TodayScreen() {
         {hasHabits && dayPause && <DayOffCard key={dayPause.id} pause={dayPause} isToday={isToday} />}
 
         {allDone && (
-          <p className="mt-4 rounded-2xl bg-surface px-5 py-4 font-serif text-lg font-semibold">
+          <p className="mt-4 rounded-xl bg-surface px-5 py-4 font-serif text-lg font-bold">
             {isToday ? "Wszystko na dziś zrobione." : "Ten dzień jest domknięty."}
           </p>
         )}
 
         {open.length > 0 && !grouped && (
-          <ul aria-label="Do zrobienia">
+          <ul aria-label="Do zrobienia" className="ios-group mt-4">
             {open.map((item) => (
               <li key={item.habit.id}>
                 <HabitRow item={item} date={date} compact={false} />
@@ -140,8 +140,8 @@ export function TodayScreen() {
             const title = g.part ? PART_LABELS[g.part] : "Kiedykolwiek";
             return (
               <section key={g.part ?? "any"} aria-label={title}>
-                <h2 className="pb-0.5 pt-4 text-xs font-bold uppercase tracking-wider text-muted">{title}</h2>
-                <ul>
+                <h2 className="px-4 pb-1.5 pt-6 text-[13px] uppercase tracking-[0.02em] text-muted">{title}</h2>
+                <ul className="ios-group">
                   {g.items.map((item) => (
                     <li key={item.habit.id}>
                       <HabitRow item={item} date={date} compact={false} />
@@ -154,10 +154,10 @@ export function TodayScreen() {
 
         {view.quit.length > 0 && (
           <section aria-labelledby="quit-heading">
-            <h2 id="quit-heading" className="pb-0.5 pt-4 text-xs font-bold uppercase tracking-wider text-muted">
+            <h2 id="quit-heading" className="px-4 pb-1.5 pt-6 text-[13px] uppercase tracking-[0.02em] text-muted">
               Rzucam
             </h2>
-            <ul>
+            <ul className="ios-group">
               {view.quit.map((item) => (
                 <li key={item.habit.id}>
                   <QuitRow item={item} date={date} isToday={isToday} />
@@ -169,10 +169,10 @@ export function TodayScreen() {
 
         {view.done.length > 0 && (
           <section aria-labelledby="done-heading">
-            <h2 id="done-heading" className="pb-1 pt-5 font-serif text-lg font-semibold">
+            <h2 id="done-heading" className="px-4 pb-1.5 pt-6 text-[13px] uppercase tracking-[0.02em] text-muted">
               Zrobione
             </h2>
-            <ul>
+            <ul className="ios-group">
               {view.done.map((item) => (
                 <li key={item.habit.id}>
                   <HabitRow item={item} date={date} compact />
@@ -198,7 +198,7 @@ export function TodayScreen() {
 
 function TodaySkeleton() {
   return (
-    <main className="flex flex-col gap-6 px-6 pt-7" aria-busy="true" aria-label="Ładowanie">
+    <main className="flex flex-col gap-6 px-4 pt-6" aria-busy="true" aria-label="Ładowanie">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
           <div className="h-3 w-20 rounded bg-surface" />
@@ -206,7 +206,7 @@ function TodaySkeleton() {
         </div>
         <div className="h-16 w-16 rounded-full bg-surface" />
       </div>
-      <div className="h-16 rounded-2xl bg-surface" />
+      <div className="h-16 rounded-xl bg-surface" />
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex items-center gap-3.5">
           <div className="h-10 w-10 rounded-full bg-surface" />

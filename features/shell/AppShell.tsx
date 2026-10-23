@@ -32,9 +32,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       key={item.href}
       href={item.href}
       aria-current={isActive(item.href) ? "page" : undefined}
-      className={`flex min-w-16 flex-col items-center gap-1 text-xs ${isActive(item.href) ? "font-bold text-text" : "font-medium text-muted"}`}
+      className={`flex min-w-16 flex-col items-center gap-0.5 text-[10px] font-medium ${isActive(item.href) ? "text-accent" : "text-muted"}`}
     >
-      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive(item.href) ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
         <path d={item.d} />
       </svg>
       {item.label}
@@ -43,11 +43,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <AddHabitContext.Provider value={open}>
-      <div className="mx-auto min-h-dvh max-w-lg pb-[calc(5.5rem+env(safe-area-inset-bottom))]">{children}</div>
+      <div className="mx-auto min-h-dvh max-w-lg pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</div>
 
       <nav
         aria-label="Główna nawigacja"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3"
+        className="fixed inset-x-0 bottom-0 z-40 border-t-[0.5px] border-border bg-bar pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl backdrop-saturate-180"
       >
         <div className="mx-auto flex max-w-lg items-center justify-around px-2">
           {link(NAV[0])}
@@ -56,9 +56,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             type="button"
             aria-label="Dodaj nawyk"
             onClick={() => open()}
-            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-accent text-accent-contrast"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-contrast shadow-sm transition-transform active:scale-95"
           >
-            <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
           </button>

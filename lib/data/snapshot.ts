@@ -1,6 +1,7 @@
 import type { Tables } from "@/lib/db/database.types";
 import type { Supabase } from "@/lib/db/client";
 import type { WeekStart } from "@/lib/domain/dates";
+import { isHealthMetric } from "@/lib/domain/health";
 import {
   HABIT_COLORS,
   REMINDER_KINDS,
@@ -64,6 +65,8 @@ export function toHabit(row: Tables<"habits">, plans: Tables<"habit_plans">[]): 
     startDate: row.start_date,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
+    source: isHealthMetric(row.source) ? row.source : null,
+    sourceMin: row.source_min === null ? null : Number(row.source_min),
     plans: plans
       .filter((p) => p.habit_id === row.id)
       .map(toPlan)

@@ -28,13 +28,19 @@ export function WeekStrip({ today, selected, onSelect, snapshot }: Props) {
             onClick={() => onSelect(date)}
             aria-pressed={active}
             aria-label={`${formatDayLong(date)}${complete ? ", wszystko zrobione" : ""}`}
-            className={`flex flex-col items-center gap-1.5 rounded-[14px] py-2 ${active ? "bg-surface" : ""}`}
+            className="flex flex-col items-center gap-1 py-1"
           >
-            <span className={`text-[11px] ${active ? "font-bold text-text" : "font-semibold text-muted"}`}>{formatWeekdayShort(date)}</span>
-            <span className={`text-[15px] ${active ? "font-bold" : "font-semibold"}`}>{dayOfMonth(date)}</span>
+            <span className="text-[11px] font-semibold uppercase text-muted">{formatWeekdayShort(date)}</span>
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-full text-[17px] ${
+                active ? "bg-accent font-semibold text-accent-contrast" : date === today ? "font-semibold text-accent" : "font-normal"
+              }`}
+            >
+              {dayOfMonth(date)}
+            </span>
             <span
               aria-hidden="true"
-              className={`h-1.5 w-1.5 rounded-full ${empty ? "bg-transparent" : complete ? "bg-accent" : active ? "bg-text" : "bg-dot-off"}`}
+              className={`h-1.5 w-1.5 rounded-full ${empty ? "bg-transparent" : complete ? "bg-[var(--c-green-bg)]" : "bg-dot-off"}`}
             />
           </button>
         );

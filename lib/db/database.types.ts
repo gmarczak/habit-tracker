@@ -13,6 +13,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_tokens: {
+        Row: {
+          created_at: string
+          last_used_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          last_used_at?: string | null
+          token_hash: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          last_used_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string | null
@@ -203,6 +224,8 @@ export type Database = {
           kind: Database["public"]["Enums"]["habit_kind"]
           name: string
           sort_order: number
+          source: string | null
+          source_min: number | null
           start_date: string
           time_of_day: string | null
           unit: string | null
@@ -221,6 +244,8 @@ export type Database = {
           kind?: Database["public"]["Enums"]["habit_kind"]
           name: string
           sort_order?: number
+          source?: string | null
+          source_min?: number | null
           start_date: string
           time_of_day?: string | null
           unit?: string | null
@@ -239,6 +264,8 @@ export type Database = {
           kind?: Database["public"]["Enums"]["habit_kind"]
           name?: string
           sort_order?: number
+          source?: string | null
+          source_min?: number | null
           start_date?: string
           time_of_day?: string | null
           unit?: string | null
@@ -408,6 +435,11 @@ export type Database = {
         Returns: string
       }
       delete_my_account: { Args: never; Returns: undefined }
+      ingest_metrics: {
+        Args: { p_date?: string; p_metrics: Json; p_token: string }
+        Returns: Json
+      }
+      new_api_token: { Args: never; Returns: string }
       push_config: {
         Args: { p_secret: string }
         Returns: {
@@ -432,6 +464,7 @@ export type Database = {
         Args: { p_date: string; p_habit_id: string }
         Returns: undefined
       }
+      revoke_api_token: { Args: never; Returns: undefined }
       set_entry: {
         Args: {
           p_date: string

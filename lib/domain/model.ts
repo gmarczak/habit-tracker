@@ -1,4 +1,5 @@
 import type { LocalDate, WeekStart } from "./dates";
+import type { HealthMetric } from "./health";
 
 export type HabitKind = "check" | "count" | "duration";
 
@@ -40,6 +41,10 @@ export type Habit = {
   startDate: LocalDate;
   sortOrder: number;
   archivedAt: string | null;
+  /** dana z Apple Zdrowie, która sama wypełnia nawyk; brak = tylko ręcznie */
+  source?: HealthMetric | null;
+  /** próg dla nawyku tak/nie (np. 7000 kroków) */
+  sourceMin?: number | null;
   /** posortowane rosnąco po validFrom */
   plans: Plan[];
 };

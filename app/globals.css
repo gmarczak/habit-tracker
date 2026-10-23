@@ -1,70 +1,66 @@
 @import "tailwindcss";
 
 /*
- * Tokeny z makiety B1 (kanwa "Habit Tracker — makiety ekranu Dziś").
- * Jasny: kremowa kartka + zieleń. Ciemny (według systemu): szara kartka + niebieski.
- * Komponenty używają wyłącznie tych zmiennych.
+ * Tokeny w stylu iOS (systemGroupedBackground, białe grupy, systemBlue jako akcent).
+ * Jasny / ciemny według systemu. Komponenty używają wyłącznie tych zmiennych.
  */
 :root {
   color-scheme: light;
-  --bg: #f5f0e8;
-  --surface: #ebe3d6;
-  --border: #e2d9cb;
-  --text: #262320;
-  --muted: #6f675e;
-  --done-text: #4a443e;
-  --accent: #2f6b4f;
-  --accent-contrast: #f5f0e8;
-  --control: #b9ae9e;
-  --dot-off: #d3c8b7;
-  --danger: #a8321e;
+  --bg: #f2f2f7;
+  --surface: #ffffff;
+  --border: #dcdce1;
+  --fill: rgba(118, 118, 128, 0.12);
+  --text: #000000;
+  --muted: #6e6e73;
+  --done-text: #6e6e73;
+  --accent: #007aff;
+  --accent-contrast: #ffffff;
+  --control: #c7c7cc;
+  --dot-off: #d1d1d6;
+  --danger: #d70015;
+  --bar: rgba(249, 249, 249, 0.82);
 
-  /* kolory nawyków: tło kółka / ikona */
-  --c-green-bg: #e3ede6;
-  --c-green-fg: #2f6b4f;
-  --c-blue-bg: #e3ecf2;
-  --c-blue-fg: #2d5f7a;
-  --c-violet-bg: #ece6f2;
-  --c-violet-fg: #6b4c85;
-  --c-amber-bg: #f4e8d6;
-  --c-amber-fg: #8a5313;
-  --c-rose-bg: #f4e2e4;
-  --c-rose-fg: #9c3446;
-  --c-teal-bg: #ddeeec;
-  --c-teal-fg: #1f6b65;
-  --c-slate-bg: #e6e4e0;
-  --c-slate-fg: #4d4a45;
+  /* kolory nawyków (systemowe kolory iOS): tło kafelka / ikona */
+  --c-green-bg: #34c759;
+  --c-blue-bg: #007aff;
+  --c-violet-bg: #af52de;
+  --c-amber-bg: #ff9500;
+  --c-rose-bg: #ff2d55;
+  --c-teal-bg: #30b0c7;
+  --c-slate-bg: #8e8e93;
+  --c-green-fg: #ffffff;
+  --c-blue-fg: #ffffff;
+  --c-violet-fg: #ffffff;
+  --c-amber-fg: #ffffff;
+  --c-rose-fg: #ffffff;
+  --c-teal-fg: #ffffff;
+  --c-slate-fg: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #18191b;
-    --surface: #26282b;
-    --border: #313336;
-    --text: #ecedee;
-    --muted: #9da0a6;
-    --done-text: #c9cbce;
-    --accent: #7eb3e3;
-    --accent-contrast: #0f1e2d;
-    --control: #55585d;
-    --dot-off: #3e4044;
-    --danger: #ff9a8a;
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --border: #38383a;
+    --fill: rgba(118, 118, 128, 0.24);
+    --text: #ffffff;
+    --muted: #98989d;
+    --done-text: #98989d;
+    --accent: #0a84ff;
+    --accent-contrast: #ffffff;
+    --control: #48484a;
+    --dot-off: #3a3a3c;
+    --danger: #ff453a;
+    --bar: rgba(22, 22, 23, 0.82);
 
-    --c-green-bg: #1e2a24;
-    --c-green-fg: #8ccba6;
-    --c-blue-bg: #1d2833;
-    --c-blue-fg: #8ec1dc;
-    --c-violet-bg: #262233;
-    --c-violet-fg: #bfa9e0;
-    --c-amber-bg: #2e2619;
-    --c-amber-fg: #e2b06a;
-    --c-rose-bg: #2f1f22;
-    --c-rose-fg: #e8a0aa;
-    --c-teal-bg: #1a2b2a;
-    --c-teal-fg: #7fcfc6;
-    --c-slate-bg: #26282b;
-    --c-slate-fg: #b7babf;
+    --c-green-bg: #30d158;
+    --c-blue-bg: #0a84ff;
+    --c-violet-bg: #bf5af2;
+    --c-amber-bg: #ff9f0a;
+    --c-rose-bg: #ff375f;
+    --c-teal-bg: #40c8e0;
+    --c-slate-bg: #8e8e93;
   }
 }
 
@@ -72,6 +68,8 @@
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-fill: var(--fill);
+  --color-bar: var(--bar);
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-done: var(--done-text);
@@ -80,8 +78,9 @@
   --color-control: var(--control);
   --color-dot-off: var(--dot-off);
   --color-danger: var(--danger);
-  --font-sans: "Work Sans Variable", system-ui, sans-serif;
-  --font-serif: "Fraunces Variable", Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
+  /* nagłówki: SF Pro Display (system dobiera krój do rozmiaru) */
+  --font-serif: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, system-ui, sans-serif;
 }
 
 html,
@@ -91,6 +90,21 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+}
+
+.font-serif {
+  letter-spacing: -0.021em;
+}
+
+/* Lista „inset grouped” jak w Ustawieniach iOS: biała grupa, linie między wierszami, bez linii pod ostatnim */
+.ios-group {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 0 16px;
+}
+.ios-group > :last-child,
+.ios-group > :last-child > * {
+  border-bottom-width: 0;
 }
 
 button {

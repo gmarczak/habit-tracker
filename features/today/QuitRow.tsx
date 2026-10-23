@@ -29,7 +29,7 @@ export function QuitRow({ item, date, isToday }: { item: TodayItem; date: LocalD
   }
 
   return (
-    <div className="flex items-center gap-3.5 border-b border-border py-4">
+    <div className="flex items-center gap-3 border-b-[0.5px] border-border py-2.5">
       <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="w-full truncate text-[17px] font-semibold">{habit.name}</span>

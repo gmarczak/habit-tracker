@@ -38,7 +38,7 @@ export function HabitsScreen() {
   );
   const archived = (snapshot?.habits ?? []).filter((h) => h.archivedAt !== null && !hiddenIds.includes(h.id));
 
-  if (!snapshot || !today) return <main className="px-6 pt-7 text-muted">Ładuję…</main>;
+  if (!snapshot || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
 
   const groups: { title: string | null; habits: Habit[] }[] = reordering
     ? [{ title: null, habits: active }]
@@ -68,9 +68,9 @@ export function HabitsScreen() {
   }
 
   return (
-    <main className="flex flex-col gap-6 px-6 pt-7">
+    <main className="flex flex-col gap-6 px-4 pt-6">
       <header className="flex items-end justify-between gap-4">
-        <h1 className="font-serif text-[30px] font-semibold leading-tight">Nawyki</h1>
+        <h1 className="font-serif text-[34px] font-bold leading-tight">Nawyki</h1>
         {active.length > 1 && (
           <button type="button" onClick={() => setReordering((r) => !r)} className={btnQuiet} aria-pressed={reordering}>
             {reordering ? "Gotowe" : "Zmień kolejność"}
@@ -90,13 +90,13 @@ export function HabitsScreen() {
       {groups.map((group) => (
         <section key={group.title ?? "all"} aria-label={group.title ?? "Aktywne nawyki"}>
           {group.title && <h2 className={`${sectionTitle} pb-1`}>{group.title}</h2>}
-          <ul>
+          <ul className="ios-group">
             {group.habits.map((habit) => {
               const plan = planOn(habit, today) ?? habit.plans.at(-1);
               const streak = streakOf(habit, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart);
               const index = active.findIndex((h) => h.id === habit.id);
               return (
-                <li key={habit.id} className="flex items-center gap-3 border-b border-border py-3.5">
+                <li key={habit.id} className="flex items-center gap-3 border-b-[0.5px] border-border py-3.5">
                   {reordering ? (
                     <>
                       <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} />
@@ -143,9 +143,9 @@ export function HabitsScreen() {
             </svg>
           </button>
           {showArchive && (
-            <ul>
+            <ul className="ios-group">
               {archived.map((habit) => (
-                <li key={habit.id} className="flex items-center gap-3 border-b border-border py-3">
+                <li key={habit.id} className="flex items-center gap-3 border-b-[0.5px] border-border py-3">
                   <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size="sm" />
                   <Link href={`/habits/${habit.id}`} className="flex-1 truncate font-medium text-done">
                     {habit.name}
