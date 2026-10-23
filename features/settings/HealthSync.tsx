@@ -3,22 +3,23 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { btnDanger, btnPrimary, btnSecondary, sectionTitle } from "@/components/ui/styles";
-import { useAction, useSnapshot } from "@/lib/data/hooks";
+import { btnDanger, btnPrimary, btnSecondary, groupHeader, sectionTitle } from "@/components/ui/styles";
+import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { fetchTokenStatus, newApiToken, revokeApiToken } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 import { HEALTH_METRICS, METRIC_INFO } from "@/lib/domain/health";
 import { formatNumber } from "@/lib/format";
 
-const tokenKey = ["api-token"] as const;
+export const tokenKey = ["api-token"] as const;
 
 function formatStamp(iso: string): string {
   return new Intl.DateTimeFormat("pl-PL", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 }
 
 /** Apple Zdrowie przez Skróty: klucz, adres i instrukcja. Garmin i Fitatu zapisują do Zdrowia, Skrót przesyła dzienne sumy. */
-export function HealthSync() {
+export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
   const { data: snapshot } = useSnapshot();
+  const today = useToday(snapshot);
   const qc = useQueryClient();
   const status = useQuery({ queryKey: tokenKey, queryFn: () => fetchTokenStatus(supabaseBrowser()) });
   const [token, setToken] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export function HealthSync() {
   const revoke = useAction((s) => revokeApiToken(s));
 
   if (!snapshot) return null;
+  const todayValues = today ? (snapshot.health ?? []).filter((d) => d.date === today) : [];
   const endpoint = typeof window === "undefined" ? "/api/ingest" : `${window.location.origin}/api/ingest`;
   const linked = snapshot.habits.filter((h) => h.archivedAt === null && h.source);
 
@@ -55,13 +57,29 @@ export function HealthSync() {
 
   return (
     <section aria-labelledby="health-title" className="flex flex-col gap-4">
-      <h2 id="health-title" className={sectionTitle}>
+      <h2 id="health-title" className={showTitle ? sectionTitle : "sr-only"}>
         Apple Zdrowie
       </h2>
       <p className="text-sm text-muted">
         Garmin Connect, Fitatu i inne aplikacje zapisują dane do Zdrowia na iPhonie. Skrót wysyła tu dzienne sumy, a nawyki z ustawionym źródłem
         odhaczają się same.
       </p>
+
+      {todayValues.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <h3 className={groupHeader}>Dziś z Apple Zdrowie</h3>
+          <ul className="ios-group">
+            {todayValues.map((d) => (
+              <li key={d.metric} className="flex items-center justify-between gap-3 border-b-[0.5px] border-border py-3 text-[15px]">
+                <span>{METRIC_INFO[d.metric].label}</span>
+                <span className="font-semibold tabular-nums">
+                  {formatNumber(d.value)} {METRIC_INFO[d.metric].unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {linked.length > 0 ? (
         <ul className="flex flex-col divide-y divide-border rounded-xl bg-surface px-4">

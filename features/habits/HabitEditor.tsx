@@ -335,7 +335,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
               {form.kind === "check"
                 ? "Odhacza się sam po przekroczeniu progu. Ręcznie też możesz."
                 : `Wartość dnia = suma z Apple Zdrowie (${METRIC_INFO[form.source].unit}). Ustaw cel w tej samej jednostce.`}{" "}
-              Skrót skonfigurujesz w Ustawieniach.
+              Skrót skonfigurujesz w Ustawieniach → Apple Zdrowie.
             </p>
           )}
         </div>

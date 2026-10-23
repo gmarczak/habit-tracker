@@ -1,8 +1,12 @@
 /* Service worker: powłoka offline + powiadomienia push. Bez zależności, żeby był przewidywalny. */
-const VERSION = "v2-4";
+const VERSION = "v2-5";
 const SHELL_CACHE = `shell-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
-const SHELL = ["/", "/habits", "/stats", "/settings", "/manifest.webmanifest", "/icon-192.png"];
+const SHELL = [
+  "/", "/habits", "/stats", "/settings",
+  "/settings/reminders", "/settings/health", "/settings/day", "/settings/vacation", "/settings/categories", "/settings/data", "/settings/account",
+  "/manifest.webmanifest", "/icon-192.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
