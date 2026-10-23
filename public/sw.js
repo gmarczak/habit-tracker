@@ -1,5 +1,5 @@
 /* Service worker: powłoka offline + powiadomienia push. Bez zależności, żeby był przewidywalny. */
-const VERSION = "v2-2";
+const VERSION = "v2-3";
 const SHELL_CACHE = `shell-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
 const SHELL = ["/", "/habits", "/stats", "/settings", "/manifest.webmanifest", "/icon-192.png"];
@@ -70,14 +70,22 @@ self.addEventListener("push", (event) => {
   } catch {
     if (event.data) data.body = event.data.text();
   }
+  // Liczba niezrobionych na ikonie aplikacji (iOS 16.4+ w zainstalowanej PWA)
+  const badge =
+    typeof data.badge === "number" && "setAppBadge" in self.navigator
+      ? (data.badge > 0 ? self.navigator.setAppBadge(data.badge) : self.navigator.clearAppBadge()).catch(() => {})
+      : Promise.resolve();
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: "/icon-192.png",
-      badge: "/badge-96.png",
-      tag: data.tag || "habits",
-      data: { url: data.url || "/" },
-    }),
+    Promise.all([
+      badge,
+      self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: "/icon-192.png",
+        badge: "/badge-96.png",
+        tag: data.tag || "habits",
+        data: { url: data.url || "/" },
+      }),
+    ]),
   );
 });
 
