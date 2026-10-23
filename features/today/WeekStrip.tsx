@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { Snapshot } from "@/lib/data/snapshot";
 import { addDays, type LocalDate } from "@/lib/domain/dates";
-import { buildDay } from "@/lib/domain/today";
+import { dayProgress } from "@/lib/domain/today";
 import { dayOfMonth, formatDayLong, formatWeekdayShort } from "@/lib/format";
 
 type Props = { today: LocalDate; selected: LocalDate; onSelect: (date: LocalDate) => void; snapshot: Snapshot };
@@ -12,7 +12,7 @@ type Props = { today: LocalDate; selected: LocalDate; onSelect: (date: LocalDate
 export function WeekStrip({ today, selected, onSelect, snapshot }: Props) {
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(today, i - 6)).map((date) => {
-      const { progress } = buildDay(snapshot.habits, snapshot.entries, snapshot.pauses, date, today, snapshot.settings.weekStart);
+      const progress = dayProgress(snapshot.habits, snapshot.entries, snapshot.pauses, date);
       return { date, complete: progress.total > 0 && progress.done === progress.total, empty: progress.total === 0 };
     });
   }, [today, snapshot]);

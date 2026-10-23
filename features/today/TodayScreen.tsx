@@ -22,7 +22,7 @@ import { WeekStrip } from "./WeekStrip";
 
 export function TodayScreen() {
   const qc = useQueryClient();
-  const { data: snapshot, isPending, error, refetch } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   const [picked, setPicked] = useState<LocalDate | null>(null);
   const [celebration, setCelebration] = useState<CelebrationInfo | null>(null);
@@ -78,7 +78,8 @@ export function TodayScreen() {
   const closeCelebration = useCallback(() => setCelebration(null), []);
 
   if (isPending) return <TodaySkeleton />;
-  if (error || !snapshot || !view || !today || !date) {
+  // Błąd odświeżenia przy danych z cache (np. Wi-Fi bez internetu) nie zasłania ekranu
+  if (!snapshot || !view || !today || !date) {
     return (
       <main className="flex flex-col gap-3 px-6 py-8">
         <p>Nie udało się wczytać danych. Sprawdź połączenie.</p>

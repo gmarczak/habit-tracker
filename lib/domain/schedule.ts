@@ -65,8 +65,22 @@ export function entryOutcome(entry: Entry | undefined, plan: Plan | null, goal: 
 }
 
 /** Mapa wpisów jednego nawyku po dacie. */
-export function entriesByDate(entries: readonly Entry[], habitId: string): Map<LocalDate, Entry> {
-  const map = new Map<LocalDate, Entry>();
-  for (const e of entries) if (e.habitId === habitId) map.set(e.date, e);
-  return map;
+// Indeks liczony raz na tablicę wpisów (snapshot jest niezmienny: każda zmiana tworzy nową tablicę).
+const indexCache = new WeakMap<readonly Entry[], Map<string, Map<LocalDate, Entry>>>();
+
+/** Wpisy nawyku według dnia. Wynik jest współdzielony — tylko do odczytu. */
+export function entriesByDate(entries: readonly Entry[], habitId: string): ReadonlyMap<LocalDate, Entry> {
+  let index = indexCache.get(entries);
+  if (!index) {
+    index = new Map();
+    for (const e of entries) {
+      let byDate = index.get(e.habitId);
+      if (!byDate) index.set(e.habitId, (byDate = new Map()));
+      byDate.set(e.date, e);
+    }
+    indexCache.set(entries, index);
+  }
+  return index.get(habitId) ?? EMPTY;
 }
+
+const EMPTY: ReadonlyMap<LocalDate, Entry> = new Map();

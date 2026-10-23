@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import { Modal } from "@/components/ui/Modal";
 import { HabitEditor, type HabitPreset } from "@/features/habits/HabitEditor";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
+import { useAppBadge } from "./useAppBadge";
 
 type AddHabit = (preset?: HabitPreset) => void;
 const AddHabitContext = createContext<AddHabit>(() => {});
@@ -23,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { data: snapshot } = useSnapshot();
   const today = useToday(snapshot);
+  useAppBadge(snapshot, today);
   const [adding, setAdding] = useState<{ preset?: HabitPreset } | null>(null);
 
   const open: AddHabit = useCallback((preset) => setAdding({ preset }), []);

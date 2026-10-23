@@ -44,7 +44,8 @@ export async function saveEntry(supabase: Supabase, change: EntryChange): Promis
       p_date: change.date,
       p_value: change.kind === "set" ? change.value : 0,
       p_skipped: change.kind === "skip",
-      ...(change.note !== undefined && change.note !== null ? { p_note: change.note } : {}),
+      // undefined = notatka bez zmian; null = usuń (serwer traktuje pusty tekst jako usunięcie)
+      ...(change.note !== undefined ? { p_note: change.note ?? "" } : {}),
     }),
   );
 }

@@ -101,11 +101,21 @@ function entryOutcome(entry, plan, goal = "build") {
   if (value >= target) return "done";
   return value > 0 ? "partial" : "none";
 }
+var indexCache = /* @__PURE__ */ new WeakMap();
 function entriesByDate(entries, habitId) {
-  const map = /* @__PURE__ */ new Map();
-  for (const e of entries) if (e.habitId === habitId) map.set(e.date, e);
-  return map;
+  let index = indexCache.get(entries);
+  if (!index) {
+    index = /* @__PURE__ */ new Map();
+    for (const e of entries) {
+      let byDate = index.get(e.habitId);
+      if (!byDate) index.set(e.habitId, byDate = /* @__PURE__ */ new Map());
+      byDate.set(e.date, e);
+    }
+    indexCache.set(entries, index);
+  }
+  return index.get(habitId) ?? EMPTY;
 }
+var EMPTY = /* @__PURE__ */ new Map();
 
 // lib/domain/progress.ts
 function ctx(habit, entries, pauses, today, weekStart) {
@@ -260,7 +270,7 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
       habit,
       plan,
       state,
-      entry: entries.find((e) => e.habitId === habit.id && e.date === date),
+      entry: entriesByDate(entries, habit.id).get(date),
       streak: streakOf(habit, entries, pauses, today, weekStart),
       week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null
     };
@@ -277,11 +287,24 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
   }
   return view;
 }
+function dayProgress(habits, entries, pauses, date) {
+  const progress = { done: 0, total: 0 };
+  for (const habit of habits) {
+    if (habit.archivedAt !== null) continue;
+    if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
+    const state = dayState(habit, entries, pauses, date, date);
+    if (state !== "skipped") progress.total++;
+    if (state === "done") progress.done++;
+  }
+  return progress;
+}
+function badgeCount(view) {
+  return view.todo.length;
+}
 
 // lib/domain/stats.ts
-function dayTotals(habits, entries, pauses, date, today, weekStart) {
-  const { progress } = buildDay(habits, entries, pauses, date, today, weekStart);
-  return { date, ...progress };
+function dayTotals(habits, entries, pauses, date) {
+  return { date, ...dayProgress(habits, entries, pauses, date) };
 }
 function isPerfect(d) {
   return d.total > 0 && d.done === d.total;
@@ -289,7 +312,7 @@ function isPerfect(d) {
 function weekReview(habits, entries, pauses, anyDayInWeek, today, weekStart) {
   const first = startOfWeek(anyDayInWeek, weekStart);
   const days = Array.from({ length: 7 }, (_, i) => addDays(first, i)).map(
-    (d) => d > today ? { date: d, done: 0, total: 0 } : dayTotals(habits, entries, pauses, d, today, weekStart)
+    (d) => d > today ? { date: d, done: 0, total: 0 } : dayTotals(habits, entries, pauses, d)
   );
   return {
     days,
@@ -375,10 +398,10 @@ function messagesFor(user, reminders, now) {
   const due = reminders.filter((r) => isDue(r.localTime, nowMin));
   if (due.length === 0) return [];
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
-  const open = [...view.todo, ...view.thisWeek];
+  const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source);
   const out = [];
   for (const r of due) {
-    const base = { reminderId: r.id, localDate: today };
+    const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
     switch (r.kind) {
       case "summary": {
         if (open.length === 0) break;
@@ -506,6 +529,7 @@ Deno.serve(async (req) => {
       color: "green",
       categoryId: null,
       timeOfDay: h.time_of_day ?? null,
+      source: h.source ?? null,
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date,
       sortOrder: h.sort_order,
@@ -539,7 +563,7 @@ Deno.serve(async (req) => {
     for (const m of messages) {
       const { data: claimed } = await supabase.from("notification_log").upsert({ reminder_id: m.reminderId, local_date: m.localDate }, { onConflict: "reminder_id,local_date", ignoreDuplicates: true }).select("reminder_id");
       if (!claimed || claimed.length === 0) continue;
-      const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag });
+      const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag, badge: m.badge });
       for (const s of subs) {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });

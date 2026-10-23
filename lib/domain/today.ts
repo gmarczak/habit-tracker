@@ -1,7 +1,7 @@
 import type { LocalDate, WeekStart } from "./dates";
 import type { Entry, Habit, Pause, Plan } from "./model";
 import { currentWeekProgress, dayState, streakOf, type DayState, type Streak, type WeekProgress } from "./progress";
-import { planOn, requirementOn } from "./schedule";
+import { entriesByDate, planOn, requirementOn } from "./schedule";
 
 export type TodayItem = {
   habit: Habit;
@@ -54,7 +54,7 @@ export function buildDay(
       habit,
       plan,
       state,
-      entry: entries.find((e) => e.habitId === habit.id && e.date === date),
+      entry: entriesByDate(entries, habit.id).get(date),
       streak: streakOf(habit, entries, pauses, today, weekStart),
       week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null,
     };
@@ -72,4 +72,30 @@ export function buildDay(
     } else view.todo.push(item);
   }
   return view;
+}
+
+/**
+ * Sam pierścień dnia (bez serii i tygodni) — to samo co `buildDay(...).progress`, ale tanio.
+ * Dla statystyk i paska tygodnia, które liczą wiele dni naraz.
+ */
+export function dayProgress(
+  habits: readonly Habit[],
+  entries: readonly Entry[],
+  pauses: readonly Pause[],
+  date: LocalDate,
+): { done: number; total: number } {
+  const progress = { done: 0, total: 0 };
+  for (const habit of habits) {
+    if (habit.archivedAt !== null) continue;
+    if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
+    const state = dayState(habit, entries, pauses, date, date);
+    if (state !== "skipped") progress.total++;
+    if (state === "done") progress.done++;
+  }
+  return progress;
+}
+
+/** Liczba na ikonie aplikacji: wymagane dziś i jeszcze nie zrobione (bez planów tygodniowych i „rzucam”). */
+export function badgeCount(view: TodayView): number {
+  return view.todo.length;
 }

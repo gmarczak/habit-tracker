@@ -36,10 +36,12 @@ export function Modal({ open, onClose, title, subtitle, children }: Props) {
               </h2>
               {subtitle && <p className="mt-0.5 text-sm text-muted first-letter:uppercase">{subtitle}</p>}
             </div>
-            <button type="button" onClick={onClose} aria-label="Zamknij" className="-mr-1 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-fill text-muted">
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
+            <button type="button" onClick={onClose} aria-label="Zamknij" className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+              <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-fill text-muted">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </span>
             </button>
           </div>
           {children}

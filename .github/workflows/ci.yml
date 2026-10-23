@@ -45,3 +45,5 @@ jobs:
           for f in supabase/migrations/*.sql; do sed '/^create extension/d' "$f" | psql -v ON_ERROR_STOP=1; done
           psql -f supabase/tests/behavior.sql | tee out.txt
           grep -q "b_sees_habits" out.txt
+      - name: Asercje bazy (RLS, uprawnienia funkcji, RPC, Apple Zdrowie)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/assertions.sql

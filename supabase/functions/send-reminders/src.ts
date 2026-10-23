@@ -1,4 +1,4 @@
-// Edge Function: send-reminders. Wywoływana co 5 minut przez pg_cron (migracja 0004).
+// Edge Function: send-reminders. Wywoływana co 5 minut przez pg_cron (migracja reminders_cron).
 // Źródło do bundla: `npm run build:functions` tworzy index.ts (z wbudowaną logiką z lib/domain).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
       color: "green",
       categoryId: null,
       timeOfDay: (h.time_of_day as Habit["timeOfDay"]) ?? null,
+      source: (h.source as Habit["source"]) ?? null,
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date as string,
       sortOrder: h.sort_order as number,
@@ -140,7 +141,7 @@ Deno.serve(async (req) => {
         .select("reminder_id");
       if (!claimed || claimed.length === 0) continue;
 
-      const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag });
+      const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag, badge: m.badge });
       for (const s of subs) {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } }, payload, { TTL: 3600 });

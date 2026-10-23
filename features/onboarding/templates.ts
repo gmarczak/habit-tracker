@@ -1,12 +1,15 @@
 import type { HabitPreset } from "@/features/habits/HabitEditor";
 
-/** Szablony do szybkiego startu. Każdy da się potem dowolnie edytować. */
+/**
+ * Szablony do szybkiego startu. Każdy da się potem dowolnie edytować.
+ * Te ze `source` wypełniają się same z Apple Zdrowie (Garmin, Fitatu…) przez Skrót z Ustawień.
+ */
 export const TEMPLATES: (HabitPreset & { id: string; summary: string })[] = [
-  { id: "water", timeOfDay: "day", name: "Woda", kind: "count", unit: "szklanek", targetValue: 8, icon: "droplet", color: "blue", frequency: "daily", summary: "8 szklanek dziennie" },
+  { id: "steps", timeOfDay: "day", name: "Spacer", kind: "check", source: "steps", sourceMin: 7000, icon: "footprints", color: "green", frequency: "daily", summary: "7000 kroków dziennie · z Apple Zdrowie" },
+  { id: "move", timeOfDay: "day", name: "Ruch", kind: "duration", source: "exercise_min", targetValue: 30, icon: "heart-pulse", color: "rose", frequency: "daily", summary: "30 minut ćwiczeń dziennie · z Apple Zdrowie" },
   { id: "read", timeOfDay: "evening", name: "Czytanie", kind: "count", unit: "stron", targetValue: 10, icon: "book-open", color: "amber", frequency: "daily", summary: "10 stron dziennie" },
-  { id: "walk", timeOfDay: "day", name: "Spacer", kind: "check", icon: "footprints", color: "green", frequency: "daily", summary: "codziennie" },
-  { id: "meditate", timeOfDay: "morning", name: "Medytacja", kind: "duration", targetValue: 10, icon: "wind", color: "violet", frequency: "daily", summary: "10 minut dziennie" },
-  { id: "gym", name: "Siłownia", kind: "check", icon: "dumbbell", color: "rose", frequency: "weekly_count", timesPerWeek: 3, summary: "3 razy w tygodniu" },
+  { id: "meditate", timeOfDay: "morning", name: "Medytacja", kind: "duration", source: "mindful_min", targetValue: 10, icon: "wind", color: "violet", frequency: "daily", summary: "10 minut dziennie · z Apple Zdrowie (minuty uważności)" },
+  { id: "gym", name: "Trening", kind: "check", source: "workouts", sourceMin: 1, icon: "dumbbell", color: "amber", frequency: "weekly_count", timesPerWeek: 3, summary: "3 razy w tygodniu · trening z zegarka" },
   { id: "phone", timeOfDay: "evening", name: "Bez telefonu po 22", kind: "check", icon: "phone-off", color: "teal", frequency: "daily", summary: "codziennie" },
   { id: "sleep", timeOfDay: "evening", name: "Sen przed 23", kind: "check", icon: "bed-double", color: "violet", frequency: "daily", summary: "codziennie" },
   { id: "sweets", name: "Bez słodyczy", kind: "check", goal: "quit", icon: "apple", color: "rose", frequency: "daily", summary: "rzucam — liczą się dni bez wpadki" },

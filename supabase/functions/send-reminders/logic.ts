@@ -4,7 +4,7 @@
 import { localDate, type LocalDate, type WeekStart } from "../../../lib/domain/dates";
 import type { Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
 import { PART_LABELS, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
-import { buildDay } from "../../../lib/domain/today";
+import { badgeCount, buildDay } from "../../../lib/domain/today";
 
 export type ReminderRow = { id: string; kind: ReminderKind; habitId: string | null; localTime: string };
 export type UserContext = {
@@ -15,7 +15,8 @@ export type UserContext = {
   entries: Entry[];
   pauses: Pause[];
 };
-export type Message = { reminderId: string; localDate: LocalDate; title: string; body: string; url: string; tag: string };
+/** badge: liczba na ikonie aplikacji (niezrobione wymagane dziś) */
+export type Message = { reminderId: string; localDate: LocalDate; title: string; body: string; url: string; tag: string; badge: number };
 
 /** Minuty od północy w strefie użytkownika. */
 export function localMinutes(now: Date, timeZone: string): number {
@@ -50,11 +51,12 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
   if (due.length === 0) return [];
 
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
-  const open = [...view.todo, ...view.thisWeek];
+  // Nawyki z Apple Zdrowie odhacza Skrót (zwykle wieczorem) — nie przypominamy o nich.
+  const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source);
   const out: Message[] = [];
 
   for (const r of due) {
-    const base = { reminderId: r.id, localDate: today };
+    const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
     switch (r.kind) {
       case "summary": {
         if (open.length === 0) break;
