@@ -104,6 +104,7 @@ end $$;
 do $$ begin
   assert (select count(*) from habit_entries) = 0, 'anon widzi wpisy';
   assert (select count(*) from api_tokens) = 0, 'anon widzi klucze';
+  assert (select count(*) from health_daily) = 0, 'anon widzi dane zdrowotne';
 end $$;
 
 reset role;
@@ -114,6 +115,9 @@ do $$ begin
   assert (select value from habit_entries where habit_id = current_setting('t.move')::uuid and entry_date = current_date) = 12,
     'ilość/czas nie wzięła maksimum dnia';
   assert (select last_used_at is not null from api_tokens), 'klucz bez daty użycia';
+  -- prawdziwe wartości: kroki zapisane także poniżej progu, suma dnia tylko rośnie
+  assert (select value from health_daily where metric = 'steps' and metric_date = current_date) = 8200, 'brak kroków w health_daily';
+  assert (select value from health_daily where metric = 'exercise_min' and metric_date = current_date) = 12, 'health_daily nie wzięło maksimum';
 end $$;
 
 -- ---------- izolacja (RLS): użytkownik B ----------
@@ -124,6 +128,7 @@ do $$ begin
   assert (select count(*) from habits) = 0, 'B widzi nawyki A';
   assert (select count(*) from habit_entries) = 0, 'B widzi wpisy A';
   assert (select count(*) from api_tokens) = 0, 'B widzi klucz A';
+  assert (select count(*) from health_daily) = 0, 'B widzi dane zdrowotne A';
   update habits set name = 'hack' where id = current_setting('t.read')::uuid;
 end $$;
 
@@ -149,7 +154,8 @@ end $$;
 -- ---------- usunięcie konta kaskadą ----------
 delete from auth.users where email in ('test-a@x', 'test-b@x');
 do $$ begin
-  assert (select count(*) from habits) = 0 and (select count(*) from habit_entries) = 0 and (select count(*) from api_tokens) = 0,
+  assert (select count(*) from habits) = 0 and (select count(*) from habit_entries) = 0 and (select count(*) from api_tokens) = 0
+    and (select count(*) from health_daily) = 0,
     'usunięcie konta zostawiło dane';
 end $$;
 

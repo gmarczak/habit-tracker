@@ -1,267 +1,74 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { clear as clearIdb } from "idb-keyval";
+import { useQuery } from "@tanstack/react-query";
+import { Bell, CalendarClock, CircleUserRound, Download, Folder, HeartPulse, Plane, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { Modal } from "@/components/ui/Modal";
-import { btnDanger, btnSecondary, chip, field, label, labelText, sectionTitle } from "@/components/ui/styles";
-import { PasswordForm } from "@/features/auth/PasswordForm";
-import { PauseForm } from "@/features/habits/HabitDetail";
-import { disablePush } from "@/features/reminders/push";
-import { ReminderSettings } from "@/features/reminders/ReminderSettings";
-import { HealthSync } from "./HealthSync";
-import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
-import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { deleteAccount, deleteCategory, deletePause, updateSettings, type SettingsForm } from "@/lib/data/mutations";
+import { useSnapshot, useToday } from "@/lib/data/hooks";
+import { fetchTokenStatus } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
-import type { WeekStart } from "@/lib/domain/dates";
-import { formatDayLong } from "@/lib/format";
+import type { HabitColor } from "@/lib/domain/model";
+import { formatDayMonth } from "@/lib/format";
+import { tokenKey } from "./HealthSync";
 
-const DAY_END = [0, 1, 2, 3, 4, 5, 6];
+type Row = { href: string; title: string; Icon: LucideIcon; color: HabitColor; value?: string };
 
+/** Ustawienia jak w iPhonie: grupy wierszy z kolorową ikoną, wartością i strzałką; każdy otwiera podstronę. */
 export function SettingsScreen() {
   const { data: snapshot } = useSnapshot();
   const today = useToday(snapshot);
-  const qc = useQueryClient();
-  const router = useRouter();
-  const [vacation, setVacation] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
-
-  const removePause = useAction((s, id: string) => deletePause(s, id));
-  const removeCategory = useAction((s, id: string) => deleteCategory(s, id));
+  const token = useQuery({ queryKey: tokenKey, queryFn: () => fetchTokenStatus(supabaseBrowser()) });
 
   if (!snapshot || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
 
-  const vacations = snapshot.pauses.filter((p) => p.habitId === null && p.endDate >= today);
+  const enabledReminders = snapshot.reminders.filter((r) => r.enabled).length;
+  const vacation = snapshot.pauses
+    .filter((p) => p.habitId === null && p.endDate >= today && p.startDate !== p.endDate)
+    .sort((a, b) => (a.startDate < b.startDate ? -1 : 1))[0];
+  const zone = snapshot.settings.timeZone.split("/").pop()?.replace(/_/g, " ") ?? snapshot.settings.timeZone;
 
-  async function signOut() {
-    const supabase = supabaseBrowser();
-    // Wylogowane urządzenie nie dostaje już przypomnień; brak sieci nie blokuje wylogowania
-    await disablePush(supabase).catch(() => {});
-    if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
-    await supabase.auth.signOut();
-    qc.clear();
-    await clearIdb();
-    router.replace("/login");
-  }
-
-  const stamp = today;
+  const groups: Row[][] = [
+    [
+      { href: "/settings/reminders", title: "Przypomnienia", Icon: Bell, color: "rose", value: enabledReminders ? `Wł.: ${enabledReminders}` : "Wył." },
+      { href: "/settings/health", title: "Apple Zdrowie", Icon: HeartPulse, color: "rose", value: token.data ? "Połączone" : token.isSuccess ? "Wył." : undefined },
+    ],
+    [
+      { href: "/settings/day", title: "Dzień i tydzień", Icon: CalendarClock, color: "blue", value: zone },
+      { href: "/settings/vacation", title: "Urlop", Icon: Plane, color: "teal", value: vacation ? `od ${formatDayMonth(vacation.startDate)}` : undefined },
+      { href: "/settings/categories", title: "Kategorie", Icon: Folder, color: "amber", value: snapshot.categories.length ? String(snapshot.categories.length) : undefined },
+    ],
+    [
+      { href: "/settings/data", title: "Twoje dane", Icon: Download, color: "green", value: "Eksport" },
+      { href: "/settings/account", title: "Konto", Icon: CircleUserRound, color: "slate", value: snapshot.email ?? undefined },
+    ],
+  ];
 
   return (
-    <main className="flex flex-col gap-9 px-4 pt-6 pb-6">
+    <main className="flex flex-col gap-7 px-4 pt-6 pb-6">
       <h1 className="font-serif text-[34px] font-bold leading-tight">Ustawienia</h1>
-
-      <ReminderSettings />
-
-      <HealthSync />
-
-      <DayAndWeek key={JSON.stringify(snapshot.settings)} userId={snapshot.userId} initial={snapshot.settings} />
-
-      <section aria-labelledby="vac-title" className="flex flex-col gap-3">
-        <h2 id="vac-title" className={sectionTitle}>
-          Urlop
-        </h2>
-        <p className="text-sm text-muted">Pauza dla wszystkich nawyków naraz. Serie przetrwają, statystyki nie spadną.</p>
-        {vacations.map((p) => (
-          <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-4 py-3">
-            <span className="text-sm">
-              {formatDayLong(p.startDate)} – {formatDayLong(p.endDate)}
-              {p.reason ? ` · ${p.reason}` : ""}
-            </span>
-            <button type="button" onClick={() => removePause.mutate(p.id)} className="h-11 shrink-0 px-2 text-sm font-semibold text-danger">
-              Usuń
-            </button>
-          </div>
-        ))}
-        <button type="button" onClick={() => setVacation(true)} className={`${btnSecondary} self-start`}>
-          Zaplanuj urlop
-        </button>
-      </section>
-
-      {snapshot.categories.length > 0 && (
-        <section aria-labelledby="cat-title" className="flex flex-col gap-2">
-          <h2 id="cat-title" className={sectionTitle}>
-            Kategorie
-          </h2>
-          <ul className="ios-group">
-            {snapshot.categories.map((c) => {
-              const count = snapshot.habits.filter((h) => h.categoryId === c.id).length;
-              return (
-                <li key={c.id} className="flex items-center justify-between border-b-[0.5px] border-border py-2.5">
-                  <span>
-                    {c.name} <span className="text-sm text-muted">· {count}</span>
-                  </span>
-                  <button type="button" onClick={() => removeCategory.mutate(c.id)} className="h-11 px-2 text-sm font-semibold text-danger">
-                    Usuń
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="text-xs text-muted">Usunięcie kategorii nie usuwa nawyków — trafią do „Bez kategorii”. Nowe kategorie dodasz w edycji nawyku.</p>
-        </section>
-      )}
-
-      <section aria-labelledby="data-title" className="flex flex-col gap-3">
-        <h2 id="data-title" className={sectionTitle}>
-          Twoje dane
-        </h2>
-        <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => download(`nawyki-${stamp}.csv`, entriesCsv(snapshot), "text/csv;charset=utf-8")} className={btnSecondary}>
-            Eksport CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => download(`nawyki-${stamp}.json`, snapshotJson(snapshot, new Date().toISOString()), "application/json")} // eslint-disable-line no-restricted-syntax -- znacznik czasu eksportu
-            className={btnSecondary}
-          >
-            Eksport JSON
-          </button>
-        </div>
-      </section>
-
-      <section aria-labelledby="acc-title" className="flex flex-col gap-3">
-        <h2 id="acc-title" className={sectionTitle}>
-          Konto
-        </h2>
-        {snapshot.email && <p className="text-sm text-muted">Zalogowano jako {snapshot.email}</p>}
-        {changingPassword ? (
-          <PasswordForm />
-        ) : (
-          <button type="button" onClick={() => setChangingPassword(true)} className={`${btnSecondary} self-start`}>
-            Ustaw lub zmień hasło
-          </button>
-        )}
-        <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => void signOut()} className={btnSecondary}>
-            Wyloguj
-          </button>
-          <button type="button" onClick={() => setDeleting(true)} className={btnDanger}>
-            Usuń konto
-          </button>
-        </div>
-      </section>
-
+      {groups.map((rows, i) => (
+        <ul key={i} className="ios-group pl-3">
+          {rows.map(({ href, title, Icon, color, value }) => (
+            <li key={href}>
+              <Link href={href} className="flex min-h-11 items-center gap-3 border-b-[0.5px] border-border py-2">
+                <span aria-hidden="true" className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[7px] text-white" style={{ background: `var(--c-${color}-bg)` }}>
+                  <Icon size={18} strokeWidth={2.2} />
+                </span>
+                <span className="flex-1 text-[17px]">{title}</span>
+                {value && <span className="max-w-[45%] truncate text-[17px] text-muted">{value}</span>}
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-control">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ))}
       <p className="text-center text-xs text-muted">
         Nawyki 2.0 ·{" "}
         <Link href="/habits" className="underline underline-offset-2">
           zarządzaj nawykami
         </Link>
       </p>
-
-      <Modal open={vacation} onClose={() => setVacation(false)} title="Urlop" subtitle="Pauza dla wszystkich nawyków">
-        {vacation && <PauseForm habitId={null} today={today} onDone={() => setVacation(false)} />}
-      </Modal>
-      <Modal open={deleting} onClose={() => setDeleting(false)} title="Usunąć konto?">
-        {deleting && <DeleteAccount onCancel={() => setDeleting(false)} />}
-      </Modal>
     </main>
-  );
-}
-
-function DayAndWeek({ userId, initial }: { userId: string; initial: SettingsForm }) {
-  const [form, setForm] = useState<SettingsForm>(initial);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
-  const save = useAction((s, v: SettingsForm) => updateSettings(s, userId, v));
-
-  // Jak w Ustawieniach iOS: zmiana zapisuje się od razu, bez przycisku
-  function change(next: SettingsForm) {
-    setForm(next);
-    save.mutate(next, {
-      onSuccess: () => setStatus("saved"),
-      onError: () => {
-        setForm(initial);
-        setStatus("error");
-      },
-    });
-  }
-  const zones = useMemo(() => {
-    try {
-      return Intl.supportedValuesOf("timeZone");
-    } catch {
-      return [initial.timeZone];
-    }
-  }, [initial.timeZone]);
-
-  return (
-    <section aria-labelledby="day-title" className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between">
-        <h2 id="day-title" className={sectionTitle}>
-          Dzień i tydzień
-        </h2>
-        <span className={`text-[13px] ${status === "error" ? "text-danger" : "text-muted"}`} aria-live="polite">
-          {save.isPending ? "Zapisuję…" : status === "saved" ? "Zapisano" : status === "error" ? "Nie zapisano" : ""}
-        </span>
-      </div>
-      <label className={label}>
-        <span className={labelText}>Strefa czasowa</span>
-        <select value={form.timeZone} onChange={(e) => change({ ...form, timeZone: e.target.value })} className={field}>
-          {zones.map((z) => (
-            <option key={z} value={z}>
-              {z.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-      </label>
-      <fieldset>
-        <legend className={`${labelText} mb-2`}>Tydzień zaczyna się w</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {([1, 7] as WeekStart[]).map((w) => (
-            <button key={w} type="button" aria-pressed={form.weekStart === w} onClick={() => change({ ...form, weekStart: w })} className={chip(form.weekStart === w)}>
-              {w === 1 ? "Poniedziałek" : "Niedzielę"}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <label className={label}>
-        <span className={labelText}>Dzień kończy się</span>
-        <select value={form.dayStartHour} onChange={(e) => change({ ...form, dayStartHour: Number(e.target.value) })} className={field}>
-          {DAY_END.map((h) => (
-            <option key={h} value={h}>
-              {h === 0 ? "o północy" : `o ${h}:00 w nocy`}
-            </option>
-          ))}
-        </select>
-        <span className="text-xs text-muted">Jeśli kładziesz się po północy, ustaw np. 3:00 — odhaczenie o 1:30 trafi jeszcze do „wczoraj”.</span>
-      </label>
-    </section>
-  );
-}
-
-function DeleteAccount({ onCancel }: { onCancel: () => void }) {
-  const [typed, setTyped] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const remove = useAction(async (supabase) => {
-    await deleteAccount(supabase);
-    await supabase.auth.signOut();
-    await clearIdb();
-  });
-  const ok = typed.trim().toUpperCase() === "USUŃ";
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p>Usuniemy konto i całą historię: nawyki, wpisy, notatki, przypomnienia. Tego nie da się cofnąć. Jeśli chcesz zachować dane, najpierw zrób eksport.</p>
-      <label className={label}>
-        <span className={labelText}>Wpisz USUŃ, żeby potwierdzić</span>
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={field} />
-      </label>
-      {error && <p className="text-sm text-danger">{error}</p>}
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" onClick={onCancel} className={btnSecondary}>
-          Anuluj
-        </button>
-        <button
-          type="button"
-          disabled={!ok || remove.isPending}
-          onClick={() => remove.mutate(undefined, { onSuccess: () => window.location.replace("/login"), onError: (e) => setError(e.message) })}
-          className={btnDanger}
-        >
-          {remove.isPending ? "Usuwam…" : "Usuń na zawsze"}
-        </button>
-      </div>
-    </div>
   );
 }

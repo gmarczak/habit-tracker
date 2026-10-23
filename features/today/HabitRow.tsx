@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useEntryMutation } from "@/lib/data/hooks";
+import { useEntryMutation, useSnapshot } from "@/lib/data/hooks";
 import type { LocalDate } from "@/lib/domain/dates";
-import { METRIC_INFO } from "@/lib/domain/health";
+import { METRIC_INFO, healthValue } from "@/lib/domain/health";
 import type { TodayItem } from "@/lib/domain/today";
 import { formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
@@ -11,11 +11,15 @@ import { EntrySheet } from "./EntrySheet";
 
 const LONG_PRESS_MS = 450;
 
-/** Nawyk z Apple Zdrowie: skąd i od kiedy się odhaczy (np. „auto od 7000 kroków”). */
-function autoText(habit: TodayItem["habit"]): string | null {
-  if (!habit.source) return null;
-  const info = METRIC_INFO[habit.source];
-  return habit.kind === "check" && habit.sourceMin ? `auto od ${formatNumber(habit.sourceMin)} ${info.unit}` : `auto · ${info.label.toLowerCase()}`;
+/**
+ * Nawyk z Apple Zdrowie: prawdziwa wartość dnia („4 312 z 7 000 kroków”),
+ * a zanim Skrót coś przyśle — od kiedy się odhaczy („auto od 7 000 kroków”).
+ */
+function autoText(habit: TodayItem["habit"], measured: number | null): string | null {
+  if (!habit.source || habit.kind !== "check") return habit.source ? `auto · ${METRIC_INFO[habit.source].label.toLowerCase()}` : null;
+  const unit = METRIC_INFO[habit.source].unit;
+  if (measured !== null) return habit.sourceMin ? `${formatNumber(measured)} z ${formatNumber(habit.sourceMin)} ${unit}` : `${formatNumber(measured)} ${unit}`;
+  return habit.sourceMin ? `auto od ${formatNumber(habit.sourceMin)} ${unit}` : null;
 }
 
 function haptic() {
@@ -38,6 +42,8 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
   const longPressed = useRef(false);
 
   const { habit, plan, entry, state, streak, week } = item;
+  const { data: snapshot } = useSnapshot();
+  const measured = habit.source && snapshot ? healthValue(snapshot.health ?? [], habit.source, date) : null;
   const value = entry && !entry.skipped ? (entry.value ?? 0) : 0;
   const target = plan.targetValue;
   const isDone = state === "done";
@@ -84,12 +90,16 @@ export function HabitRow({ item, date, compact }: { item: TodayItem; date: Local
 
   const weekMet = week?.result === "met" && !isDone;
   const title =
-    isDone && habit.kind !== "check" && week === null ? `${habit.name} · ${formatNumber(value)} z ${formatNumber(target)} ${unit}`.trim() : habit.name;
+    isDone && habit.kind !== "check" && week === null
+      ? `${habit.name} · ${formatNumber(value)} z ${formatNumber(target)} ${unit}`.trim()
+      : isDone && habit.source && measured !== null
+        ? `${habit.name} · ${formatNumber(measured)} ${METRIC_INFO[habit.source].unit}`
+        : habit.name;
   const detail = isSkipped
     ? "Pominięte"
     : isDone
       ? streakText
-      : [progressText, autoText(habit), streakText].filter(Boolean).join(" · ") ||
+      : [progressText, autoText(habit, measured), streakText].filter(Boolean).join(" · ") ||
         (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
 
   const actionLabel =

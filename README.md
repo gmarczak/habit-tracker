@@ -62,6 +62,7 @@ Authorization: Bearer ht_…          # klucz z Ustawień → Apple Zdrowie
 - Klucz tworzy RPC `new_api_token` (w bazie tylko SHA-256 w `api_tokens`), wyłącza `revoke_api_token`.
 - Endpoint woła `ingest_metrics` jako `anon`; funkcja sprawdza klucz i zapisuje wpisy nawyków z ustawionym `habits.source`.
 - Tak/nie: wpis, gdy wartość ≥ `habits.source_min`. Ilość/czas: największa suma z dnia. Pominięte dni zostają nietknięte.
+- Każda przysłana dana trafia też do `health_daily` (suma dnia, tylko rośnie): Dziś pokazuje np. „4312 z 7000 kroków”, szczegóły nawyku — dziś i średnią z 7 dni.
 - Dane: `steps`, `distance_km`, `exercise_min`, `active_kcal`, `mindful_min`, `water_ml`, `workouts` (`lib/domain/health.ts`).
 
 ## Przypomnienia

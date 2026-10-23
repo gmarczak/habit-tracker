@@ -22,7 +22,8 @@ const PARTS: { kind: Kind; title: string; defaultTime: string }[] = [
   { kind: "evening", title: "Wieczorem", defaultTime: "19:00" },
 ];
 
-export function ReminderSettings() {
+/** `showTitle = false` na podstronie Ustawień, gdzie tytuł jest w nagłówku strony. */
+export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) {
   const { data: snapshot } = useSnapshot();
   const [support, setSupport] = useState<PushSupport>("unsupported");
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
@@ -45,7 +46,7 @@ export function ReminderSettings() {
 
   return (
     <section aria-labelledby="rem-title" className="flex flex-col gap-4">
-      <h2 id="rem-title" className={sectionTitle}>
+      <h2 id="rem-title" className={showTitle ? sectionTitle : "sr-only"}>
         Przypomnienia
       </h2>
       {support === "ios-needs-install" && (
