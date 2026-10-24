@@ -199,7 +199,7 @@ export function HabitDetail({ id }: { id: string }) {
             {notes.map((n) => (
               <li key={n.date} className="border-b-[0.5px] border-border py-3">
                 <p className="text-xs font-semibold text-muted first-letter:uppercase">{formatDayLong(n.date)}</p>
-                <p className="whitespace-pre-line">{n.note}</p>
+                <p className="whitespace-pre-line wrap-anywhere">{n.note}</p>
               </li>
             ))}
           </ul>
@@ -324,7 +324,7 @@ function HabitReminder({ habit, canRemind }: { habit: Habit; canRemind: boolean 
       </h2>
       <p className="text-sm text-muted">Powiadomienie o tej godzinie, tylko w dni, gdy nawyk jest wymagany i jeszcze nie zrobiony.</p>
       <div className="flex items-center gap-3">
-        <input type="time" aria-label="Godzina przypomnienia" value={time} onChange={(e) => setTime(e.target.value)} className={`${field} w-32`} />
+        <input type="time" aria-label="Godzina przypomnienia" value={time} onChange={(e) => setTime(e.target.value)} className={`${field} w-32!`} />
         <button
           type="button"
           disabled={save.isPending}

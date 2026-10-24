@@ -38,7 +38,7 @@ export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
         <h2 className={groupHeader}>Adres</h2>
         <div className="flex items-center gap-2 rounded-xl bg-surface px-4 py-3 text-sm">
           <code className="flex-1 break-all">{endpoint}</code>
-          <button type="button" onClick={() => void copy(endpoint)} className="shrink-0 font-semibold text-accent">
+          <button type="button" onClick={() => void copy(endpoint)} className="inline-flex min-h-11 shrink-0 items-center px-2 font-semibold text-accent">
             {copied === endpoint ? "Skopiowano" : "Kopiuj"}
           </button>
         </div>

@@ -205,7 +205,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
           })}
         </div>
         {!showAllIcons && (
-          <button type="button" onClick={() => setShowAllIcons(true)} className="self-start text-sm font-semibold text-accent">
+          <button type="button" onClick={() => setShowAllIcons(true)} className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent">
             Pokaż wszystkie ({ICON_KEYS.length})
           </button>
         )}
@@ -298,7 +298,7 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
                     type="button"
                     aria-pressed={on}
                     onClick={() => set("weekdays", on ? (form.weekdays ?? []).filter((x) => x !== d.n) : [...(form.weekdays ?? []), d.n].sort())}
-                    className={`${chip(on)} px-0`}
+                    className={`${chip(on)} px-0!`}
                   >
                     {d.label}
                   </button>

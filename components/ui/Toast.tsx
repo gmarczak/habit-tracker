@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   toast.onAction?.();
                   finish(false);
                 }}
-                className="h-10 shrink-0 rounded-full px-3 text-sm font-bold underline underline-offset-4"
+                className="h-11 shrink-0 rounded-full px-3 text-sm font-bold underline underline-offset-4"
               >
                 {toast.actionLabel}
               </button>

@@ -73,7 +73,7 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
             type="button"
             disabled={turnOnDevice.isPending}
             onClick={() => turnOnDevice.mutate(undefined, { onSuccess: () => setSubscribed(true), onError: (e) => setError(e.message) })}
-            className="self-start text-sm font-semibold text-accent"
+            className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent"
           >
             {turnOnDevice.isPending ? "Włączam…" : "Włącz powiadomienia na tym urządzeniu"}
           </button>
@@ -147,7 +147,7 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
         <button
           type="button"
           onClick={() => turnOffDevice.mutate(undefined, { onSuccess: () => setSubscribed(false) })}
-          className="self-start text-sm font-semibold text-muted underline underline-offset-4"
+          className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-muted underline underline-offset-4"
         >
           Wyłącz powiadomienia na tym urządzeniu
         </button>
@@ -211,7 +211,7 @@ function ReminderToggle({
           aria-label={title}
           disabled={busy || (!on && !canEnable)}
           onClick={toggle}
-          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${on ? "bg-accent" : "bg-dot-off"}`}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors before:absolute before:-inset-2 before:content-[''] disabled:opacity-50 ${on ? "bg-accent" : "bg-dot-off"}`}
         >
           <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] ${on ? "left-[22px]" : "left-0.5"}`} />
         </button>

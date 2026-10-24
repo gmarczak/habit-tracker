@@ -8,14 +8,25 @@ const SHELL = [
   "/manifest.webmanifest", "/icon-192.png",
 ];
 
+// Bez zalogowania strony aplikacji przekierowują do /login — takiej odpowiedzi nie zapisujemy pod ich adresem
+// (Safari odrzuca przekierowaną odpowiedź na nawigację z service workera).
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => Promise.allSettled(SHELL.map((url) => cache.add(new Request(url, { credentials: "same-origin" })))))
+      .then((cache) =>
+        Promise.allSettled(
+          SHELL.map(async (url) => {
+            const res = await fetch(url, { credentials: "same-origin" });
+            if (res.ok && !res.redirected) await cache.put(url, res);
+          }),
+        ),
+      )
       .then(() => self.skipWaiting()),
   );
 });
+
+const usable = (res) => (res && !res.redirected ? res : undefined);
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -72,9 +83,11 @@ self.addEventListener("fetch", (event) => {
         };
         // Słaby zasięg albo Wi-Fi bez internetu: zapytanie wisi — pokaż zapisaną stronę, dane i tak są w IndexedDB
         const timer = setTimeout(() => {
-          caches.match(url.pathname).then((hit) => hit && finish(hit));
+          caches.match(url.pathname).then((hit) => usable(hit) && finish(hit));
         }, 4000);
-        network.then(finish).catch(async () => finish((await caches.match(url.pathname)) || (await caches.match("/")) || Response.error()));
+        network
+          .then(finish)
+          .catch(async () => finish(usable(await caches.match(url.pathname)) || usable(await caches.match("/")) || Response.error()));
       }),
     );
   }

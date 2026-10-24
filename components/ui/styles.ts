@@ -4,8 +4,9 @@ export const field =
 export const label = "flex flex-col gap-1.5";
 export const labelText = "px-1 text-[13px] font-normal uppercase tracking-[0.02em] text-muted";
 export const errorText = "px-1 text-[13px] text-danger";
-const btnBase = "inline-flex items-center justify-center font-semibold transition-opacity active:opacity-70 disabled:opacity-40";
-const large = "h-[50px] rounded-[14px] px-6 text-[17px]";
+const btnBase = "inline-flex items-center justify-center text-center font-semibold transition-opacity active:opacity-70 disabled:opacity-40";
+// min-h: dłuższy napis na wąskim ekranie łamie się w dwie linie zamiast wychodzić poza przycisk
+const large = "min-h-[50px] rounded-[14px] px-6 py-2 text-[17px] leading-tight";
 const small = "h-11 rounded-xl px-3 text-[15px]";
 export const btnPrimary = `${btnBase} ${large} bg-accent text-accent-contrast`;
 export const btnSecondary = `${btnBase} ${large} bg-fill text-accent`;

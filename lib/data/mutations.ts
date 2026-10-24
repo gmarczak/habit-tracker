@@ -7,6 +7,8 @@ import type { Snapshot } from "./snapshot";
 
 /** Zapytanie nie dotarło do serwera (brak zasięgu, Wi-Fi bez internetu). Zapis dnia czeka wtedy w kolejce. */
 export class NetworkError extends Error {}
+/** Serwer nie widzi sesji (wygasła bez sieci, wylogowanie na innym urządzeniu). Zapis dnia też czeka. */
+export class SessionError extends NetworkError {}
 
 /** Kody błędów z funkcji w bazie → zrozumiały komunikat. */
 const ERROR_TEXT: Record<string, string> = {
@@ -21,6 +23,8 @@ const ERROR_TEXT: Record<string, string> = {
 function check<T extends { error: { message: string; code?: string } | null; status?: number }>(result: T): T {
   if (!result.error) return result;
   if (result.status === 0) throw new NetworkError("Brak połączenia z serwerem — spróbuj ponownie.");
+  if (result.status === 401 || result.error.code === "PGRST301" || result.error.code === "PGRST303")
+    throw new SessionError("Sesja wygasła — zaloguj się ponownie.");
   const text = ERROR_TEXT[result.error.message];
   if (text) throw new Error(text);
   if (result.error.code === "23505") throw new Error(/name/.test(result.error.message) ? "Taka nazwa już istnieje." : "To już jest zapisane — odśwież aplikację.");

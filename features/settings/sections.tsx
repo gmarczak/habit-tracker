@@ -8,7 +8,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { DataFallback } from "@/components/ui/DataFallback";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
-import { btnDanger, btnSecondary, chip, field, groupHeader, label, labelText } from "@/components/ui/styles";
+import { btnDanger, btnSecondary, chip, field, label, labelText } from "@/components/ui/styles";
 import { PasswordForm } from "@/features/auth/PasswordForm";
 import { PauseForm } from "@/features/habits/HabitDetail";
 import { disablePush } from "@/features/reminders/push";
@@ -17,7 +17,9 @@ import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { deleteAccount, deleteCategory, endPause, updateSettings, withPauseEnded, type SettingsForm } from "@/lib/data/mutations";
 import { fetchAllHealth, type Snapshot } from "@/lib/data/snapshot";
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/db/client";
+import { signOutFlow } from "@/lib/db/session";
 import type { LocalDate, WeekStart } from "@/lib/domain/dates";
 import { formatDayLong } from "@/lib/format";
 import { HealthSync } from "./HealthSync";
@@ -179,7 +181,7 @@ function Categories({ snapshot }: { snapshot: Snapshot }) {
           })}
         </ul>
       )}
-      <p className={`${groupHeader} normal-case`}>Usunięcie kategorii nie usuwa nawyków — trafią do „Bez kategorii”.</p>
+      <p className="px-4 pb-1.5 text-[13px] text-muted">Usunięcie kategorii nie usuwa nawyków — trafią do „Bez kategorii”.</p>
     </section>
   );
 }
@@ -189,16 +191,28 @@ function Account({ email }: { email: string | null }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   async function signOut() {
+    setSignOutError(null);
     const supabase = supabaseBrowser();
-    // Wylogowane urządzenie nie dostaje już przypomnień; brak sieci nie blokuje wylogowania
-    await disablePush(supabase).catch(() => {});
-    if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
-    await supabase.auth.signOut();
-    qc.clear();
-    await clearIdb();
-    router.replace("/login");
+    signOutFlow.active = true;
+    try {
+      // Wylogowane urządzenie nie dostaje już przypomnień (subskrypcja znika także bez sieci)
+      await disablePush(supabase).catch(() => {});
+      // Tylko to urządzenie — „Wyloguj” w Safari nie wylogowuje aplikacji z ekranu głównego
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error && !isAuthSessionMissingError(error)) {
+        setSignOutError("Wylogowanie wymaga połączenia z internetem.");
+        return;
+      }
+      if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
+      qc.clear();
+      await clearIdb();
+      router.replace("/login");
+    } finally {
+      signOutFlow.active = false;
+    }
   }
 
   return (
@@ -219,6 +233,7 @@ function Account({ email }: { email: string | null }) {
           Usuń konto
         </button>
       </div>
+      {signOutError && <p className="text-sm text-danger">{signOutError}</p>}
       <Modal open={deleting} onClose={() => setDeleting(false)} title="Usunąć konto?">
         {deleting && <DeleteAccount onCancel={() => setDeleting(false)} />}
       </Modal>
@@ -300,13 +315,18 @@ function DeleteAccount({ onCancel }: { onCancel: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const qc = useQueryClient();
   const remove = useAction(async (supabase) => {
-    // Najpierw to urządzenie (póki jest sesja): bez subskrypcji i bez liczby na ikonie
-    await disablePush(supabase).catch(() => {});
-    await deleteAccount(supabase);
-    if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
-    await supabase.auth.signOut();
-    qc.clear();
-    await clearIdb();
+    signOutFlow.active = true;
+    try {
+      // Najpierw to urządzenie (póki jest sesja): bez subskrypcji i bez liczby na ikonie
+      await disablePush(supabase).catch(() => {});
+      await deleteAccount(supabase);
+      if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
+      await supabase.auth.signOut({ scope: "local" });
+      qc.clear();
+      await clearIdb();
+    } finally {
+      signOutFlow.active = false;
+    }
   });
   const ok = typed.trim().toUpperCase() === "USUŃ";
 

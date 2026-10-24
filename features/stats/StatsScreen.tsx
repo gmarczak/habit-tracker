@@ -231,7 +231,7 @@ export function StatsScreen() {
               <li key={n.date} className="flex items-start justify-between gap-3 border-b-[0.5px] border-border py-3">
                 <div className="min-w-0">
                   <p className="text-sm text-muted">{formatDayLong(n.date)}</p>
-                  <p className="whitespace-pre-wrap">{n.note}</p>
+                  <p className="whitespace-pre-wrap wrap-anywhere">{n.note}</p>
                 </div>
                 <span className={`shrink-0 font-semibold tabular-nums ${n.total > 0 && n.done / n.total < 0.5 ? "text-danger" : "text-accent"}`}>
                   {n.total > 0 ? `${n.done}/${n.total}` : "—"}

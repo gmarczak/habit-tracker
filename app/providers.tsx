@@ -6,8 +6,9 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { del, get, set } from "idb-keyval";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { entryMutationKey, entryScope, snapshotKey } from "@/lib/data/hooks";
-import { NetworkError, saveEntry, type EntryChange } from "@/lib/data/mutations";
+import { NetworkError, SessionError, saveEntry, type EntryChange } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
+import { signOutFlow } from "@/lib/db/session";
 
 const CACHE_VERSION = "v2-2"; // v2-2: snapshot.health (zmiana kasuje też kolejkę offline — tylko przy niezgodnym kształcie danych)
 
@@ -36,6 +37,29 @@ if (typeof window !== "undefined") {
   });
 }
 
+/*
+ * Zapis, który wisi (słaby zasięg, odświeżanie sesji bez internetu), po 8 s trafia do kolejki — wstrzymany
+ * zapis przetrwa zamknięcie aplikacji, a wiszący nie. Powtórka jest bezpieczna: set/clear są idempotentne,
+ * a dopisanie ma id żądania.
+ */
+const SAVE_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new NetworkError("Serwer nie odpowiada — zapis poczeka w kolejce.")), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 function makeClient() {
   const client = new QueryClient({
     defaultOptions: {
@@ -45,8 +69,17 @@ function makeClient() {
   });
   client.setMutationDefaults(entryMutationKey, {
     mutationFn: async (change: EntryChange) => {
+      const supabase = supabaseBrowser();
       try {
-        await saveEntry(supabaseBrowser(), change);
+        await withTimeout(
+          (async () => {
+            // Bez ważnej sesji zapis poszedłby jako anonimowy i przepadł: niech czeka w kolejce
+            const { data } = await supabase.auth.getSession();
+            if (!data.session) throw new SessionError("Sesja wygasła — zapis poczeka na połączenie.");
+            await saveEntry(supabase, change);
+          })(),
+          SAVE_TIMEOUT_MS,
+        );
       } catch (error) {
         if (error instanceof NetworkError) onlineManager.setOnline(false);
         throw error;
@@ -94,6 +127,15 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
     [drain],
   );
+
+  // Sesja zniknęła poza aplikacją (wylogowanie albo zmiana hasła na innym urządzeniu): do logowania.
+  // Kolejka zapisów zostaje w IndexedDB i wyśle się po ponownym zalogowaniu.
+  useEffect(() => {
+    const { data } = supabaseBrowser().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT" && !signOutFlow.active) window.location.replace("/login");
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {

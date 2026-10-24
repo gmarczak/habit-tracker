@@ -67,7 +67,7 @@ export function DayNote({ date, note, mood }: { date: LocalDate; note: string | 
         (note ? (
           <button type="button" onClick={startEditing} className="mt-2 flex flex-col items-start gap-1 rounded-xl bg-surface px-4 py-3 text-left">
             <span className="text-[13px] uppercase tracking-[0.02em] text-muted">Notatka dnia</span>
-            <span className="whitespace-pre-wrap">{note}</span>
+            <span className="whitespace-pre-wrap wrap-anywhere">{note}</span>
           </button>
         ) : (
           <button type="button" onClick={startEditing} className={`${btnQuiet} mt-2 self-center`}>

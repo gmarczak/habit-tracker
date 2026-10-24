@@ -33,9 +33,18 @@ function toMinutes(hhmm: string): number {
 
 /** Przypomnienie jest „na czasie” przez godzinę od ustawionej godziny (nadrabia przerwy crona). */
 export const WINDOW_MINUTES = 60;
+/** Cron co 5 minut: godzina spoza siatki (np. 23:57) liczy się od najbliższego wcześniejszego uruchomienia. */
+const CRON_STEP = 5;
 
-export function isDue(reminderTime: string, nowMinutes: number): boolean {
-  const diff = nowMinutes - toMinutes(reminderTime);
+/**
+ * Minuty liczone od początku dnia użytkownika (`dayStartHour`), nie od północy: okno nie przechodzi
+ * na następny dzień (02:30 przy końcu dnia o 3:00 nie wyśle się drugi raz o 3:00 z listą nowego dnia),
+ * a 23:30 przy końcu dnia o 3:00 nadrabia też po północy.
+ */
+export function isDue(reminderTime: string, nowMinutes: number, dayStartHour = 0): boolean {
+  const rel = (minutes: number) => (minutes - dayStartHour * 60 + 1440) % 1440;
+  const at = rel(toMinutes(reminderTime));
+  const diff = rel(nowMinutes) - (at - (at % CRON_STEP));
   return diff >= 0 && diff < WINDOW_MINUTES;
 }
 
@@ -48,7 +57,7 @@ function list(names: string[]): string {
 export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Date): Message[] {
   const nowMin = localMinutes(now, user.timeZone);
   const today = localDate(now, user.timeZone, user.dayStartHour);
-  const due = reminders.filter((r) => isDue(r.localTime, nowMin));
+  const due = reminders.filter((r) => isDue(r.localTime, nowMin, user.dayStartHour));
   if (due.length === 0) return [];
 
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
@@ -60,11 +69,18 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
     switch (r.kind) {
       case "summary": {
+        // „Na dziś” tylko wymagane dziś (jak liczba na ikonie); tygodniowe osobno, z postępem
+        const forToday = open.filter((i) => !i.week);
+        const forWeek = open.filter((i) => i.week);
         if (open.length === 0) break;
+        const weekText = forWeek.map((i) => `${i.habit.name} ${i.week!.done}/${i.week!.required}`).join(", ");
         out.push({
           ...base,
-          title: open.length === 1 ? "Został jeden nawyk" : `${habitsLeft(open.length)} na dziś`,
-          body: list(open.map((i) => i.habit.name)),
+          title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Został jeden nawyk" : `${habitsLeft(forToday.length)} na dziś`,
+          body:
+            forToday.length === 0
+              ? weekText
+              : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` · w tym tygodniu: ${weekText}` : ""}`,
           url: "/",
           tag: "summary",
         });

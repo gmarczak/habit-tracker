@@ -22,9 +22,16 @@ export function Modal({ open, onClose, title, subtitle, children }: Props) {
       aria-labelledby={titleId}
       onClose={onClose}
       onClick={(e) => {
-        if (e.target === ref.current) onClose();
+        if (e.target !== ref.current) return;
+        // Stuknięcie obok arkusza w trakcie pisania tylko chowa klawiaturę (jak w iOS) — wpisany tekst zostaje
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && ref.current?.contains(active) && active.matches("input, textarea, select")) {
+          active.blur();
+          return;
+        }
+        onClose();
       }}
-      className="mb-0 mt-auto max-h-[94dvh] w-full max-w-none rounded-t-[14px] border-0 bg-bg p-0 text-text shadow-2xl backdrop:bg-black/40 sm:m-auto sm:w-[min(32rem,calc(100%-2rem))] sm:rounded-[14px]"
+      className="mb-0 mt-auto max-h-[94dvh] w-full max-w-none overscroll-contain rounded-t-[14px] border-0 bg-bg p-0 text-text shadow-2xl backdrop:bg-black/40 sm:m-auto sm:w-[min(32rem,calc(100%-2rem))] sm:rounded-[14px]"
     >
       {open && (
         <div className="flex flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">

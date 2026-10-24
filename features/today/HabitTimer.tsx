@@ -175,7 +175,7 @@ export function HabitTimer({ habitId, date, minutes, color, onFinish, onBack }: 
         </button>
       </div>
       {elapsed > 0 && !running && (
-        <button type="button" onClick={reset} className="text-[15px] text-muted">
+        <button type="button" onClick={reset} className="inline-flex min-h-11 items-center px-3 text-[15px] text-muted">
           Zacznij od nowa
         </button>
       )}

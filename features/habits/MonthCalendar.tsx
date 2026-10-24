@@ -129,9 +129,9 @@ export function MonthCalendar({ habit, entries, pauses, today, appToday = today,
           ›
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1.5 text-center" role="grid" aria-label="Kalendarz nawyku">
+      <div className="grid grid-cols-7 gap-1.5 text-center" role="group" aria-label="Kalendarz nawyku">
         {heads.map((h) => (
-          <span key={h} className="pb-1 text-[11px] font-semibold text-muted" role="columnheader">
+          <span key={h} className="pb-1 text-[11px] font-semibold text-muted" aria-hidden="true">
             {h}
           </span>
         ))}

@@ -408,8 +408,11 @@ function toMinutes(hhmm) {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 var WINDOW_MINUTES = 60;
-function isDue(reminderTime, nowMinutes) {
-  const diff = nowMinutes - toMinutes(reminderTime);
+var CRON_STEP = 5;
+function isDue(reminderTime, nowMinutes, dayStartHour = 0) {
+  const rel = (minutes) => (minutes - dayStartHour * 60 + 1440) % 1440;
+  const at = rel(toMinutes(reminderTime));
+  const diff = rel(nowMinutes) - (at - at % CRON_STEP);
   return diff >= 0 && diff < WINDOW_MINUTES;
 }
 function list(names) {
@@ -419,7 +422,7 @@ function list(names) {
 function messagesFor(user, reminders, now) {
   const nowMin = localMinutes(now, user.timeZone);
   const today = localDate(now, user.timeZone, user.dayStartHour);
-  const due = reminders.filter((r) => isDue(r.localTime, nowMin));
+  const due = reminders.filter((r) => isDue(r.localTime, nowMin, user.dayStartHour));
   if (due.length === 0) return [];
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
   const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source);
@@ -428,11 +431,14 @@ function messagesFor(user, reminders, now) {
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
     switch (r.kind) {
       case "summary": {
+        const forToday = open.filter((i) => !i.week);
+        const forWeek = open.filter((i) => i.week);
         if (open.length === 0) break;
+        const weekText = forWeek.map((i) => `${i.habit.name} ${i.week.done}/${i.week.required}`).join(", ");
         out.push({
           ...base,
-          title: open.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(open.length)} na dzi\u015B`,
-          body: list(open.map((i) => i.habit.name)),
+          title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(forToday.length)} na dzi\u015B`,
+          body: forToday.length === 0 ? weekText : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` \xB7 w tym tygodniu: ${weekText}` : ""}`,
           url: "/",
           tag: "summary"
         });
@@ -529,6 +535,7 @@ Deno.serve(async (req) => {
   const now = /* @__PURE__ */ new Date();
   let sent = 0;
   let removed = 0;
+  let failed = 0;
   for (const [userId, userReminders] of byUser) {
     const { data: profile } = await supabase.from("profiles").select("timezone, day_start_hour, week_start").eq("id", userId).single();
     if (!profile) continue;
@@ -591,20 +598,26 @@ Deno.serve(async (req) => {
       const { data: claimed } = await supabase.from("notification_log").upsert({ reminder_id: m.reminderId, local_date: m.localDate }, { onConflict: "reminder_id,local_date", ignoreDuplicates: true }).select("reminder_id");
       if (!claimed || claimed.length === 0) continue;
       const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag, badge: m.badge });
+      let delivered = 0;
       for (const s of subs) {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });
           sent++;
+          delivered++;
         } catch (err) {
           const status = err.statusCode;
           if (status === 404 || status === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
             removed++;
+          } else {
+            failed++;
+            console.error("push failed", status, err.body ?? String(err));
           }
         }
       }
+      if (delivered === 0) await supabase.from("notification_log").delete().eq("reminder_id", m.reminderId).eq("local_date", m.localDate);
       await supabase.from("push_subscriptions").update({ last_used_at: now.toISOString() }).eq("user_id", userId);
     }
   }
-  return json({ users: byUser.size, sent, removed });
+  return json({ users: byUser.size, sent, removed, failed });
 });

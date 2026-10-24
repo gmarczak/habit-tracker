@@ -91,7 +91,7 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
             <b>Pobierz zawartość adresu URL</b>:
             <span className="mt-1 flex items-center gap-2">
               <code className="break-all">{endpoint}</code>
-              <button type="button" onClick={() => void copy(endpoint)} className="shrink-0 font-semibold text-accent">
+              <button type="button" onClick={() => void copy(endpoint)} className="inline-flex min-h-11 shrink-0 items-center px-2 font-semibold text-accent">
                 {copied ? "Skopiowano" : "Kopiuj"}
               </button>
             </span>

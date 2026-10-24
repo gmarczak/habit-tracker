@@ -21,7 +21,7 @@ export function Celebration({ info, onDone }: { info: CelebrationInfo; onDone: (
         <span className="font-serif text-5xl font-bold leading-none">{info.value}</span>
         <span className="text-lg font-semibold">{unitText} z rzędu</span>
         <span className="text-sm opacity-90">{info.habitName} — tak trzymaj.</span>
-        <button type="button" onClick={onDone} className="mt-2 h-10 rounded-full px-4 text-sm font-semibold underline underline-offset-4">
+        <button type="button" onClick={onDone} className="mt-2 h-11 rounded-full px-4 text-sm font-semibold underline underline-offset-4">
           Dzięki
         </button>
       </div>

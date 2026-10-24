@@ -39,9 +39,24 @@ describe("przypomnienia", () => {
     expect(isDue("20:00", 21 * 60)).toBe(false);
   });
 
+  it("okno liczy się od początku dnia użytkownika i od siatki crona", () => {
+    // koniec dnia o 3:00: 02:30 nie wysyła się drugi raz o 3:00 (to już nowy dzień), 23:30 nadrabia po północy
+    expect(isDue("02:30", 2 * 60 + 30, 3)).toBe(true);
+    expect(isDue("02:30", 3 * 60, 3)).toBe(false);
+    expect(isDue("23:30", 20, 3)).toBe(true);
+    // 23:57 przy cronie co 5 minut: od 23:55
+    expect(isDue("23:57", 23 * 60 + 55)).toBe(true);
+  });
+
   it("podsumowanie wymienia tylko niezrobione", () => {
     const m = messagesFor(user, [{ id: "r1", kind: "summary" as const, habitId: null, localTime: "20:00" }], at2005);
     expect(m).toEqual([{ reminderId: "r1", localDate: "2026-10-11", title: "Został jeden nawyk", body: "Spacer", url: "/", tag: "summary", badge: 1 }]);
+  });
+
+  it("podsumowanie: „na dziś” tylko wymagane dziś, tygodniowe osobno z postępem", () => {
+    const gym: Habit = { ...habit("g", "Siłownia"), plans: [{ ...plan, frequency: "weekly_count", timesPerWeek: 3 }] };
+    const m = messagesFor({ ...user, habits: [...user.habits, gym] }, [{ id: "r1", kind: "summary" as const, habitId: null, localTime: "20:00" }], at2005);
+    expect(m.map((x) => [x.title, x.body, x.badge])).toEqual([["Został jeden nawyk", "Spacer · w tym tygodniu: Siłownia 0/3", 1]]);
   });
 
   it("cisza, gdy wszystko zrobione albo jeszcze nie pora", () => {
