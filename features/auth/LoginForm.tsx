@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { btnPrimary, field, label, labelText } from "@/components/ui/styles";
 import { supabaseBrowser } from "@/lib/db/client";
+import { authMessage } from "./messages";
 
 /*
  * Logowanie: e-mail + hasło (główne) albo link z maila (awaryjnie).
@@ -18,15 +19,14 @@ type Status = { kind: "idle" } | { kind: "busy" } | { kind: "error"; message: st
 
 const MIN_PASSWORD = 8;
 
-function messageFor(error: { status?: number; message: string; code?: string }): string {
-  if (error.status === 429) return "Za dużo prób w krótkim czasie. Odczekaj kilka minut i spróbuj ponownie.";
+function messageFor(error: { status?: number; message: string; code?: string; name?: string }): string {
   if (error.code === "invalid_credentials" || /invalid login credentials/i.test(error.message))
     return "Nieprawidłowy e-mail lub hasło. Jeśli konto zakładałeś linkiem z maila, najpierw ustaw hasło (poniżej).";
   if (error.code === "email_not_confirmed") return "Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się hasłem.";
   if (error.code === "user_already_exists" || /already registered/i.test(error.message))
     return "Konto z tym adresem już istnieje. Zaloguj się albo ustaw hasło.";
   if (error.code === "weak_password") return `Hasło jest za słabe. Użyj co najmniej ${MIN_PASSWORD} znaków.`;
-  return error.message;
+  return authMessage(error);
 }
 
 /** Aplikacja uruchomiona z ekranu głównego (PWA), a nie w przeglądarce. */
@@ -40,16 +40,23 @@ function useStandalone(): boolean {
   return standalone;
 }
 
-export function LoginForm({ linkError }: { linkError: boolean }) {
+/** `linkError`: link wygasł/użyty („link”) albo otworzył się w innej przeglądarce niż prośba o niego („browser”). */
+export function LoginForm({ linkError }: { linkError: "link" | "browser" | null }) {
   const router = useRouter();
   const standalone = useStandalone();
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<Status>(
-    linkError
-      ? { kind: "error", message: "Link wygasł albo został już użyty. Jeśli potwierdzałeś adres, zaloguj się hasłem." }
-      : { kind: "idle" },
+    linkError === "browser"
+      ? {
+          kind: "info",
+          message:
+            "Link otworzył się w innej przeglądarce niż ta, w której o niego proszono. Jeśli potwierdzałeś adres — jest już potwierdzony: wróć do aplikacji z ekranu głównego i zaloguj się hasłem.",
+        }
+      : linkError
+        ? { kind: "error", message: "Link wygasł albo został już użyty. Jeśli potwierdzałeś adres, zaloguj się hasłem." }
+        : { kind: "idle" },
   );
   const busy = status.kind === "busy";
 
@@ -174,19 +181,19 @@ export function LoginForm({ linkError }: { linkError: boolean }) {
         {status.kind === "info" && <p className="rounded-xl bg-surface px-4 py-3 text-sm">{status.message}</p>}
       </form>
 
-      <div className="flex flex-col items-start gap-3 text-sm font-semibold text-accent">
+      <div className="flex flex-col items-start text-sm font-semibold text-accent">
         {mode !== "password" && (
-          <button type="button" onClick={() => switchMode("password")}>
+          <button type="button" onClick={() => switchMode("password")} className="inline-flex min-h-11 items-center">
             Mam hasło — zaloguj się
           </button>
         )}
         {mode !== "link" && (
-          <button type="button" onClick={() => switchMode("link")}>
+          <button type="button" onClick={() => switchMode("link")} className="inline-flex min-h-11 items-center">
             Nie mam hasła / nie pamiętam
           </button>
         )}
         {mode !== "signup" && (
-          <button type="button" onClick={() => switchMode("signup")}>
+          <button type="button" onClick={() => switchMode("signup")} className="inline-flex min-h-11 items-center">
             Nie masz konta? Załóż je
           </button>
         )}

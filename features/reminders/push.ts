@@ -5,7 +5,7 @@ import { deletePushSubscription, savePushSubscription } from "@/lib/data/mutatio
 
 export type PushSupport = "supported" | "ios-needs-install" | "unsupported" | "denied";
 
-function isIos(): boolean {
+export function isIos(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
@@ -35,6 +35,26 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
   return (await reg?.pushManager.getSubscription()) ?? null;
 }
 
+// Świadome „Wyłącz na tym urządzeniu”: aplikacja nie namawia wtedy do ponownego włączenia
+const OPT_OUT_KEY = "push-device-off";
+
+export function deviceOptedOut(): boolean {
+  try {
+    return localStorage.getItem(OPT_OUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setOptedOut(value: boolean) {
+  try {
+    if (value) localStorage.setItem(OPT_OUT_KEY, "1");
+    else localStorage.removeItem(OPT_OUT_KEY);
+  } catch {
+    // bez pamięci przeglądarki: najwyżej wróci podpowiedź
+  }
+}
+
 /** Prosi o zgodę, subskrybuje push i zapisuje subskrypcję tego urządzenia w bazie. */
 export async function enablePush(supabase: Supabase): Promise<void> {
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -51,11 +71,21 @@ export async function enablePush(supabase: Supabase): Promise<void> {
     (await reg.pushManager.getSubscription()) ??
     (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) }));
   await savePushSubscription(supabase, sub.toJSON(), navigator.userAgent);
+  setOptedOut(false);
 }
 
-export async function disablePush(supabase: Supabase): Promise<void> {
+/**
+ * Wyłącza powiadomienia na tym urządzeniu. Subskrypcja w przeglądarce znika zawsze, także bez sieci.
+ * `optOut`: użytkownik sam tak wybrał (a nie wylogowanie) — zapamiętaj to.
+ */
+export async function disablePush(supabase: Supabase, optOut = false): Promise<void> {
+  if (optOut) setOptedOut(true);
   const sub = await currentSubscription();
   if (!sub) return;
-  await deletePushSubscription(supabase, sub.endpoint);
-  await sub.unsubscribe();
+  try {
+    await deletePushSubscription(supabase, sub.endpoint);
+  } finally {
+    // wiersz w bazie bez subskrypcji usunie przy następnej wysyłce funkcja przypomnień (410)
+    await sub.unsubscribe().catch(() => false);
+  }
 }

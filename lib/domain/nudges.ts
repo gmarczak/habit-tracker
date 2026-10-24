@@ -91,7 +91,7 @@ export function weeklySummary(
     weekStart: first,
     share: review.total === 0 ? null : review.done / review.total,
     perfectDays: review.perfectDays,
-    daysSoFar: review.days.filter((d) => d.date <= today).length,
+    daysSoFar: review.days.filter((d) => d.date <= today && d.total > 0).length,
     best,
     worst,
     weekly,

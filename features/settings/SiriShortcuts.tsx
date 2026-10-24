@@ -9,7 +9,7 @@ import { ShortcutKey } from "./ShortcutKey";
 export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
   const [copied, setCopied] = useState<string | null>(null);
   const endpoint = typeof window === "undefined" ? "/api/log" : `${window.location.origin}/api/log`;
-  const names = snapshot.habits.filter((h) => h.archivedAt === null && h.goal === "build").map((h) => h.name);
+  const habits = snapshot.habits.filter((h) => h.archivedAt === null && h.goal === "build");
 
   async function copy(text: string) {
     try {
@@ -38,7 +38,7 @@ export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
         <h2 className={groupHeader}>Adres</h2>
         <div className="flex items-center gap-2 rounded-xl bg-surface px-4 py-3 text-sm">
           <code className="flex-1 break-all">{endpoint}</code>
-          <button type="button" onClick={() => void copy(endpoint)} className="shrink-0 font-semibold text-accent">
+          <button type="button" onClick={() => void copy(endpoint)} className="inline-flex min-h-11 shrink-0 items-center px-2 font-semibold text-accent">
             {copied === endpoint ? "Skopiowano" : "Kopiuj"}
           </button>
         </div>
@@ -94,15 +94,15 @@ export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
         </ul>
       </div>
 
-      {names.length > 0 && (
+      {habits.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <h2 className={groupHeader}>Twoje nawyki — dotknij, by skopiować nazwę</h2>
           <ul className="ios-group">
-            {names.map((n) => (
-              <li key={n}>
-                <button type="button" onClick={() => void copy(n)} className="flex w-full items-center justify-between border-b-[0.5px] border-border py-3 text-left">
-                  <span>{n}</span>
-                  <span className="text-[13px] text-accent">{copied === n ? "Skopiowano" : "Kopiuj"}</span>
+            {habits.map(({ id, name }) => (
+              <li key={id}>
+                <button type="button" onClick={() => void copy(name)} className="flex w-full items-center justify-between border-b-[0.5px] border-border py-3 text-left">
+                  <span>{name}</span>
+                  <span className="text-[13px] text-accent">{copied === name ? "Skopiowano" : "Kopiuj"}</span>
                 </button>
               </li>
             ))}

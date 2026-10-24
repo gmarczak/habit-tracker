@@ -82,11 +82,20 @@ function requirementOn(habit, pauses, date) {
       return (plan.weekdays ?? []).includes(isoWeekday(date)) ? "required" : "not_required";
     case "every_n_days": {
       const n = plan.intervalDays ?? 1;
-      return diffDays(plan.validFrom, date) % n === 0 ? "required" : "not_required";
+      return diffDays(cadenceAnchor(habit, plan), date) % n === 0 ? "required" : "not_required";
     }
     case "weekly_count":
       return "flexible";
   }
+}
+function cadenceAnchor(habit, plan) {
+  let anchor = plan.validFrom;
+  for (let i = habit.plans.indexOf(plan) - 1; i >= 0; i--) {
+    const prev = habit.plans[i];
+    if (prev.frequency !== "every_n_days" || prev.intervalDays !== plan.intervalDays) break;
+    anchor = prev.validFrom;
+  }
+  return anchor;
 }
 function entryOutcome(entry, plan, goal = "build") {
   if (goal === "quit") {
@@ -146,8 +155,7 @@ function evaluateWeek(c, weekStartDate) {
   const days = eachDay(weekStartDate, addDays(weekStartDate, 6));
   const covered = days.filter((d) => d >= c.habit.startDate && planOn(c.habit, d)?.frequency === "weekly_count");
   if (covered.length === 0) return { weekStart: weekStartDate, done: 0, required: 0, result: "boundary" };
-  const lastCovered = covered[covered.length - 1];
-  const timesPerWeek = planOn(c.habit, lastCovered)?.timesPerWeek ?? 1;
+  const timesPerWeek = Math.min(...covered.map((d) => planOn(c.habit, d)?.timesPerWeek ?? 1));
   let available = 0;
   let done = 0;
   for (const d of covered) {
@@ -287,14 +295,15 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
   }
   return view;
 }
-function dayProgress(habits, entries, pauses, date) {
-  const progress = { done: 0, total: 0 };
+function dayProgress(habits, entries, pauses, date, history = false) {
+  const progress = { done: 0, total: 0, settled: 0 };
   for (const habit of habits) {
-    if (habit.archivedAt !== null) continue;
+    if (habit.archivedAt !== null && !(history && habit.archivedOn && date < habit.archivedOn)) continue;
     if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
     const state = dayState(habit, entries, pauses, date, date);
     if (state !== "skipped") progress.total++;
     if (state === "done") progress.done++;
+    if (state === "done" || state === "missed") progress.settled++;
   }
   return progress;
 }
@@ -304,7 +313,7 @@ function badgeCount(view) {
 
 // lib/domain/stats.ts
 function dayTotals(habits, entries, pauses, date) {
-  return { date, ...dayProgress(habits, entries, pauses, date) };
+  return { date, ...dayProgress(habits, entries, pauses, date, true) };
 }
 function isPerfect(d) {
   return d.total > 0 && d.done === d.total;
@@ -317,7 +326,7 @@ function weekReview(habits, entries, pauses, anyDayInWeek, today, weekStart) {
   return {
     days,
     done: days.reduce((s, d) => s + d.done, 0),
-    total: days.reduce((s, d) => s + d.total, 0),
+    total: days.reduce((s, d) => s + (d.date === today ? d.settled ?? d.done : d.total), 0),
     perfectDays: days.filter(isPerfect).length
   };
 }
@@ -357,7 +366,7 @@ function weeklySummary(habits, entries, pauses, today, weekStart) {
     weekStart: first,
     share: review.total === 0 ? null : review.done / review.total,
     perfectDays: review.perfectDays,
-    daysSoFar: review.days.filter((d) => d.date <= today).length,
+    daysSoFar: review.days.filter((d) => d.date <= today && d.total > 0).length,
     best,
     worst,
     weekly
@@ -373,6 +382,21 @@ function weeklyMessage(s) {
   return { title: s.share === null ? "Tw\xF3j tydzie\u0144" : `Tw\xF3j tydzie\u0144: ${pct(s.share)}`, body: parts.join(" \xB7 ") };
 }
 
+// lib/domain/words.ts
+function plural(n, one, few, many) {
+  if (n === 1) return one;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  return Number.isInteger(n) && mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
+}
+function habitCount(n) {
+  return `${n} ${plural(n, "nawyk", "nawyki", "nawyk\xF3w")}`;
+}
+function habitsLeft(n, capital = true) {
+  const verb = plural(n, "zosta\u0142", "zosta\u0142y", "zosta\u0142o");
+  return `${capital ? verb.charAt(0).toUpperCase() + verb.slice(1) : verb} ${habitCount(n)}`;
+}
+
 // supabase/functions/send-reminders/logic.ts
 function localMinutes(now, timeZone) {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
@@ -384,8 +408,11 @@ function toMinutes(hhmm) {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 var WINDOW_MINUTES = 60;
-function isDue(reminderTime, nowMinutes) {
-  const diff = nowMinutes - toMinutes(reminderTime);
+var CRON_STEP = 5;
+function isDue(reminderTime, nowMinutes, dayStartHour = 0) {
+  const rel = (minutes) => (minutes - dayStartHour * 60 + 1440) % 1440;
+  const at = rel(toMinutes(reminderTime));
+  const diff = rel(nowMinutes) - (at - at % CRON_STEP);
   return diff >= 0 && diff < WINDOW_MINUTES;
 }
 function list(names) {
@@ -395,7 +422,7 @@ function list(names) {
 function messagesFor(user, reminders, now) {
   const nowMin = localMinutes(now, user.timeZone);
   const today = localDate(now, user.timeZone, user.dayStartHour);
-  const due = reminders.filter((r) => isDue(r.localTime, nowMin));
+  const due = reminders.filter((r) => isDue(r.localTime, nowMin, user.dayStartHour));
   if (due.length === 0) return [];
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
   const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source);
@@ -404,11 +431,14 @@ function messagesFor(user, reminders, now) {
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
     switch (r.kind) {
       case "summary": {
+        const forToday = open.filter((i) => !i.week);
+        const forWeek = open.filter((i) => i.week);
         if (open.length === 0) break;
+        const weekText = forWeek.map((i) => `${i.habit.name} ${i.week.done}/${i.week.required}`).join(", ");
         out.push({
           ...base,
-          title: open.length === 1 ? "Zosta\u0142 jeden nawyk" : `Zosta\u0142y ${open.length} nawyki na dzi\u015B`,
-          body: list(open.map((i) => i.habit.name)),
+          title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(forToday.length)} na dzi\u015B`,
+          body: forToday.length === 0 ? weekText : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` \xB7 w tym tygodniu: ${weekText}` : ""}`,
           url: "/",
           tag: "summary"
         });
@@ -419,7 +449,7 @@ function messagesFor(user, reminders, now) {
       case "evening": {
         const part = open.filter((i) => i.habit.timeOfDay === r.kind);
         if (part.length === 0) break;
-        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${part.length === 1 ? "1 nawyk" : `${part.length} nawyki`}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
+        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${habitCount(part.length)}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
         break;
       }
       case "yesterday": {
@@ -427,7 +457,7 @@ function messagesFor(user, reminders, now) {
         if (!gap) break;
         out.push({
           ...base,
-          title: gap.missing.length === 1 ? "Wczoraj zosta\u0142 1 nawyk" : `Wczoraj zosta\u0142y ${gap.missing.length} nawyki`,
+          title: `Wczoraj ${habitsLeft(gap.missing.length, false)}`,
           body: `${list(gap.missing.map((i) => i.habit.name))} \u2014 uzupe\u0142nij, je\u015Bli zrobi\u0142e\u015B.`,
           url: `/?date=${gap.date}`,
           tag: "yesterday"
@@ -505,13 +535,15 @@ Deno.serve(async (req) => {
   const now = /* @__PURE__ */ new Date();
   let sent = 0;
   let removed = 0;
+  let failed = 0;
   for (const [userId, userReminders] of byUser) {
     const { data: profile } = await supabase.from("profiles").select("timezone, day_start_hour, week_start").eq("id", userId).single();
     if (!profile) continue;
     const today = localDate(now, profile.timezone, profile.day_start_hour);
     const since = addDays(today, -14);
     const [habitsRes, plansRes, entriesRes, pausesRes, subsRes] = await Promise.all([
-      supabase.from("habits").select("*").eq("user_id", userId).is("archived_at", null),
+      // także zarchiwizowane w ostatnich dniach: podsumowanie tygodnia liczy je w dniach sprzed archiwizacji (jak aplikacja)
+      supabase.from("habits").select("*").eq("user_id", userId).or(`archived_at.is.null,archived_at.gte.${since}`),
       supabase.from("habit_plans").select("*").eq("user_id", userId),
       supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", since),
       supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", since),
@@ -534,7 +566,8 @@ Deno.serve(async (req) => {
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date,
       sortOrder: h.sort_order,
-      archivedAt: null,
+      archivedAt: h.archived_at ?? null,
+      archivedOn: h.archived_at ? localDate(new Date(h.archived_at), profile.timezone, profile.day_start_hour) : null,
       plans: plans.filter((p) => p.habit_id === h.id).map((p) => ({
         validFrom: p.valid_from,
         frequency: p.frequency,
@@ -565,20 +598,26 @@ Deno.serve(async (req) => {
       const { data: claimed } = await supabase.from("notification_log").upsert({ reminder_id: m.reminderId, local_date: m.localDate }, { onConflict: "reminder_id,local_date", ignoreDuplicates: true }).select("reminder_id");
       if (!claimed || claimed.length === 0) continue;
       const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag, badge: m.badge });
+      let delivered = 0;
       for (const s of subs) {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });
           sent++;
+          delivered++;
         } catch (err) {
           const status = err.statusCode;
           if (status === 404 || status === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
             removed++;
+          } else {
+            failed++;
+            console.error("push failed", status, err.body ?? String(err));
           }
         }
       }
+      if (delivered === 0) await supabase.from("notification_log").delete().eq("reminder_id", m.reminderId).eq("local_date", m.localDate);
       await supabase.from("push_subscriptions").update({ last_used_at: now.toISOString() }).eq("user_id", userId);
     }
   }
-  return json({ users: byUser.size, sent, removed });
+  return json({ users: byUser.size, sent, removed, failed });
 });

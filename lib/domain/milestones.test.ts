@@ -12,4 +12,9 @@ describe("kamienie milowe", () => {
     expect(reachedMilestone("days", 8, 7)).toBeNull();
     expect(reachedMilestone("days", 7, 8)).toBeNull();
   });
+  it("nie świętuje powrotu do serii (cofnięta wpadka, uzupełniony dzień)", () => {
+    expect(reachedMilestone("days", 0, 41)).toBeNull();
+    expect(reachedMilestone("days", 0, 30)).toBeNull();
+    expect(reachedMilestone("days", 5, 12)).toBeNull();
+  });
 });

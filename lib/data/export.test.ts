@@ -35,9 +35,9 @@ const snapshot: Snapshot = {
 };
 
 describe("eksport", () => {
-  it("CSV: posortowane, cytowanie przecinków i cudzysłowów", () => {
+  it("CSV: BOM dla Excela, posortowane, cytowanie przecinków i cudzysłowów", () => {
     expect(entriesCsv(snapshot)).toBe(
-      'data,nawyk,wartosc,jednostka,pominiete,notatka\n2026-10-01,"Czytanie, wieczorem",,strony,tak,\n2026-10-02,"Czytanie, wieczorem",12,strony,nie,"Rozdział ""3"""\n',
+      '\uFEFFdata,nawyk,wartosc,jednostka,pominiete,notatka\r\n2026-10-01,"Czytanie, wieczorem",,strony,tak,\r\n2026-10-02,"Czytanie, wieczorem",12,strony,nie,"Rozdział ""3"""\r\n',
     );
   });
 
@@ -47,5 +47,11 @@ describe("eksport", () => {
     expect(json.userId).toBeUndefined();
     expect(json.email).toBeUndefined();
     expect(json.entries).toHaveLength(2);
+  });
+
+  it("JSON: całe Apple Zdrowie, gdy je podano", () => {
+    const all = [{ date: "2025-01-01", metric: "steps" as const, value: 1000 }];
+    expect(JSON.parse(snapshotJson(snapshot, "2026-10-11T20:00:00Z", all)).health).toEqual(all);
+    expect(JSON.parse(snapshotJson(snapshot, "2026-10-11T20:00:00Z")).health).toEqual([]);
   });
 });

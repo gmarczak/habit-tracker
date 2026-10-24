@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { btnSecondary, field, label, labelText } from "@/components/ui/styles";
 import { supabaseBrowser } from "@/lib/db/client";
+import { authMessage } from "./messages";
 
 const MIN_PASSWORD = 8;
 
@@ -24,9 +25,7 @@ export function PasswordForm() {
           ? "Hasło jest za słabe."
           : error.code === "same_password"
             ? "To hasło jest już ustawione."
-            : error.status === 429
-              ? "Za dużo prób. Odczekaj chwilę."
-              : error.message;
+            : authMessage(error);
       return setStatus({ kind: "error", message });
     }
     setPassword("");

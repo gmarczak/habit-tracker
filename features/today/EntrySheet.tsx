@@ -4,12 +4,13 @@ import { useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { btnPrimary, btnSecondary, chip, field, label, labelText } from "@/components/ui/styles";
 import { useEntryMutation } from "@/lib/data/hooks";
-import { localDate, type LocalDate } from "@/lib/domain/dates";
+import type { LocalDate } from "@/lib/domain/dates";
 import type { Entry, Habit, Plan } from "@/lib/domain/model";
 import { formatDayLong } from "@/lib/format";
-import { HabitTimer, hasTimer } from "./HabitTimer";
+import { HabitTimer, clearTimer, hasTimer } from "./HabitTimer";
 
-type Props = { open: boolean; onClose: () => void; habit: Habit; plan: Plan; entry: Entry | undefined; date: LocalDate };
+/** `today` – dzisiejszy dzień aplikacji (strefa i godzina końca dnia z profilu); minutnik tylko dla dziś. */
+type Props = { open: boolean; onClose: () => void; habit: Habit; plan: Plan; entry: Entry | undefined; date: LocalDate; today: LocalDate };
 
 /** Arkusz dnia: dokładna wartość, pominięcie, notatka, wyczyszczenie. */
 export function EntrySheet(props: Props) {
@@ -20,10 +21,11 @@ export function EntrySheet(props: Props) {
   );
 }
 
-function EntryForm({ onClose, habit, plan, entry, date }: Props) {
+function EntryForm({ onClose, habit, plan, entry, date, today }: Props) {
   const mutation = useEntryMutation();
-  const canTime = habit.kind === "duration" && habit.goal === "build" && date === localDate(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [timing, setTiming] = useState(() => canTime && hasTimer(habit.id, date));
+  const canTime = habit.kind === "duration" && habit.goal === "build" && date === today;
+  // Minutnik rozpoczęty przed północą wraca do swojego dnia, nawet gdy to już wczoraj
+  const [timing, setTiming] = useState(() => habit.kind === "duration" && hasTimer(habit.id, date));
   const [value, setValue] = useState(entry && !entry.skipped && entry.value !== null ? String(entry.value) : "");
   const [note, setNote] = useState(entry?.note ?? "");
   const [invalid, setInvalid] = useState(false);
@@ -32,11 +34,12 @@ function EntryForm({ onClose, habit, plan, entry, date }: Props) {
 
   function save(event: FormEvent) {
     event.preventDefault();
-    const parsed = habit.kind === "check" ? 1 : Number(value.replace(",", "."));
+    const parsed = habit.kind === "check" ? 1 : Number(value.replace(/\s/g, "").replace(",", "."));
     if (!Number.isFinite(parsed) || parsed < 0 || (habit.kind !== "check" && value.trim() === "")) {
       setInvalid(true);
       return;
     }
+    clearTimer(habit.id, date);
     mutation.mutate({ habitId: habit.id, date, kind: "set", value: parsed, note: noteValue });
     onClose();
   }
@@ -44,13 +47,15 @@ function EntryForm({ onClose, habit, plan, entry, date }: Props) {
   const current = entry && !entry.skipped ? (entry.value ?? 0) : 0;
   const steps = habit.kind === "count" ? [1, 2, 3, 5] : habit.kind === "duration" ? [5, 10, 15, 30] : [];
 
+  // Dopisanie liczy serwer (do tego, co jest tam teraz — także z Siri); notatkę zapisuje zmiana z dokładną wartością
   function add(n: number) {
-    mutation.mutate({ habitId: habit.id, date, kind: "set", value: current + n, note: noteValue });
+    if (noteValue !== (entry?.note ?? null)) mutation.mutate({ habitId: habit.id, date, kind: "set", value: current + n, note: noteValue });
+    else mutation.mutate({ habitId: habit.id, date, kind: "add", delta: n, requestId: crypto.randomUUID() });
     onClose();
   }
 
   function finishTimer(minutes: number) {
-    mutation.mutate({ habitId: habit.id, date, kind: "set", value: current + minutes, note: noteValue });
+    mutation.mutate({ habitId: habit.id, date, kind: "add", delta: minutes, requestId: crypto.randomUUID() });
     onClose();
   }
 
@@ -121,6 +126,7 @@ function EntryForm({ onClose, habit, plan, entry, date }: Props) {
         <button
           type="button"
           onClick={() => {
+            clearTimer(habit.id, date);
             mutation.mutate({ habitId: habit.id, date, kind: "skip", note: noteValue });
             onClose();
           }}
@@ -132,6 +138,7 @@ function EntryForm({ onClose, habit, plan, entry, date }: Props) {
           type="button"
           disabled={!entry}
           onClick={() => {
+            clearTimer(habit.id, date);
             mutation.mutate({ habitId: habit.id, date, kind: "clear" });
             onClose();
           }}

@@ -84,8 +84,8 @@ export function evaluateWeek(c: Ctx, weekStartDate: LocalDate): WeekProgress {
   const covered = days.filter((d) => d >= c.habit.startDate && planOn(c.habit, d)?.frequency === "weekly_count");
   if (covered.length === 0) return { weekStart: weekStartDate, done: 0, required: 0, result: "boundary" };
 
-  const lastCovered = covered[covered.length - 1] as LocalDate;
-  const timesPerWeek = planOn(c.habit, lastCovered)?.timesPerWeek ?? 1;
+  // Zmiana X w trakcie tygodnia: wyższe X obowiązuje od następnego tygodnia, niższe od razu
+  const timesPerWeek = Math.min(...covered.map((d) => planOn(c.habit, d)?.timesPerWeek ?? 1));
   let available = 0;
   let done = 0;
   for (const d of covered) {

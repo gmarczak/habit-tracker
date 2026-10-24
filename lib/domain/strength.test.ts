@@ -47,11 +47,22 @@ describe("siła nawyku", () => {
     expect(habitStrength(habit(), [], [], TODAY)).toBe(0);
   });
 
-  it("plan tygodniowy: 3 razy w tygodniu buduje siłę wolniej, ale stabilnie", () => {
+  it("plan tygodniowy wykonany co do joty dochodzi do 100%, jak codzienny", () => {
+    const weekly = (x: number) => habit({ plans: [plan({ frequency: "weekly_count", timesPerWeek: x })] });
+    const daily = habitStrength(habit(), days(START, TODAY).map((d) => done(d)), [], TODAY);
+    const three = habitStrength(weekly(3), days(START, TODAY).filter((_, i) => i % 7 < 3).map((d) => done(d)), [], TODAY);
+    const once = habitStrength(weekly(1), days(START, TODAY).filter((_, i) => i % 7 === 4).map((d) => done(d)), [], TODAY);
+    expect(three).toBeGreaterThan(daily - 0.05);
+    expect(once).toBeGreaterThan(daily - 0.1);
+  });
+
+  it("plan tygodniowy: 2 z 3 razy to około dwóch trzecich, nic to zero", () => {
     const weekly = habit({ plans: [plan({ frequency: "weekly_count", timesPerWeek: 3 })] });
-    const entries = days(START, TODAY).filter((_, i) => i % 7 < 3).map((d) => done(d));
-    const s = habitStrength(weekly, entries, [], TODAY);
-    expect(s).toBeGreaterThan(0.2);
-    expect(s).toBeLessThan(0.6);
+    const longStart = "2025-10-01";
+    const twoOfThree = habitStrength({ ...weekly, startDate: longStart, plans: [plan({ validFrom: longStart, frequency: "weekly_count", timesPerWeek: 3 })] },
+      days(longStart, TODAY).filter((_, i) => i % 7 < 2).map((d) => done(d)), [], TODAY);
+    expect(twoOfThree).toBeGreaterThan(0.6);
+    expect(twoOfThree).toBeLessThan(0.72);
+    expect(habitStrength(weekly, [], [], TODAY)).toBe(0);
   });
 });

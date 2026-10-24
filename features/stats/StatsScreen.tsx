@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { sectionTitle } from "@/components/ui/styles";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
 import { habitRates, moodInsights, notedDays, perfectDayStreak, weekReview, weekdayShares, weeklyTrend } from "@/lib/domain/stats";
 import { dayOfMonth, formatDayLong, formatWeekdayShort, plural } from "@/lib/format";
@@ -35,7 +36,7 @@ function pct(share: number | null): string {
 }
 
 export function StatsScreen() {
-  const { data: snapshot } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
 
   const data = useMemo(() => {
@@ -52,7 +53,7 @@ export function StatsScreen() {
     };
   }, [snapshot, today]);
 
-  if (!snapshot || !today || !data) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
+  if (!snapshot || !today || !data) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
 
   const hasHabits = snapshot.habits.some((h) => h.archivedAt === null);
   if (!hasHabits) {
@@ -65,6 +66,8 @@ export function StatsScreen() {
   }
 
   const { week, trend, perfectStreak, rates, notes, weekdays, mood } = data;
+  // Dzisiejsze otwarte nawyki nie wchodzą do procentu, dopóki dzień trwa
+  const todayOpen = week.days.some((d) => d.date === today && d.total > (d.settled ?? d.done));
   const last = trend.at(-1)?.share ?? null;
   const prev = trend.at(-2)?.share ?? null;
   const delta = last !== null && prev !== null ? Math.round((last - prev) * 100) : null;
@@ -87,7 +90,11 @@ export function StatsScreen() {
             <p className="text-[13px] font-semibold uppercase tracking-[0.02em] text-muted">Zrobione z wymaganych</p>
             <p className="font-serif text-[34px] font-bold leading-tight tabular-nums">{week.total ? pct(week.done / week.total) : "—"}</p>
             <p className="text-[13px] text-muted">
-              {week.total ? `${week.done} z ${week.total} wykonań` : "brak wymaganych"}
+              {week.total
+                ? `${week.done} z ${week.total} ${week.total === 1 ? "wykonania" : "wykonań"}${todayOpen ? " · dziś jeszcze trwa" : ""}`
+                : todayOpen
+                  ? "dzień trwa — procent pojawi się po pierwszym odhaczeniu"
+                  : "brak wymaganych"}
               {delta !== null && (
                 <span className={delta >= 0 ? "text-positive" : "text-danger"}>
                   {" "}
@@ -145,7 +152,7 @@ export function StatsScreen() {
             ))}
           </div>
           <figcaption className="flex justify-between text-xs text-muted">
-            <span>12 tyg. temu</span>
+            <span>{trend.length - 1} tyg. temu</span>
             <span>
               średnio {pct(average)} · ten tydzień {pct(trend.at(-1)?.share ?? null)}
             </span>
@@ -224,7 +231,7 @@ export function StatsScreen() {
               <li key={n.date} className="flex items-start justify-between gap-3 border-b-[0.5px] border-border py-3">
                 <div className="min-w-0">
                   <p className="text-sm text-muted">{formatDayLong(n.date)}</p>
-                  <p className="whitespace-pre-wrap">{n.note}</p>
+                  <p className="whitespace-pre-wrap wrap-anywhere">{n.note}</p>
                 </div>
                 <span className={`shrink-0 font-semibold tabular-nums ${n.total > 0 && n.done / n.total < 0.5 ? "text-danger" : "text-accent"}`}>
                   {n.total > 0 ? `${n.done}/${n.total}` : "—"}

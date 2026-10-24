@@ -1,18 +1,34 @@
 import { addDays, isLocalDate, type LocalDate } from "./dates";
+import { plural } from "./words";
 
 /** Dane z Apple Zdrowie, które mogą wypełniać nawyk. Klucze = habits.source i pola w żądaniu /api/ingest. */
 export const HEALTH_METRICS = ["steps", "distance_km", "exercise_min", "active_kcal", "mindful_min", "water_ml", "workouts"] as const;
 export type HealthMetric = (typeof HEALTH_METRICS)[number];
 
-export const METRIC_INFO: Record<HealthMetric, { label: string; unit: string; health: string; defaultMin: number }> = {
-  steps: { label: "Kroki", unit: "kroków", health: "Kroki", defaultMin: 7000 },
+/** `forms`: odmiana jednostki [1, 2–4, 5+] i po „z”/„od” [1, reszta]; bez niej skrót (km, min). */
+type MetricInfo = { label: string; unit: string; health: string; defaultMin: number; forms?: { nom: [string, string, string]; gen: [string, string] } };
+
+export const METRIC_INFO: Record<HealthMetric, MetricInfo> = {
+  steps: { label: "Kroki", unit: "kroków", health: "Kroki", defaultMin: 7000, forms: { nom: ["krok", "kroki", "kroków"], gen: ["kroku", "kroków"] } },
   distance_km: { label: "Dystans marszu i biegu", unit: "km", health: "Dystans marszu i biegu (km)", defaultMin: 5 },
   exercise_min: { label: "Minuty ćwiczeń", unit: "min", health: "Minuty ćwiczeń", defaultMin: 30 },
   active_kcal: { label: "Aktywna energia", unit: "kcal", health: "Aktywna energia", defaultMin: 400 },
   mindful_min: { label: "Minuty uważności", unit: "min", health: "Minuty uważności", defaultMin: 10 },
   water_ml: { label: "Woda", unit: "ml", health: "Woda (ml)", defaultMin: 2000 },
-  workouts: { label: "Treningi", unit: "treningów", health: "Treningi (liczba)", defaultMin: 1 },
+  workouts: { label: "Treningi", unit: "treningów", health: "Treningi (liczba)", defaultMin: 1, forms: { nom: ["trening", "treningi", "treningów"], gen: ["treningu", "treningów"] } },
 };
+
+/** Jednostka po liczbie: „1 trening”, „3 treningi”, „4 312 kroków”. */
+export function metricUnit(metric: HealthMetric, n: number): string {
+  const f = METRIC_INFO[metric].forms;
+  return f ? plural(n, ...f.nom) : METRIC_INFO[metric].unit;
+}
+
+/** Jednostka po „z”/„od”: „z 1 treningu”, „od 7 000 kroków”. */
+export function metricUnitOf(metric: HealthMetric, n: number): string {
+  const f = METRIC_INFO[metric].forms;
+  return f ? (n === 1 ? f.gen[0] : f.gen[1]) : METRIC_INFO[metric].unit;
+}
 
 export function isHealthMetric(value: unknown): value is HealthMetric {
   return typeof value === "string" && (HEALTH_METRICS as readonly string[]).includes(value);

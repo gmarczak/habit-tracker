@@ -1,5 +1,5 @@
 import { parseIngestBody } from "@/lib/domain/health";
-import { bearerToken, missingToken, shortcutClient } from "@/lib/server/shortcut";
+import { SHORTCUT_ERRORS, bearerToken, fail, missingToken, shortcutClient } from "@/lib/server/shortcut";
 
 /**
  * Dzienne sumy z Apple Zdrowie wysyłane przez Skrót na iPhonie.
@@ -14,10 +14,10 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ error: "Treść musi być JSON-em" }, { status: 400 });
+    return fail(400, "Treść musi być JSON-em");
   }
   const parsed = parseIngestBody(body);
-  if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
+  if (!parsed.ok) return fail(400, parsed.error);
 
   const { data, error } = await shortcutClient().rpc("ingest_metrics", {
     p_token: token,
@@ -25,11 +25,6 @@ export async function POST(request: Request) {
     ...(parsed.value.date ? { p_date: parsed.value.date } : {}),
   });
 
-  if (error) {
-    if (error.message === "invalid_token") return Response.json({ error: "Zły albo wyłączony klucz" }, { status: 401 });
-    if (["date_in_future", "date_too_old", "metrics_not_object"].includes(error.message))
-      return Response.json({ error: error.message }, { status: 400 });
-    return Response.json({ error: "Nie udało się zapisać" }, { status: 500 });
-  }
+  if (error) return fail(...(SHORTCUT_ERRORS[error.message] ?? [500, "Nie udało się zapisać"]));
   return Response.json(data);
 }

@@ -14,6 +14,8 @@
   --muted: #6e6e73;
   --done-text: #6e6e73;
   --accent: #007aff;
+  /* akcent systemowy: kalendarz nawyku podmienia --accent na kolor nawyku, arkusze wracają do tego */
+  --accent-system: #007aff;
   --accent-contrast: #ffffff;
   --control: #c7c7cc;
   --dot-off: #d1d1d6;
@@ -50,6 +52,7 @@
     --muted: #98989d;
     --done-text: #98989d;
     --accent: #0a84ff;
+    --accent-system: #0a84ff;
     --accent-contrast: #ffffff;
     --control: #48484a;
     --dot-off: #3a3a3c;
@@ -65,6 +68,23 @@
     --c-teal-bg: #40c8e0;
     --c-slate-bg: #8e8e93;
   }
+
+  /* Arkusz nad czarnym tłem: podniesione kolory jak w iOS (inaczej krawędzi arkusza nie widać) */
+  dialog {
+    --bg: #1c1c1e;
+    --surface: #2c2c2e;
+  }
+}
+
+/* Arkusz zawsze w kolorach systemowych, także otwarty z kalendarza w kolorze nawyku */
+dialog {
+  --accent: var(--accent-system);
+  --accent-contrast: #ffffff;
+}
+
+/* Otwarty arkusz: strona pod nim się nie przewija */
+html:has(dialog[open]) {
+  overflow: hidden;
 }
 
 @theme inline {
@@ -100,11 +120,15 @@ body {
   letter-spacing: -0.021em;
 }
 
-/* Lista „inset grouped” jak w Ustawieniach iOS: biała grupa, linie między wierszami, bez linii pod ostatnim */
-.ios-group {
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 0 16px;
+/* Lista „inset grouped” jak w Ustawieniach iOS: biała grupa, linie między wierszami, bez linii pod ostatnim.
+   Sama grupa w warstwie komponentów, żeby klasy narzędziowe (np. pl-3) mogły ją nadpisać;
+   brak linii pod ostatnim wierszem poza warstwą, żeby wygrał z border-b wierszy. */
+@layer components {
+  .ios-group {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 0 16px;
+  }
 }
 .ios-group > :last-child,
 .ios-group > :last-child > * {

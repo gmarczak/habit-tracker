@@ -38,9 +38,27 @@ export function hasTimer(habitId: string, date: LocalDate): boolean {
   return s.startedAt !== null || s.elapsedMs > 0;
 }
 
+/** Wpis dnia zapisany inną drogą (przycisk, wartość, pominięcie): stary minutnik nie dopisze już minut. */
+export function clearTimer(habitId: string, date: LocalDate) {
+  store(habitId, date, null);
+}
+
+// iPhone gra dźwięk tylko z kontekstu audio odblokowanego dotknięciem: tworzymy go przy „Start”
+let audio: AudioContext | null = null;
+function unlockAudio() {
+  try {
+    audio ??= new AudioContext();
+    void audio.resume();
+  } catch {
+    // bez dźwięku
+  }
+}
+
 function chime() {
   try {
-    const ctx = new AudioContext();
+    const ctx = audio ?? new AudioContext();
+    audio = ctx;
+    void ctx.resume();
     [0, 0.25, 0.5].forEach((t, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -99,7 +117,10 @@ export function HabitTimer({ habitId, date, minutes, color, onFinish, onBack }: 
     store(habitId, date, next.startedAt === null && next.elapsedMs === 0 ? null : next);
   }
 
-  const start = () => update({ startedAt: Date.now(), elapsedMs: state.elapsedMs });
+  const start = () => {
+    unlockAudio();
+    update({ startedAt: Date.now(), elapsedMs: state.elapsedMs });
+  };
   const pause = () => update({ startedAt: null, elapsedMs: elapsed });
   const reset = () => update({ startedAt: null, elapsedMs: 0 });
   function finishEarly() {
@@ -154,13 +175,13 @@ export function HabitTimer({ habitId, date, minutes, color, onFinish, onBack }: 
         </button>
       </div>
       {elapsed > 0 && !running && (
-        <button type="button" onClick={reset} className="text-[15px] text-muted">
+        <button type="button" onClick={reset} className="inline-flex min-h-11 items-center px-3 text-[15px] text-muted">
           Zacznij od nowa
         </button>
       )}
       <p className="text-center text-xs text-muted">
-        Po upływie czasu minuty dopiszą się same. „Zakończ” zapisuje tyle pełnych minut, ile minęło. Odliczanie trwa też przy zamkniętej aplikacji — dźwięk usłyszysz,
-        gdy będzie otwarta.
+        Po upływie czasu minuty dopiszą się same. „Zakończ” zapisuje tyle pełnych minut, ile minęło. Odliczanie trwa też przy zamkniętej aplikacji — dźwięk
+        usłyszysz, gdy będzie otwarta (i telefon nie jest wyciszony).
       </p>
     </div>
   );

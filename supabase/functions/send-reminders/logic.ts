@@ -5,6 +5,7 @@ import { localDate, type LocalDate, type WeekStart } from "../../../lib/domain/d
 import type { Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
 import { PART_LABELS, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
 import { badgeCount, buildDay } from "../../../lib/domain/today";
+import { habitCount, habitsLeft } from "../../../lib/domain/words";
 
 export type ReminderRow = { id: string; kind: ReminderKind; habitId: string | null; localTime: string };
 export type UserContext = {
@@ -32,9 +33,18 @@ function toMinutes(hhmm: string): number {
 
 /** Przypomnienie jest „na czasie” przez godzinę od ustawionej godziny (nadrabia przerwy crona). */
 export const WINDOW_MINUTES = 60;
+/** Cron co 5 minut: godzina spoza siatki (np. 23:57) liczy się od najbliższego wcześniejszego uruchomienia. */
+const CRON_STEP = 5;
 
-export function isDue(reminderTime: string, nowMinutes: number): boolean {
-  const diff = nowMinutes - toMinutes(reminderTime);
+/**
+ * Minuty liczone od początku dnia użytkownika (`dayStartHour`), nie od północy: okno nie przechodzi
+ * na następny dzień (02:30 przy końcu dnia o 3:00 nie wyśle się drugi raz o 3:00 z listą nowego dnia),
+ * a 23:30 przy końcu dnia o 3:00 nadrabia też po północy.
+ */
+export function isDue(reminderTime: string, nowMinutes: number, dayStartHour = 0): boolean {
+  const rel = (minutes: number) => (minutes - dayStartHour * 60 + 1440) % 1440;
+  const at = rel(toMinutes(reminderTime));
+  const diff = rel(nowMinutes) - (at - (at % CRON_STEP));
   return diff >= 0 && diff < WINDOW_MINUTES;
 }
 
@@ -47,7 +57,7 @@ function list(names: string[]): string {
 export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Date): Message[] {
   const nowMin = localMinutes(now, user.timeZone);
   const today = localDate(now, user.timeZone, user.dayStartHour);
-  const due = reminders.filter((r) => isDue(r.localTime, nowMin));
+  const due = reminders.filter((r) => isDue(r.localTime, nowMin, user.dayStartHour));
   if (due.length === 0) return [];
 
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
@@ -59,11 +69,18 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
     switch (r.kind) {
       case "summary": {
+        // „Na dziś” tylko wymagane dziś (jak liczba na ikonie); tygodniowe osobno, z postępem
+        const forToday = open.filter((i) => !i.week);
+        const forWeek = open.filter((i) => i.week);
         if (open.length === 0) break;
+        const weekText = forWeek.map((i) => `${i.habit.name} ${i.week!.done}/${i.week!.required}`).join(", ");
         out.push({
           ...base,
-          title: open.length === 1 ? "Został jeden nawyk" : `Zostały ${open.length} nawyki na dziś`,
-          body: list(open.map((i) => i.habit.name)),
+          title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Został jeden nawyk" : `${habitsLeft(forToday.length)} na dziś`,
+          body:
+            forToday.length === 0
+              ? weekText
+              : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` · w tym tygodniu: ${weekText}` : ""}`,
           url: "/",
           tag: "summary",
         });
@@ -74,7 +91,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
       case "evening": {
         const part = open.filter((i) => i.habit.timeOfDay === r.kind);
         if (part.length === 0) break;
-        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${part.length === 1 ? "1 nawyk" : `${part.length} nawyki`}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
+        out.push({ ...base, title: `${PART_LABELS[r.kind]}: ${habitCount(part.length)}`, body: list(part.map((i) => i.habit.name)), url: "/", tag: `part-${r.kind}` });
         break;
       }
       case "yesterday": {
@@ -82,7 +99,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
         if (!gap) break;
         out.push({
           ...base,
-          title: gap.missing.length === 1 ? "Wczoraj został 1 nawyk" : `Wczoraj zostały ${gap.missing.length} nawyki`,
+          title: `Wczoraj ${habitsLeft(gap.missing.length, false)}`,
           body: `${list(gap.missing.map((i) => i.habit.name))} — uzupełnij, jeśli zrobiłeś.`,
           url: `/?date=${gap.date}`,
           tag: "yesterday",

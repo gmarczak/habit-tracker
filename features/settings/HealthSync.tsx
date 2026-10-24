@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { groupHeader, sectionTitle } from "@/components/ui/styles";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
-import { HEALTH_METRICS, METRIC_INFO } from "@/lib/domain/health";
+import { HEALTH_METRICS, METRIC_INFO, metricUnit, metricUnitOf } from "@/lib/domain/health";
 import { formatNumber } from "@/lib/format";
 import { ShortcutKey } from "./ShortcutKey";
 
@@ -47,7 +47,7 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
               <li key={d.metric} className="flex items-center justify-between gap-3 border-b-[0.5px] border-border py-3 text-[15px]">
                 <span>{METRIC_INFO[d.metric].label}</span>
                 <span className="font-semibold tabular-nums">
-                  {formatNumber(d.value)} {METRIC_INFO[d.metric].unit}
+                  {formatNumber(d.value)} {metricUnit(d.metric, d.value)}
                 </span>
               </li>
             ))}
@@ -62,7 +62,7 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
               <span className="font-semibold">{h.name}</span>
               <span className="text-muted">
                 {METRIC_INFO[h.source!].label}
-                {h.kind === "check" && h.sourceMin ? ` ≥ ${formatNumber(h.sourceMin)} ${METRIC_INFO[h.source!].unit}` : ""}
+                {h.kind === "check" && h.sourceMin ? ` od ${formatNumber(h.sourceMin)} ${metricUnitOf(h.source!, h.sourceMin)}` : ""}
               </span>
             </li>
           ))}
@@ -91,7 +91,7 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
             <b>Pobierz zawartość adresu URL</b>:
             <span className="mt-1 flex items-center gap-2">
               <code className="break-all">{endpoint}</code>
-              <button type="button" onClick={() => void copy(endpoint)} className="shrink-0 font-semibold text-accent">
+              <button type="button" onClick={() => void copy(endpoint)} className="inline-flex min-h-11 shrink-0 items-center px-2 font-semibold text-accent">
                 {copied ? "Skopiowano" : "Kopiuj"}
               </button>
             </span>
@@ -107,12 +107,13 @@ export function HealthSync({ showTitle = true }: { showTitle?: boolean }) {
         </ul>
         <ol start={3} className="mt-2 flex list-decimal flex-col gap-2 pl-5">
           <li>
-            Automatyzacja → <b>Pora dnia</b>, np. 21:30 (i drugi raz przed końcem dnia) → ten Skrót → <b>Uruchom natychmiast</b>.
+            Automatyzacja → <b>Pora dnia</b>, np. 21:30 (i drugi raz około 23:45) → ten Skrót → <b>Uruchom natychmiast</b>.
           </li>
         </ol>
         <p className="mt-3 text-muted">
           Dzień liczy aplikacja według Twojej strefy. Wysyłanie kilka razy dziennie jest bezpieczne: tak/nie odhacza się po przekroczeniu progu, a
-          ilość/czas bierze największą sumę z dnia. Pominiętych dni Skrót nie rusza.
+          ilość/czas bierze największą sumę z dnia. Pominiętych dni Skrót nie rusza. Jeśli wysyłka dotrze tuż po północy (do 15 minut), sumy trafią
+          jeszcze do dnia, który właśnie minął.
         </p>
       </details>
     </section>

@@ -8,7 +8,7 @@ import type { Snapshot } from "@/lib/data/snapshot";
 import type { LocalDate } from "@/lib/domain/dates";
 import type { PauseRecord } from "@/lib/domain/model";
 import type { DayGap } from "@/lib/domain/nudges";
-import { formatDayLong } from "@/lib/format";
+import { formatDayLong, habitsLeft } from "@/lib/format";
 
 const DISMISS_KEY = "yesterday-dismissed";
 
@@ -52,7 +52,7 @@ export function YesterdayCard({ gap, onFill }: { gap: DayGap; onFill: () => void
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="yesterday-title" className="text-[17px] font-semibold">
-            {count === 1 ? "Wczoraj został 1 nawyk" : `Wczoraj zostały ${count} nawyki`}
+            {`Wczoraj ${habitsLeft(count, false)}`}
           </h2>
           <p className="text-sm text-muted">{names(gap)}</p>
         </div>

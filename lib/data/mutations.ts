@@ -1,13 +1,34 @@
 import { z } from "zod";
 import type { Supabase } from "@/lib/db/client";
-import { isLocalDate, type LocalDate, type WeekStart } from "@/lib/domain/dates";
+import { addDays, isLocalDate, type LocalDate, type WeekStart } from "@/lib/domain/dates";
 import { HEALTH_METRICS } from "@/lib/domain/health";
-import { HABIT_COLORS, TIMES_OF_DAY, type Entry, type Plan, type ReminderKind } from "@/lib/domain/model";
+import { HABIT_COLORS, TIMES_OF_DAY, type Entry, type Habit, type Plan, type ReminderKind } from "@/lib/domain/model";
 import type { Snapshot } from "./snapshot";
 
-function check<T extends { error: { message: string } | null }>(result: T): T {
-  if (result.error) throw new Error(result.error.message);
-  return result;
+/** Zapytanie nie dotarło do serwera (brak zasięgu, Wi-Fi bez internetu). Zapis dnia czeka wtedy w kolejce. */
+export class NetworkError extends Error {}
+/** Serwer nie widzi sesji (wygasła bez sieci, wylogowanie na innym urządzeniu). Zapis dnia też czeka. */
+export class SessionError extends NetworkError {}
+
+/** Kody błędów z funkcji w bazie → zrozumiały komunikat. */
+const ERROR_TEXT: Record<string, string> = {
+  date_in_future: "Ten dzień jeszcze się nie zaczął.",
+  date_before_start: "Ten dzień jest przed startem nawyku.",
+  habit_not_found: "Nie ma już tego nawyku — odśwież aplikację.",
+  not_authenticated: "Sesja wygasła — zaloguj się ponownie.",
+  habit_id_taken: "Nie udało się zapisać — spróbuj ponownie.",
+  bad_value: "Zła wartość.",
+};
+
+function check<T extends { error: { message: string; code?: string } | null; status?: number }>(result: T): T {
+  if (!result.error) return result;
+  if (result.status === 0) throw new NetworkError("Brak połączenia z serwerem — spróbuj ponownie.");
+  if (result.status === 401 || result.error.code === "PGRST301" || result.error.code === "PGRST303")
+    throw new SessionError("Sesja wygasła — zaloguj się ponownie.");
+  const text = ERROR_TEXT[result.error.message];
+  if (text) throw new Error(text);
+  if (result.error.code === "23505") throw new Error(/name/.test(result.error.message) ? "Taka nazwa już istnieje." : "To już jest zapisane — odśwież aplikację.");
+  throw new Error(result.error.message);
 }
 
 // ---------- czyste aktualizacje cache (optymistycznie, przed odpowiedzią serwera) ----------
@@ -20,40 +41,57 @@ export function withEntry(snapshot: Snapshot, habitId: string, date: LocalDate, 
 
 // ---------- zapis dnia ----------
 
+/**
+ * set – dokładna wartość; add – dopisanie do tego, co jest na serwerze („+1”, minuty z minutnika),
+ * więc nie nadpisuje tego, co w międzyczasie dodała Siri albo Skrót.
+ */
 export type EntryChange =
   | { habitId: string; date: LocalDate; kind: "set"; value: number; note?: string | null }
+  | { habitId: string; date: LocalDate; kind: "add"; delta: number; requestId: string }
   | { habitId: string; date: LocalDate; kind: "skip"; note?: string | null }
   | { habitId: string; date: LocalDate; kind: "clear" };
 
 export function entryFromChange(change: EntryChange, previous: Entry | undefined): Entry | null {
   if (change.kind === "clear") return null;
   const note = "note" in change && change.note !== undefined ? change.note : (previous?.note ?? null);
+  if (change.kind === "add") {
+    const base = previous && !previous.skipped ? (previous.value ?? 0) : 0;
+    return { habitId: change.habitId, date: change.date, value: base + change.delta, skipped: false, note };
+  }
   return change.kind === "skip"
     ? { habitId: change.habitId, date: change.date, value: null, skipped: true, note }
     : { habitId: change.habitId, date: change.date, value: change.value, skipped: false, note };
 }
 
-export async function saveEntry(supabase: Supabase, change: EntryChange): Promise<void> {
+/** `signal`: przerwanie zapisu, który przekroczył czas (nie dotrze już później, poza kolejnością kolejki). */
+export async function saveEntry(supabase: Supabase, change: EntryChange, signal?: AbortSignal): Promise<void> {
+  const send = <T extends { abortSignal: (s: AbortSignal) => T }>(query: T) => (signal ? query.abortSignal(signal) : query);
   if (change.kind === "clear") {
-    check(await supabase.rpc("clear_entry", { p_habit_id: change.habitId, p_date: change.date }));
+    check(await send(supabase.rpc("clear_entry", { p_habit_id: change.habitId, p_date: change.date })));
+    return;
+  }
+  if (change.kind === "add") {
+    check(await send(supabase.rpc("add_entry", { p_habit_id: change.habitId, p_date: change.date, p_delta: change.delta, p_request: change.requestId })));
     return;
   }
   check(
-    await supabase.rpc("set_entry", {
-      p_habit_id: change.habitId,
-      p_date: change.date,
-      p_value: change.kind === "set" ? change.value : 0,
-      p_skipped: change.kind === "skip",
-      // undefined = notatka bez zmian; null = usuń (serwer traktuje pusty tekst jako usunięcie)
-      ...(change.note !== undefined ? { p_note: change.note ?? "" } : {}),
-    }),
+    await send(
+      supabase.rpc("set_entry", {
+        p_habit_id: change.habitId,
+        p_date: change.date,
+        p_value: change.kind === "set" ? change.value : 0,
+        p_skipped: change.kind === "skip",
+        // undefined = notatka bez zmian; null = usuń (serwer traktuje pusty tekst jako usunięcie)
+        ...(change.note !== undefined ? { p_note: change.note ?? "" } : {}),
+      }),
+    ),
   );
 }
 
 // ---------- nawyk: formularz ----------
 
 const planShape = {
-  targetValue: z.number().positive("Cel musi być większy od zera"),
+  targetValue: z.number({ error: "Wpisz liczbę, np. 10" }).positive("Cel musi być większy od zera").max(9_999_999, "Za duży cel"),
   frequency: z.enum(["daily", "weekdays", "weekly_count", "every_n_days"]),
   weekdays: z.array(z.number().int().min(1).max(7)).nullable(),
   timesPerWeek: z.number().int().min(1).max(7).nullable(),
@@ -72,7 +110,7 @@ export const habitFormSchema = z
     goal: z.enum(["build", "quit"]),
     startDate: z.string().refine(isLocalDate).nullable(),
     source: z.enum(HEALTH_METRICS).nullable().optional(),
-    sourceMin: z.number().positive("Próg musi być większy od zera").nullable().optional(),
+    sourceMin: z.number({ error: "Wpisz liczbę, np. 7000" }).positive("Próg musi być większy od zera").max(99_999_999, "Za duży próg").nullable().optional(),
     cue: z.string().trim().max(80, "Maks. 80 znaków").nullable().optional(),
     why: z.string().trim().max(120, "Maks. 120 znaków").nullable().optional(),
     ...planShape,
@@ -115,10 +153,13 @@ function sourceColumns(v: HabitForm) {
   };
 }
 
-export async function createHabit(supabase: Supabase, input: HabitForm): Promise<string> {
+/** Nowy nawyk jednym wywołaniem. `id` nadaje formularz raz, więc ponowny zapis po zerwanym połączeniu nie zrobi duplikatu. */
+export async function createHabit(supabase: Supabase, input: HabitForm, id: string = crypto.randomUUID()): Promise<string> {
   const v = habitFormSchema.parse(input);
+  const extra = sourceColumns(v);
   const { data } = check(
     await supabase.rpc("add_habit", {
+      p_id: id,
       p_name: v.name,
       p_kind: v.kind,
       p_unit: v.kind === "duration" ? "min" : v.kind === "count" ? v.unit : null,
@@ -127,10 +168,14 @@ export async function createHabit(supabase: Supabase, input: HabitForm): Promise
       p_category_id: v.categoryId,
       ...planArgs(v),
       ...(v.startDate ? { p_start_date: v.startDate } : {}),
+      p_goal: v.goal,
+      p_time_of_day: v.timeOfDay,
+      p_source: extra.source,
+      p_source_min: extra.source_min,
+      p_cue: extra.cue,
+      p_why: extra.why,
     }),
   );
-  if (v.timeOfDay || v.goal === "quit" || v.source || v.cue || v.why)
-    check(await supabase.from("habits").update({ time_of_day: v.timeOfDay, goal: v.goal, ...sourceColumns(v) }).eq("id", data as string));
   return data as string;
 }
 
@@ -178,6 +223,23 @@ export async function updateHabit(supabase: Supabase, habitId: string, currentPl
   }
 }
 
+/**
+ * Dni, które nawyk spędził w archiwum (od dnia archiwizacji do wczoraj): po przywróceniu stają się pauzą,
+ * więc nie przerywają serii i nie obniżają skuteczności („historia zostaje”). null = nie ma czego wypełniać.
+ */
+export function archiveGap(habit: Pick<Habit, "id" | "archivedOn">, entries: readonly Entry[], today: LocalDate): { startDate: LocalDate; endDate: LocalDate } | null {
+  if (!habit.archivedOn) return null;
+  // dzień archiwizacji zostaje, jeśli coś tego dnia zapisano
+  const start = entries.some((e) => e.habitId === habit.id && e.date === habit.archivedOn) ? addDays(habit.archivedOn, 1) : habit.archivedOn;
+  const end = addDays(today, -1);
+  return start <= end ? { startDate: start, endDate: end } : null;
+}
+
+export async function restoreHabit(supabase: Supabase, habitId: string, gap: { startDate: LocalDate; endDate: LocalDate } | null): Promise<void> {
+  if (gap) await addPause(supabase, { habitId, ...gap, reason: "Archiwum" });
+  await setArchived(supabase, habitId, false);
+}
+
 export async function setArchived(supabase: Supabase, habitId: string, archived: boolean): Promise<void> {
   check(await supabase.from("habits").update({ archived_at: archived ? new Date().toISOString() : null }).eq("id", habitId)); // eslint-disable-line no-restricted-syntax -- znacznik czasu, nie data dnia
 }
@@ -192,9 +254,13 @@ export async function reorderHabits(supabase: Supabase, ids: string[]): Promise<
 
 // ---------- kategorie ----------
 
+/** Kategoria o tej nazwie; jeśli już jest (np. po ponownym zapisie formularza), zwraca istniejącą. */
 export async function createCategory(supabase: Supabase, name: string): Promise<string> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Podaj nazwę kategorii");
+  if (trimmed.length > 40) throw new Error("Nazwa kategorii: maks. 40 znaków");
+  const existing = check(await supabase.from("categories").select("id").eq("name", trimmed).maybeSingle()).data;
+  if (existing) return existing.id;
   const { data } = check(await supabase.from("categories").insert({ name: trimmed }).select("id").single());
   return data!.id;
 }
@@ -223,6 +289,20 @@ export async function addPause(
 
 export async function deletePause(supabase: Supabase, id: string): Promise<void> {
   check(await supabase.from("habit_pauses").delete().eq("id", id));
+}
+
+/**
+ * Koniec pauzy albo urlopu: przyszła pauza znika, trwająca kończy się wczoraj
+ * (dni, które już minęły, zostają neutralne — serie i statystyki się nie zmieniają).
+ */
+export async function endPause(supabase: Supabase, pause: { id: string; startDate: LocalDate }, today: LocalDate): Promise<void> {
+  if (pause.startDate >= today) return deletePause(supabase, pause.id);
+  check(await supabase.from("habit_pauses").update({ end_date: addDays(today, -1) }).eq("id", pause.id));
+}
+
+export function withPauseEnded(snapshot: Snapshot, pause: { id: string; startDate: LocalDate }, today: LocalDate): Snapshot {
+  if (pause.startDate >= today) return withoutPause(snapshot, pause.id);
+  return { ...snapshot, pauses: snapshot.pauses.map((p) => (p.id === pause.id ? { ...p, endDate: addDays(today, -1) } : p)) };
 }
 
 export const DAY_OFF_REASON = "Dzień wolny";

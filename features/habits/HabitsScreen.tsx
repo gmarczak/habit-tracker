@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { useToast } from "@/components/ui/Toast";
 import { btnPrimary, btnQuiet, groupHeader } from "@/components/ui/styles";
 import { useAddHabit } from "@/features/shell/AppShell";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { deleteHabit, reorderHabits, setArchived } from "@/lib/data/mutations";
+import { archiveGap, deleteHabit, reorderHabits, restoreHabit } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
 import type { Habit } from "@/lib/domain/model";
 import { streakOf } from "@/lib/domain/progress";
@@ -22,7 +23,7 @@ function withOrder(snapshot: Snapshot, ids: string[]): Snapshot {
 }
 
 export function HabitsScreen() {
-  const { data: snapshot } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   const addHabit = useAddHabit();
   const toast = useToast();
@@ -30,17 +31,32 @@ export function HabitsScreen() {
   const [showArchive, setShowArchive] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
 
-  const reorder = useAction(reorderHabits, withOrder);
-  const archive = useAction((s, v: { id: string; archived: boolean }) => setArchived(s, v.id, v.archived));
-  const remove = useAction((s, id: string) => deleteHabit(s, id));
+  // Kolejne przesunięcia idą po kolei (każde wysyła całą kolejność)
+  const reorder = useAction(reorderHabits, withOrder, { scope: "reorder", toastErrors: true });
+  const restore = useAction((s, v: { id: string; gap: ReturnType<typeof archiveGap> }) => restoreHabit(s, v.id, v.gap), undefined, { toastErrors: true });
+  // Usunięcie rusza po zniknięciu komunikatu — ekran mógł się już zmienić, więc błąd też jako komunikat
+  const remove = useAction((s, id: string) => deleteHabit(s, id), undefined, { toastErrors: true });
 
   const active = useMemo(
     () => (snapshot?.habits ?? []).filter((h) => h.archivedAt === null).sort((a, b) => a.sortOrder - b.sortOrder),
     [snapshot],
   );
   const archived = (snapshot?.habits ?? []).filter((h) => h.archivedAt !== null && !hiddenIds.includes(h.id));
+  // Seria i siła liczone raz na zmianę danych (nie przy każdym przełączeniu kolejności)
+  const stats = useMemo(() => {
+    if (!snapshot || !today) return new Map<string, { streak: ReturnType<typeof streakOf>; strength: number }>();
+    return new Map(
+      active.map((h) => [
+        h.id,
+        {
+          streak: streakOf(h, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart),
+          strength: habitStrength(h, snapshot.entries, snapshot.pauses, today),
+        },
+      ]),
+    );
+  }, [active, snapshot, today]);
 
-  if (!snapshot || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
+  if (!snapshot || !today) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
 
   const groups: { title: string | null; habits: Habit[] }[] = reordering
     ? [{ title: null, habits: active }]
@@ -59,13 +75,20 @@ export function HabitsScreen() {
     reorder.mutate(ids);
   }
 
+  function restoreFromArchive(habit: Habit) {
+    // Dwa aktywne nawyki o tej samej nazwie: Siri i Skrót nie wiedziałyby, który odhaczyć
+    const clash = active.some((h) => h.name.trim().toLowerCase() === habit.name.trim().toLowerCase());
+    if (clash) return toast({ message: `Masz już aktywny nawyk „${habit.name}” — zmień nazwę jednego z nich.` });
+    restore.mutate({ id: habit.id, gap: archiveGap(habit, snapshot!.entries, today!) });
+  }
+
   function deleteForever(habit: Habit) {
     setHiddenIds((ids) => [...ids, habit.id]);
     toast({
       message: `Usunięto „${habit.name}” z całą historią`,
       actionLabel: "Cofnij",
       onAction: () => setHiddenIds((ids) => ids.filter((x) => x !== habit.id)),
-      onExpire: () => remove.mutate(habit.id),
+      onExpire: () => remove.mutate(habit.id, { onError: () => setHiddenIds((ids) => ids.filter((x) => x !== habit.id)) }),
     });
   }
 
@@ -95,8 +118,7 @@ export function HabitsScreen() {
           <ul className="ios-group">
             {group.habits.map((habit) => {
               const plan = planOn(habit, today) ?? habit.plans.at(-1);
-              const streak = streakOf(habit, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart);
-              const strength = habitStrength(habit, snapshot.entries, snapshot.pauses, today);
+              const { streak, strength } = stats.get(habit.id)!;
               const index = active.findIndex((h) => h.id === habit.id);
               return (
                 <li key={habit.id} className="flex items-center gap-3 border-b-[0.5px] border-border py-3.5">
@@ -160,7 +182,11 @@ export function HabitsScreen() {
                   <Link href={`/habits/${habit.id}`} className="flex-1 truncate font-medium text-done">
                     {habit.name}
                   </Link>
-                  <button type="button" onClick={() => archive.mutate({ id: habit.id, archived: false })} className="h-11 rounded-full px-3 text-sm font-semibold text-accent">
+                  <button
+                    type="button"
+                    onClick={() => restoreFromArchive(habit)}
+                    className="h-11 rounded-full px-3 text-sm font-semibold text-accent"
+                  >
                     Przywróć
                   </button>
                   <button type="button" onClick={() => deleteForever(habit)} className="h-11 rounded-full px-3 text-sm font-semibold text-danger">

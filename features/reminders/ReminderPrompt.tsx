@@ -69,7 +69,7 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
           <p className="text-sm text-muted">Jedno powiadomienie z nawykami, których jeszcze nie odhaczyłeś. Gdy wszystko zrobione — cisza.</p>
           <label className="flex items-center justify-between gap-3">
             <span className="text-sm font-semibold">Godzina</span>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${field} w-32`} />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${field} w-32!`} />
           </label>
         </>
       )}
@@ -84,13 +84,14 @@ export function ReminderPrompt({ snapshot }: { snapshot: Snapshot }) {
             disabled={enable.isPending}
             onClick={() =>
               enable.mutate(time, {
-                onSuccess: () => setVisible(false),
+                // włączone raz: karta nie wraca, nawet gdy później wyłączysz podsumowanie w Ustawieniach
+                onSuccess: hide,
                 onError: (e) => setError(e.message),
               })
             }
             className={btnPrimary}
           >
-            {enable.isPending ? "Włączam…" : "Włącz przypomnienie"}
+            {enable.isPending ? "Włączam…" : "Włącz"}
           </button>
         )}
       </div>

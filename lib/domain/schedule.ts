@@ -39,11 +39,25 @@ export function requirementOn(habit: Habit, pauses: readonly Pause[], date: Loca
       return (plan.weekdays ?? []).includes(isoWeekday(date)) ? "required" : "not_required";
     case "every_n_days": {
       const n = plan.intervalDays ?? 1;
-      return diffDays(plan.validFrom, date) % n === 0 ? "required" : "not_required";
+      return diffDays(cadenceAnchor(habit, plan), date) % n === 0 ? "required" : "not_required";
     }
     case "weekly_count":
       return "flexible";
   }
+}
+
+/**
+ * Początek rytmu „co N dni”: pierwsza z kolejnych wersji planu o tym samym N.
+ * Zmiana samego celu (np. 10 → 15 stron) nie przesuwa dni, w które nawyk wypada; zmiana N zaczyna rytm od nowa.
+ */
+function cadenceAnchor(habit: Habit, plan: Plan): LocalDate {
+  let anchor = plan.validFrom;
+  for (let i = habit.plans.indexOf(plan) - 1; i >= 0; i--) {
+    const prev = habit.plans[i]!;
+    if (prev.frequency !== "every_n_days" || prev.intervalDays !== plan.intervalDays) break;
+    anchor = prev.validFrom;
+  }
+  return anchor;
 }
 
 /** Wynik pojedynczego wpisu względem celu planu. */

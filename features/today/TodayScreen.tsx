@@ -25,18 +25,23 @@ export function TodayScreen() {
   const qc = useQueryClient();
   const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
-  const [picked, setPicked] = useState<LocalDate | null>(null);
+  // Dzień wybrany do uzupełnienia; ważny tylko w dniu, w którym go wybrano (rano znów otwiera się „dziś”)
+  const [pick, setPick] = useState<{ date: LocalDate; on: LocalDate } | null>(null);
   const [celebration, setCelebration] = useState<CelebrationInfo | null>(null);
-  const date = picked && today && picked <= today ? picked : today;
+  const date = pick && today && pick.on === today && pick.date <= today ? pick.date : today;
+  const setPicked = (d: LocalDate | null) => setPick(d && today && d !== today ? { date: d, on: today } : null);
 
   // Link z powiadomienia „wczoraj niedomknięte”: /?date=RRRR-MM-DD otwiera ten dzień do uzupełnienia
+  const urlHandled = useRef(false);
   useEffect(() => {
+    if (!today || urlHandled.current) return;
+    urlHandled.current = true;
     const fromUrl = new URLSearchParams(window.location.search).get("date");
     if (!fromUrl || !isLocalDate(fromUrl)) return;
-    const id = window.setTimeout(() => setPicked(fromUrl), 0);
     window.history.replaceState(null, "", window.location.pathname);
+    const id = window.setTimeout(() => setPick(fromUrl < today ? { date: fromUrl, on: today } : null), 0);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [today]);
 
   // Pierwsze logowanie: strefa czasowa profilu = strefa urządzenia.
   useEffect(() => {
@@ -110,7 +115,7 @@ export function TodayScreen() {
           title={formatDayMonth(date)}
           progress={view.progress}
         />
-        {hasHabits && <WeekStrip today={today} selected={date} onSelect={(d) => setPicked(d === today ? null : d)} snapshot={snapshot} />}
+        {hasHabits && <WeekStrip today={today} selected={date} onSelect={setPicked} snapshot={snapshot} />}
       </div>
 
       <div className="flex flex-col px-4 pt-2">
@@ -132,7 +137,7 @@ export function TodayScreen() {
           <ul aria-label="Do zrobienia" className="ios-group mt-4">
             {open.map((item) => (
               <li key={item.habit.id}>
-                <HabitRow item={item} date={date} compact={false} />
+                <HabitRow item={item} date={date} today={today} compact={false} />
               </li>
             ))}
           </ul>
@@ -148,7 +153,7 @@ export function TodayScreen() {
                 <ul className="ios-group">
                   {g.items.map((item) => (
                     <li key={item.habit.id}>
-                      <HabitRow item={item} date={date} compact={false} />
+                      <HabitRow item={item} date={date} today={today} compact={false} />
                     </li>
                   ))}
                 </ul>
@@ -179,7 +184,7 @@ export function TodayScreen() {
             <ul className="ios-group">
               {view.done.map((item) => (
                 <li key={item.habit.id}>
-                  <HabitRow item={item} date={date} compact />
+                  <HabitRow item={item} date={date} today={today} compact />
                 </li>
               ))}
             </ul>
@@ -190,7 +195,7 @@ export function TodayScreen() {
 
         {hasHabits && (
           <DayNote
-            key={`${date}:${dayNote?.note ?? ""}`}
+            key={date}
             date={date}
             note={dayNote?.note ?? null}
             mood={dayNote?.mood ?? null}

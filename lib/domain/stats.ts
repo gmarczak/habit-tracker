@@ -6,9 +6,11 @@ import { dayProgress } from "./today";
 /*
  * Statystyki globalne. Dzień liczy się z nawyków wymaganych tego dnia (jak pierścień na ekranie Dziś):
  * pominięte i pauzy nie wchodzą do mianownika, plany tygodniowe nie wchodzą do bilansu dnia.
+ * Nawyk przeniesiony do archiwum liczy się w dniach sprzed archiwizacji, więc archiwum nie przepisuje przeszłości.
  */
 
-export type DayTotals = { date: LocalDate; done: number; total: number };
+/** `settled` – ile z `total` ma już pewny wynik (zrobione albo wpadka „rzucam”); reszta dziś jeszcze czeka. */
+export type DayTotals = { date: LocalDate; done: number; total: number; settled?: number };
 
 export function dayTotals(
   habits: readonly Habit[],
@@ -16,7 +18,7 @@ export function dayTotals(
   pauses: readonly Pause[],
   date: LocalDate,
 ): DayTotals {
-  return { date, ...dayProgress(habits, entries, pauses, date) };
+  return { date, ...dayProgress(habits, entries, pauses, date, true) };
 }
 
 /** Idealny dzień: był przynajmniej jeden wymagany nawyk i wszystkie są zrobione (pominięte się nie liczą). */
@@ -24,6 +26,7 @@ export function isPerfect(d: DayTotals): boolean {
   return d.total > 0 && d.done === d.total;
 }
 
+/** `done`/`total` tygodnia bez dzisiejszych jeszcze otwartych nawyków (dzień trwa); `days` pokazuje stan bieżący. */
 export type WeekReview = { days: DayTotals[]; done: number; total: number; perfectDays: number };
 
 export function weekReview(
@@ -41,7 +44,7 @@ export function weekReview(
   return {
     days,
     done: days.reduce((s, d) => s + d.done, 0),
-    total: days.reduce((s, d) => s + d.total, 0),
+    total: days.reduce((s, d) => s + (d.date === today ? (d.settled ?? d.done) : d.total), 0),
     perfectDays: days.filter(isPerfect).length,
   };
 }
@@ -147,6 +150,7 @@ export type MoodLink = { habit: Habit; withHabit: number; without: number; diff:
  * Nastrój a nawyki z ostatnich `days` dni: średni nastrój oraz — dla nawyków z co najmniej `minEach`
  * dniami w obu grupach — różnica średniego nastroju w dni zrobione i niezrobione (od największej).
  * Dni neutralne (pauza, pominięcie, niewymagane, dzisiejszy niedokończony) się nie liczą.
+ * Plan tygodniowy: dzień bez wykonania to dzień „bez nawyku”.
  */
 export function moodInsights(
   notes: readonly DayNote[],
@@ -169,7 +173,8 @@ export function moodInsights(
     for (const m of moods) {
       const state = dayState(habit, entries, pauses, m.date, today);
       if (state === "done") done.push(m.mood);
-      else if (state === "missed" || state === "partial") missed.push(m.mood);
+      else if (m.date === today && state !== "missed") continue; // dzień trwa (wpadka „rzucam” dziś jest już pewna)
+      else if (state === "missed" || state === "partial" || state === "open") missed.push(m.mood);
     }
     if (done.length >= minEach && missed.length >= minEach) {
       const withHabit = mean(done);

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AudioLines, Bell, CalendarClock, CircleUserRound, Download, Folder, HeartPulse, Plane, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
 import { fetchTokenStatus } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
@@ -14,11 +15,11 @@ type Row = { href: string; title: string; Icon: LucideIcon; color: HabitColor; v
 
 /** Ustawienia jak w iPhonie: grupy wierszy z kolorową ikoną, wartością i strzałką; każdy otwiera podstronę. */
 export function SettingsScreen() {
-  const { data: snapshot } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   const token = useQuery({ queryKey: tokenKey, queryFn: () => fetchTokenStatus(supabaseBrowser()) });
 
-  if (!snapshot || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
+  if (!snapshot || !today) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
 
   const enabledReminders = snapshot.reminders.filter((r) => r.enabled).length;
   const vacation = snapshot.pauses
@@ -29,7 +30,14 @@ export function SettingsScreen() {
   const groups: Row[][] = [
     [
       { href: "/settings/reminders", title: "Przypomnienia", Icon: Bell, color: "rose", value: enabledReminders ? `Wł.: ${enabledReminders}` : "Wył." },
-      { href: "/settings/health", title: "Apple Zdrowie", Icon: HeartPulse, color: "rose", value: token.data ? "Połączone" : token.isSuccess ? "Wył." : undefined },
+      {
+        href: "/settings/health",
+        title: "Apple Zdrowie",
+        Icon: HeartPulse,
+        color: "rose",
+        // „Połączone” dopiero, gdy Skrót coś przysłał; sam klucz może służyć tylko Siri
+        value: token.data ? ((snapshot.health ?? []).length > 0 ? "Połączone" : "Czeka na dane") : token.isSuccess ? "Wył." : undefined,
+      },
       { href: "/settings/siri", title: "Siri i Skróty", Icon: AudioLines, color: "violet", value: token.data ? "Wł." : token.isSuccess ? "Wył." : undefined },
     ],
     [

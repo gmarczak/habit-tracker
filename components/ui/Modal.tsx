@@ -8,6 +8,12 @@ type Props = { open: boolean; onClose: () => void; title: string; subtitle?: str
 export function Modal({ open, onClose, title, subtitle, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // Czy przy dotknięciu tła było aktywne pole (zapamiętane w pointerdown — przed kliknięciem fokus już znika)
+  const typing = useRef(false);
+  const fieldFocused = () => {
+    const active = document.activeElement;
+    return active instanceof HTMLElement && Boolean(ref.current?.contains(active)) && active.matches("input, textarea, select");
+  };
 
   useEffect(() => {
     const dialog = ref.current;
@@ -21,10 +27,23 @@ export function Modal({ open, onClose, title, subtitle, children }: Props) {
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
+      onPointerDown={(e) => {
+        typing.current = e.target === ref.current && fieldFocused();
       }}
-      className="mb-0 mt-auto max-h-[94dvh] w-full max-w-none rounded-t-[14px] border-0 bg-bg p-0 text-text shadow-2xl backdrop:bg-black/40 sm:m-auto sm:w-[min(32rem,calc(100%-2rem))] sm:rounded-[14px]"
+      onMouseDown={(e) => {
+        if (e.target === ref.current && fieldFocused()) e.preventDefault();
+      }}
+      onClick={(e) => {
+        if (e.target !== ref.current) return;
+        // Stuknięcie obok arkusza w trakcie pisania tylko chowa klawiaturę (jak w iOS) — wpisany tekst zostaje
+        if (typing.current || fieldFocused()) {
+          typing.current = false;
+          (document.activeElement as HTMLElement | null)?.blur();
+          return;
+        }
+        onClose();
+      }}
+      className="mb-0 mt-auto max-h-[94dvh] w-full max-w-none overscroll-contain rounded-t-[14px] border-0 bg-bg p-0 text-text shadow-2xl backdrop:bg-black/40 sm:m-auto sm:w-[min(32rem,calc(100%-2rem))] sm:rounded-[14px]"
     >
       {open && (
         <div className="flex flex-col gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">

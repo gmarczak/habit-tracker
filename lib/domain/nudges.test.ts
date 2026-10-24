@@ -47,13 +47,13 @@ describe("podsumowanie tygodnia", () => {
     const week = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"];
     const entries = [...week.map((d) => done("a", d)), done("b", "2026-10-05"), done("b", "2026-10-06"), done("gym", "2026-10-06"), done("gym", "2026-10-08")];
     const s = weeklySummary(habits, entries, [], "2026-10-11", 1);
-    expect(s.share).toBeCloseTo(9 / 14);
+    expect(s.share).toBeCloseTo(9 / 13); // niedziela jeszcze trwa: niezrobione dziś nie obniża procentu
     expect(s.perfectDays).toBe(2);
     expect(s.best).toEqual({ name: "Łóżko", rate: 1 });
     expect(s.worst).toEqual({ name: "Medytacja", rate: 2 / 6 }); // niedziela jeszcze trwa: niezrobione dziś się nie liczy
     expect(s.weekly).toEqual([{ name: "Basen", done: 2, required: 3 }]);
     expect(weeklyMessage(s)).toEqual({
-      title: "Twój tydzień: 64%",
+      title: "Twój tydzień: 69%",
       body: "Idealne dni: 2 z 7 · Najlepiej: Łóżko (100%) · Do poprawy: Medytacja (33%) · Basen 2/3",
     });
   });

@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties, type FormEvent } from "react";
+import { DataFallback } from "@/components/ui/DataFallback";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { btnPrimary, btnSecondary, field, label, labelText, sectionTitle } from "@/components/ui/styles";
 import { enablePush } from "@/features/reminders/push";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { addPause, deletePause, deleteReminder, setArchived, upsertReminder } from "@/lib/data/mutations";
-import { addDays, type LocalDate } from "@/lib/domain/dates";
-import { METRIC_INFO, healthAverage, healthValue } from "@/lib/domain/health";
+import { addPause, archiveGap, deleteReminder, endPause, restoreHabit, setArchived, upsertReminder, withPauseEnded } from "@/lib/data/mutations";
+import { addDays, eachDay, type LocalDate } from "@/lib/domain/dates";
+import { METRIC_INFO, healthAverage, healthValue, metricUnit } from "@/lib/domain/health";
 import type { Habit } from "@/lib/domain/model";
-import { completionRate, streakOf } from "@/lib/domain/progress";
-import { planOn } from "@/lib/domain/schedule";
+import { completionRate, dayState, streakOf } from "@/lib/domain/progress";
+import { entryOutcome, planOn } from "@/lib/domain/schedule";
 import { describePlan, formatDayLong, formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { HabitEditor } from "./HabitEditor";
@@ -29,15 +30,22 @@ function pct(rate: number | null): string {
 export function HabitDetail({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
-  const { data: snapshot, isPending } = useSnapshot();
+  const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   const [editing, setEditing] = useState(false);
   const [pausing, setPausing] = useState(false);
 
-  const archive = useAction((s, v: { id: string; archived: boolean }) => setArchived(s, v.id, v.archived));
-  const removePause = useAction((s, pauseId: string) => deletePause(s, pauseId));
+  // archiwizuj → „Cofnij” po kolei; błąd jako komunikat (ekran zdążył się zmienić)
+  const archive = useAction((s, v: { id: string; archived: boolean }) => setArchived(s, v.id, v.archived), undefined, { scope: `habit-${id}`, toastErrors: true });
+  const restore = useAction((s, v: { id: string; gap: ReturnType<typeof archiveGap> }) => restoreHabit(s, v.id, v.gap), undefined, {
+    scope: `habit-${id}`,
+    toastErrors: true,
+  });
+  const removePause = useAction((s, p: { id: string; startDate: LocalDate }) => endPause(s, p, today!), (snap, p) => withPauseEnded(snap, p, today!), {
+    toastErrors: true,
+  });
 
-  if (isPending || !today) return <main className="px-4 pt-6 text-muted">Ładuję…</main>;
+  if (!snapshot || !today) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
   const habit = snapshot?.habits.find((h) => h.id === id);
   if (!snapshot || !habit) {
     return (
@@ -51,18 +59,26 @@ export function HabitDetail({ id }: { id: string }) {
   }
 
   const { entries, pauses, settings } = snapshot;
-  const plan = planOn(habit, today) ?? habit.plans.at(-1);
-  const streak = streakOf(habit, entries, pauses, today, settings.weekStart);
-  const rate30 = completionRate(habit, entries, pauses, addDays(today, -29), today, today, settings.weekStart);
-  const rate90 = completionRate(habit, entries, pauses, addDays(today, -89), today, today, settings.weekStart);
-  const doneTotal = entries.filter((e) => e.habitId === habit.id && !e.skipped && (e.value ?? 0) >= (planOn(habit, e.date)?.targetValue ?? 1)).length;
+  const isArchived = habit.archivedAt !== null;
+  // Nawyk w archiwum: statystyki z dnia archiwizacji (kolejne dni to nie porażki)
+  const asOf = isArchived && habit.archivedOn && habit.archivedOn < today ? habit.archivedOn : today;
+  const plan = planOn(habit, asOf) ?? habit.plans.at(-1);
+  const streak = streakOf(habit, entries, pauses, asOf, settings.weekStart);
+  const rate30 = completionRate(habit, entries, pauses, addDays(asOf, -29), asOf, asOf, settings.weekStart);
+  const rate90 = completionRate(habit, entries, pauses, addDays(asOf, -89), asOf, asOf, settings.weekStart);
+  // „rzucam”: czyste dni (bez wpisu); „buduję”: dni z osiągniętym celem
+  const doneTotal =
+    habit.goal === "quit"
+      ? asOf < habit.startDate
+        ? 0
+        : eachDay(habit.startDate, asOf).filter((d) => dayState(habit, entries, pauses, d, asOf) === "done").length
+      : entries.filter((e) => e.habitId === habit.id && entryOutcome(e, planOn(habit, e.date)) === "done").length;
   const notes = entries
     .filter((e) => e.habitId === habit.id && e.note)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 30);
   const habitPauses = snapshot.pauses.filter((p) => p.habitId === habit.id && p.endDate >= today);
-  const isArchived = habit.archivedAt !== null;
-  const strength = habitStrength(habit, entries, pauses, today);
+  const strength = habitStrength(habit, entries, pauses, asOf);
   const health = snapshot.health ?? [];
   const metric = habit.source ? METRIC_INFO[habit.source] : null;
   const measuredToday = habit.source ? healthValue(health, habit.source, today) : null;
@@ -118,12 +134,12 @@ export function HabitDetail({ id }: { id: string }) {
         <Stat label="Rekord" value={formatStreak({ ...streak, current: streak.best })} />
         <Stat label="Skuteczność 30 dni" value={pct(rate30)} />
         <Stat label="Skuteczność 90 dni" value={pct(rate90)} />
-        <Stat label="Zrobione łącznie" value={String(doneTotal)} />
+        <Stat label={habit.goal === "quit" ? "Czyste dni łącznie" : "Zrobione łącznie"} value={String(doneTotal)} />
         <Stat label="Od" value={formatDayLong(habit.startDate).split(", ")[1] ?? habit.startDate} />
         {metric && (
           <>
-            <Stat label={`Dziś · ${metric.label.toLowerCase()}`} value={measuredToday === null ? "—" : `${formatNumber(Math.round(measuredToday))} ${metric.unit}`} />
-            <Stat label="Średnio z 7 dni" value={measuredAvg === null ? "—" : `${formatNumber(Math.round(measuredAvg))} ${metric.unit}`} />
+            <Stat label={`Dziś · ${metric.label.toLowerCase()}`} value={measuredToday === null ? "—" : `${formatNumber(Math.round(measuredToday))} ${metricUnit(habit.source!, Math.round(measuredToday))}`} />
+            <Stat label="Średnio z 7 dni" value={measuredAvg === null ? "—" : `${formatNumber(Math.round(measuredAvg))} ${metricUnit(habit.source!, Math.round(measuredAvg))}`} />
           </>
         )}
       </dl>
@@ -136,7 +152,7 @@ export function HabitDetail({ id }: { id: string }) {
           Kalendarz
         </h2>
         <div className="rounded-xl bg-surface p-3" style={habitTint(habit)}>
-          <MonthCalendar habit={habit} entries={entries} pauses={pauses} today={today} weekStart={settings.weekStart} />
+          <MonthCalendar habit={habit} entries={entries} pauses={pauses} today={asOf} appToday={today} weekStart={settings.weekStart} />
         </div>
       </section>
 
@@ -145,11 +161,11 @@ export function HabitDetail({ id }: { id: string }) {
           Rok
         </h2>
         <div className="rounded-xl bg-surface p-3" style={habitTint(habit)}>
-          <YearHeatmap habit={habit} entries={entries} pauses={pauses} today={today} weekStart={settings.weekStart} />
+          <YearHeatmap habit={habit} entries={entries} pauses={pauses} today={asOf} weekStart={settings.weekStart} />
         </div>
       </section>
 
-      {!isArchived && <HabitReminder habit={habit} />}
+      {!isArchived && <HabitReminder habit={habit} canRemind={habit.goal === "build" && !habit.source} />}
 
       <section aria-labelledby="pause-title" className="flex flex-col gap-2">
         <h2 id="pause-title" className={sectionTitle}>
@@ -162,8 +178,8 @@ export function HabitDetail({ id }: { id: string }) {
               {formatDayLong(p.startDate)} – {formatDayLong(p.endDate)}
               {p.reason ? ` · ${p.reason}` : ""}
             </span>
-            <button type="button" onClick={() => removePause.mutate(p.id)} className="h-11 shrink-0 px-2 text-sm font-semibold text-danger">
-              Usuń
+            <button type="button" onClick={() => removePause.mutate(p)} className="h-11 shrink-0 px-2 text-sm font-semibold text-danger">
+              {p.startDate < today ? "Zakończ" : "Usuń"}
             </button>
           </div>
         ))}
@@ -183,7 +199,7 @@ export function HabitDetail({ id }: { id: string }) {
             {notes.map((n) => (
               <li key={n.date} className="border-b-[0.5px] border-border py-3">
                 <p className="text-xs font-semibold text-muted first-letter:uppercase">{formatDayLong(n.date)}</p>
-                <p className="whitespace-pre-line">{n.note}</p>
+                <p className="whitespace-pre-line wrap-anywhere">{n.note}</p>
               </li>
             ))}
           </ul>
@@ -192,7 +208,16 @@ export function HabitDetail({ id }: { id: string }) {
 
       <div className="flex flex-col gap-3 pb-4">
         {isArchived ? (
-          <button type="button" onClick={() => archive.mutate({ id: habit.id, archived: false })} className={btnPrimary}>
+          <button
+            type="button"
+            disabled={restore.isPending}
+            onClick={() => {
+              const clash = snapshot.habits.some((h) => h.id !== habit.id && h.archivedAt === null && h.name.trim().toLowerCase() === habit.name.trim().toLowerCase());
+              if (clash) toast({ message: `Masz już aktywny nawyk „${habit.name}” — zmień nazwę jednego z nich.` });
+              else restore.mutate({ id: habit.id, gap: archiveGap(habit, entries, today) });
+            }}
+            className={btnPrimary}
+          >
             Przywróć z archiwum
           </button>
         ) : (
@@ -262,7 +287,8 @@ export function PauseForm({ habitId, today, onDone }: { habitId: string | null; 
   );
 }
 
-function HabitReminder({ habit }: { habit: Habit }) {
+/** `canRemind = false` („rzucam”, Apple Zdrowie): przypomnienie nie przyjdzie — zostaje tylko wyłączenie starego. */
+function HabitReminder({ habit, canRemind }: { habit: Habit; canRemind: boolean }) {
   const { data: snapshot } = useSnapshot();
   const reminder = snapshot?.reminders.find((r) => r.habitId === habit.id);
   const [time, setTime] = useState(reminder?.localTime ?? "09:00");
@@ -271,7 +297,25 @@ function HabitReminder({ habit }: { habit: Habit }) {
     await enablePush(supabase);
     await upsertReminder(supabase, { id: reminder?.id, kind: "habit", habitId: habit.id, localTime, enabled: true });
   });
-  const remove = useAction((s, rid: string) => deleteReminder(s, rid));
+  const remove = useAction((s, rid: string) => deleteReminder(s, rid), undefined, { toastErrors: true });
+
+  if (!canRemind && !reminder) return null;
+  if (!canRemind && reminder) {
+    return (
+      <section aria-labelledby="rem-title" className="flex flex-col gap-2">
+        <h2 id="rem-title" className={sectionTitle}>
+          Przypomnienie
+        </h2>
+        <p className="text-sm text-muted">
+          {habit.goal === "quit" ? "Nawyk „rzucam” nie ma przypomnień" : "Ten nawyk odhacza Skrót z Apple Zdrowie"} — to przypomnienie ({reminder.localTime}) nie
+          przyjdzie.
+        </p>
+        <button type="button" onClick={() => remove.mutate(reminder.id)} className="h-11 self-start text-sm font-semibold text-danger">
+          Wyłącz przypomnienie
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="rem-title" className="flex flex-col gap-2">
@@ -280,7 +324,7 @@ function HabitReminder({ habit }: { habit: Habit }) {
       </h2>
       <p className="text-sm text-muted">Powiadomienie o tej godzinie, tylko w dni, gdy nawyk jest wymagany i jeszcze nie zrobiony.</p>
       <div className="flex items-center gap-3">
-        <input type="time" aria-label="Godzina przypomnienia" value={time} onChange={(e) => setTime(e.target.value)} className={`${field} w-32`} />
+        <input type="time" aria-label="Godzina przypomnienia" value={time} onChange={(e) => setTime(e.target.value)} className={`${field} w-32!`} />
         <button
           type="button"
           disabled={save.isPending}

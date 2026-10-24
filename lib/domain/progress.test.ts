@@ -84,6 +84,14 @@ describe("seria dzienna", () => {
     expect(streakOf(h, days("2026-10-01", "2026-10-04", "2026-10-07", "2026-10-10"), [], TODAY, 1).current).toBe(4);
   });
 
+  it("co N dni: zmiana samego celu nie przesuwa dni, zmiana N zaczyna rytm od nowa", () => {
+    const base = plan({ frequency: "every_n_days", intervalDays: 3 }, "2026-10-01");
+    const target = habit([base, { ...base, validFrom: "2026-10-05", targetValue: 2 }], "2026-10-01");
+    expect(["2026-10-05", "2026-10-06", "2026-10-07"].map((d) => requirementOn(target, [], d))).toEqual(["not_required", "not_required", "required"]);
+    const interval = habit([base, { ...base, validFrom: "2026-10-05", intervalDays: 2 }], "2026-10-01");
+    expect(["2026-10-05", "2026-10-06", "2026-10-07"].map((d) => requirementOn(interval, [], d))).toEqual(["required", "not_required", "required"]);
+  });
+
   it("zmiana planu w tej samej jednostce nie przerywa serii", () => {
     const h = habit([plan({ frequency: "daily" }), plan({ frequency: "weekdays", weekdays: [1, 2, 3, 4, 5] }, "2026-10-10")]);
     // sob 10.10 i ndz 11.10 niewymagane w nowym planie
@@ -115,6 +123,13 @@ describe("seria tygodniowa (3 razy w tygodniu)", () => {
     const s = streakOf(weekly, entries, [], TODAY, 1);
     expect(s.unit).toBe("weeks");
     expect(s.current).toBe(3);
+  });
+
+  it("podniesienie X w trakcie tygodnia nie psuje tygodnia już zaliczonego", () => {
+    const raised = habit([plan({ frequency: "weekly_count", timesPerWeek: 3 }), plan({ frequency: "weekly_count", timesPerWeek: 4 }, TODAY)]);
+    const entries = days("2026-09-28", "2026-09-29", "2026-10-01", "2026-10-05", "2026-10-06", "2026-10-07");
+    expect(currentWeekProgress(raised, entries, [], TODAY, 1)).toMatchObject({ done: 3, required: 3, result: "met" });
+    expect(streakOf(raised, entries, [], "2026-10-12", 1).current).toBe(2);
   });
 
   it("bieżący niezaliczony tydzień jest neutralny", () => {

@@ -41,6 +41,8 @@ export type Habit = {
   startDate: LocalDate;
   sortOrder: number;
   archivedAt: string | null;
+  /** dzień archiwizacji w strefie użytkownika (liczony przy pobieraniu); historia sprzed niego zostaje w statystykach */
+  archivedOn?: LocalDate | null;
   /** dana z Apple Zdrowie, która sama wypełnia nawyk; brak = tylko ręcznie */
   source?: HealthMetric | null;
   /** próg dla nawyku tak/nie (np. 7000 kroków) */

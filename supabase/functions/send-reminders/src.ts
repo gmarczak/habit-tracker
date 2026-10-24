@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
   const now = new Date();
   let sent = 0;
   let removed = 0;
+  let failed = 0;
 
   for (const [userId, userReminders] of byUser) {
     const { data: profile } = await supabase.from("profiles").select("timezone, day_start_hour, week_start").eq("id", userId).single();
@@ -78,7 +79,8 @@ Deno.serve(async (req) => {
     const since = addDays(today, -14);
 
     const [habitsRes, plansRes, entriesRes, pausesRes, subsRes] = await Promise.all([
-      supabase.from("habits").select("*").eq("user_id", userId).is("archived_at", null),
+      // także zarchiwizowane w ostatnich dniach: podsumowanie tygodnia liczy je w dniach sprzed archiwizacji (jak aplikacja)
+      supabase.from("habits").select("*").eq("user_id", userId).or(`archived_at.is.null,archived_at.gte.${since}`),
       supabase.from("habit_plans").select("*").eq("user_id", userId),
       supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", since),
       supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", since),
@@ -102,7 +104,8 @@ Deno.serve(async (req) => {
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date as string,
       sortOrder: h.sort_order as number,
-      archivedAt: null,
+      archivedAt: (h.archived_at as string | null) ?? null,
+      archivedOn: h.archived_at ? localDate(new Date(h.archived_at as string), profile.timezone, profile.day_start_hour) : null,
       plans: plans
         .filter((p) => p.habit_id === h.id)
         .map((p) => ({
@@ -143,22 +146,29 @@ Deno.serve(async (req) => {
       if (!claimed || claimed.length === 0) continue;
 
       const payload = JSON.stringify({ title: m.title, body: m.body, url: m.url, tag: m.tag, badge: m.badge });
+      let delivered = 0;
       for (const s of subs) {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } }, payload, { TTL: 3600 });
           sent++;
+          delivered++;
         } catch (err) {
           const status = (err as { statusCode?: number }).statusCode;
           if (status === 404 || status === 410) {
             await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint as string);
             removed++;
+          } else {
+            failed++;
+            console.error("push failed", status, (err as { body?: string }).body ?? String(err));
           }
         }
       }
+      // Nic nie dotarło (np. chwilowy błąd usługi push): zwolnij dzień, kolejne uruchomienie w oknie spróbuje ponownie
+      if (delivered === 0) await supabase.from("notification_log").delete().eq("reminder_id", m.reminderId).eq("local_date", m.localDate);
       // eslint-disable-next-line no-restricted-syntax -- znacznik czasu, nie data dnia
       await supabase.from("push_subscriptions").update({ last_used_at: now.toISOString() }).eq("user_id", userId);
     }
   }
 
-  return json({ users: byUser.size, sent, removed });
+  return json({ users: byUser.size, sent, removed, failed });
 });
