@@ -165,7 +165,7 @@ export function HabitDetail({ id }: { id: string }) {
         </div>
       </section>
 
-      {!isArchived && habit.goal === "build" && !habit.source && <HabitReminder habit={habit} />}
+      {!isArchived && <HabitReminder habit={habit} canRemind={habit.goal === "build" && !habit.source} />}
 
       <section aria-labelledby="pause-title" className="flex flex-col gap-2">
         <h2 id="pause-title" className={sectionTitle}>
@@ -211,7 +211,11 @@ export function HabitDetail({ id }: { id: string }) {
           <button
             type="button"
             disabled={restore.isPending}
-            onClick={() => restore.mutate({ id: habit.id, gap: archiveGap(habit, entries, today) })}
+            onClick={() => {
+              const clash = snapshot.habits.some((h) => h.id !== habit.id && h.archivedAt === null && h.name.trim().toLowerCase() === habit.name.trim().toLowerCase());
+              if (clash) toast({ message: `Masz już aktywny nawyk „${habit.name}” — zmień nazwę jednego z nich.` });
+              else restore.mutate({ id: habit.id, gap: archiveGap(habit, entries, today) });
+            }}
             className={btnPrimary}
           >
             Przywróć z archiwum
@@ -283,7 +287,8 @@ export function PauseForm({ habitId, today, onDone }: { habitId: string | null; 
   );
 }
 
-function HabitReminder({ habit }: { habit: Habit }) {
+/** `canRemind = false` („rzucam”, Apple Zdrowie): przypomnienie nie przyjdzie — zostaje tylko wyłączenie starego. */
+function HabitReminder({ habit, canRemind }: { habit: Habit; canRemind: boolean }) {
   const { data: snapshot } = useSnapshot();
   const reminder = snapshot?.reminders.find((r) => r.habitId === habit.id);
   const [time, setTime] = useState(reminder?.localTime ?? "09:00");
@@ -292,7 +297,25 @@ function HabitReminder({ habit }: { habit: Habit }) {
     await enablePush(supabase);
     await upsertReminder(supabase, { id: reminder?.id, kind: "habit", habitId: habit.id, localTime, enabled: true });
   });
-  const remove = useAction((s, rid: string) => deleteReminder(s, rid));
+  const remove = useAction((s, rid: string) => deleteReminder(s, rid), undefined, { toastErrors: true });
+
+  if (!canRemind && !reminder) return null;
+  if (!canRemind && reminder) {
+    return (
+      <section aria-labelledby="rem-title" className="flex flex-col gap-2">
+        <h2 id="rem-title" className={sectionTitle}>
+          Przypomnienie
+        </h2>
+        <p className="text-sm text-muted">
+          {habit.goal === "quit" ? "Nawyk „rzucam” nie ma przypomnień" : "Ten nawyk odhacza Skrót z Apple Zdrowie"} — to przypomnienie ({reminder.localTime}) nie
+          przyjdzie.
+        </p>
+        <button type="button" onClick={() => remove.mutate(reminder.id)} className="h-11 self-start text-sm font-semibold text-danger">
+          Wyłącz przypomnienie
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="rem-title" className="flex flex-col gap-2">

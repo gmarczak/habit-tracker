@@ -68,7 +68,7 @@ describe("statystyki", () => {
     const lastWeek = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"].flatMap((d) => [e("a", d), e("b", d)]);
     const r = weekReview(habits, lastWeek, [], monday, monday, 1);
     expect(r.total).toBe(0);
-    expect(r.days[0]).toEqual({ date: monday, done: 0, total: 2 });
+    expect(r.days[0]).toMatchObject({ date: monday, done: 0, total: 2 });
     expect(weeklyTrend(habits, lastWeek, [], monday, 1, 2).map((w) => w.share)).toEqual([1, null]);
   });
 
@@ -78,6 +78,13 @@ describe("statystyki", () => {
     const r = weekReview([habits[0]!, archived], entries, [], TODAY, TODAY, 1);
     expect(r.days.map((d) => `${d.done}/${d.total}`)).toEqual(["1/2", "1/2", "1/2", "1/2", "1/1", "1/1", "0/1"]);
     expect(perfectDayStreak([habits[0]!, archived], entries, [], TODAY, 1)).toBe(2);
+  });
+
+  it("wpadka „rzucam” dziś liczy się od razu, otwarte „buduję” jeszcze nie", () => {
+    const quit: Habit = { ...habit("q", plan({ frequency: "daily" })), goal: "quit" };
+    const r = weekReview([habits[0]!, quit], [{ ...e("q", TODAY) }], [], TODAY, TODAY, 1);
+    expect(r.days.at(-1)).toMatchObject({ done: 0, total: 2, settled: 1 });
+    expect(r.total - r.days.slice(0, 6).reduce((s, d) => s + d.total, 0)).toBe(1);
   });
 
   it("isPerfect wymaga choć jednego nawyku", () => {

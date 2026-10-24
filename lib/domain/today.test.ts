@@ -102,7 +102,7 @@ describe("dayProgress", () => {
     const pauses = [{ habitId: "a", startDate: "2026-10-01", endDate: "2026-10-02" }];
     for (let i = 0; i < 14; i++) {
       const d = addDays(TODAY, -i);
-      expect(dayProgress(habits, entries, pauses, d)).toEqual(buildDay(habits, entries, pauses, d, TODAY, 1).progress);
+      expect(dayProgress(habits, entries, pauses, d)).toMatchObject(buildDay(habits, entries, pauses, d, TODAY, 1).progress);
     }
   });
 });

@@ -1,6 +1,6 @@
 -- Poprawki z przeglądu całej aplikacji:
 --   add_habit      – cały nawyk w jednej transakcji (cel, pora dnia, Apple Zdrowie, wyzwalacz) i bez duplikatów:
---                    id nadaje aplikacja, więc powtórzone żądanie po zerwanym połączeniu zwraca ten sam nawyk
+--                    id nadaje formularz, więc ponowny zapis po zerwanym połączeniu poprawia ten sam nawyk
 --   add_entry      – „+1” i minuty z minutnika dopisywane na serwerze, więc nie nadpisują tego, co w międzyczasie
 --                    dodała Siri albo Skrót; id żądania chroni przed podwójnym dopisaniem przy powtórce z kolejki offline
 --   log_habit      – dopisanie w jednym upsercie (dwa równoczesne wywołania nie gubią wartości),
@@ -32,10 +32,16 @@ begin
   returning id into v_id;
 
   if v_id is null then
-    -- to samo żądanie drugi raz: nawyk już jest (RLS: tylko własny)
-    select h.id into v_id from public.habits h where h.id = p_id;
+    -- Ten sam formularz drugi raz (odpowiedź poprzedniego zapisu nie dotarła): nawyk już jest (RLS: tylko własny),
+    -- więc zapisujemy w nim to, co formularz wysyła teraz — także poprawki wprowadzone po błędzie
+    update public.habits set
+      name = btrim(p_name), kind = p_kind, unit = p_unit, icon = p_icon, color = coalesce(p_color, 'green'),
+      category_id = p_category_id, start_date = v_start, goal = coalesce(p_goal, 'build'), time_of_day = p_time_of_day,
+      source = p_source, source_min = p_source_min, cue = nullif(btrim(p_cue), ''), why = nullif(btrim(p_why), '')
+    where id = p_id
+    returning id into v_id;
     if v_id is null then raise exception 'habit_id_taken' using errcode = '23505'; end if;
-    return v_id;
+    delete from public.habit_plans where habit_id = v_id;
   end if;
 
   insert into public.habit_plans (habit_id, valid_from, frequency, weekdays, times_per_week, interval_days, target_value)

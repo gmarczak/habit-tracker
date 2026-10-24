@@ -296,13 +296,14 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
   return view;
 }
 function dayProgress(habits, entries, pauses, date, history = false) {
-  const progress = { done: 0, total: 0 };
+  const progress = { done: 0, total: 0, settled: 0 };
   for (const habit of habits) {
     if (habit.archivedAt !== null && !(history && habit.archivedOn && date < habit.archivedOn)) continue;
     if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
     const state = dayState(habit, entries, pauses, date, date);
     if (state !== "skipped") progress.total++;
     if (state === "done") progress.done++;
+    if (state === "done" || state === "missed") progress.settled++;
   }
   return progress;
 }
@@ -325,7 +326,7 @@ function weekReview(habits, entries, pauses, anyDayInWeek, today, weekStart) {
   return {
     days,
     done: days.reduce((s, d) => s + d.done, 0),
-    total: days.reduce((s, d) => s + (d.date === today ? d.done : d.total), 0),
+    total: days.reduce((s, d) => s + (d.date === today ? d.settled ?? d.done : d.total), 0),
     perfectDays: days.filter(isPerfect).length
   };
 }
@@ -534,7 +535,8 @@ Deno.serve(async (req) => {
     const today = localDate(now, profile.timezone, profile.day_start_hour);
     const since = addDays(today, -14);
     const [habitsRes, plansRes, entriesRes, pausesRes, subsRes] = await Promise.all([
-      supabase.from("habits").select("*").eq("user_id", userId).is("archived_at", null),
+      // także zarchiwizowane w ostatnich dniach: podsumowanie tygodnia liczy je w dniach sprzed archiwizacji (jak aplikacja)
+      supabase.from("habits").select("*").eq("user_id", userId).or(`archived_at.is.null,archived_at.gte.${since}`),
       supabase.from("habit_plans").select("*").eq("user_id", userId),
       supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", since),
       supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", since),
@@ -557,7 +559,8 @@ Deno.serve(async (req) => {
       goal: h.goal === "quit" ? "quit" : "build",
       startDate: h.start_date,
       sortOrder: h.sort_order,
-      archivedAt: null,
+      archivedAt: h.archived_at ?? null,
+      archivedOn: h.archived_at ? localDate(new Date(h.archived_at), profile.timezone, profile.day_start_hour) : null,
       plans: plans.filter((p) => p.habit_id === h.id).map((p) => ({
         validFrom: p.valid_from,
         frequency: p.frequency,

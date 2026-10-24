@@ -57,13 +57,15 @@ end $$;
 do $$ declare a uuid; b uuid; begin
   a := add_habit('Bez słodyczy', 'check', null, null, 'rose', null, 'daily', null, null, null, null, current_date - 3,
                  p_id => 'bbbbbbbb-0000-0000-0000-000000000001', p_goal => 'quit', p_time_of_day => 'evening', p_cue => ' po obiedzie ');
-  b := add_habit('Bez słodyczy', 'check', null, null, 'rose', null, 'daily', null, null, null, null, current_date - 3,
-                 p_id => 'bbbbbbbb-0000-0000-0000-000000000001', p_goal => 'quit');
-  assert a = b, 'powtórka add_habit zwróciła inny id';
-  assert (select count(*) from habits where name = 'Bez słodyczy') = 1, 'powtórka add_habit utworzyła duplikat';
-  assert (select count(*) from habit_plans where habit_id = a) = 1, 'powtórka add_habit dodała drugi plan';
   assert (select goal = 'quit' and time_of_day = 'evening' and cue = 'po obiedzie' from habits where id = a),
     'add_habit nie zapisał celu, pory dnia albo wyzwalacza';
+  -- ponowny zapis tego samego formularza z poprawioną nazwą: ten sam nawyk, nowe wartości, jeden plan
+  b := add_habit('Bez cukru', 'check', null, null, 'rose', null, 'daily', null, null, null, null, current_date - 3,
+                 p_id => 'bbbbbbbb-0000-0000-0000-000000000001', p_goal => 'quit');
+  assert a = b, 'powtórka add_habit zwróciła inny id';
+  assert (select count(*) from habits where name in ('Bez słodyczy', 'Bez cukru')) = 1, 'powtórka add_habit utworzyła duplikat';
+  assert (select name from habits where id = a) = 'Bez cukru', 'powtórka add_habit nie zapisała poprawki';
+  assert (select count(*) from habit_plans where habit_id = a) = 1, 'powtórka add_habit dodała drugi plan';
 end $$;
 
 -- ---------- dopisywanie (+1, minutnik) na serwerze, bez podwójnego dopisania przy powtórce ----------
@@ -119,8 +121,9 @@ reset role;
 set role anon;
 
 do $$ declare r jsonb; begin
-  r := ingest_metrics(current_setting('t.token'), '{"steps": 5000, "exercise_min": 12}');
-  r := ingest_metrics(current_setting('t.token'), '{"steps": 8200, "exercise_min": 9}');
+  -- z datą: bez niej wysyłka w pierwszych 15 minutach dnia trafia do wczoraj (test nie zależy od godziny)
+  r := ingest_metrics(current_setting('t.token'), '{"steps": 5000, "exercise_min": 12}', current_date);
+  r := ingest_metrics(current_setting('t.token'), '{"steps": 8200, "exercise_min": 9}', current_date);
   assert jsonb_array_length(r -> 'updated') = 2, 'ingest nie zwrócił obu nawyków';
 end $$;
 

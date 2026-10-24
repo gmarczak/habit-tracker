@@ -4,7 +4,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { QueryClient, onlineManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { del, get, set } from "idb-keyval";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { entryMutationKey, entryScope, snapshotKey } from "@/lib/data/hooks";
 import { NetworkError, saveEntry, type EntryChange } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
@@ -77,12 +77,22 @@ export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(makeClient);
 
   // Po wysłaniu kolejki offline pobierz stan z serwera (optymistyczny cache mógł się rozjechać).
+  // Jedno opróżnianie naraz: kolejne „online” w czasie awarii nie mnożą pełnych przeładowań.
+  const flush = useRef<Promise<unknown> | null>(null);
+  const drain = useCallback(() => {
+    flush.current ??= client
+      .resumePausedMutations()
+      .then(() => client.invalidateQueries({ queryKey: snapshotKey }))
+      .finally(() => {
+        flush.current = null;
+      });
+  }, [client]);
   useEffect(
     () =>
       onlineManager.subscribe((online) => {
-        if (online) void client.resumePausedMutations().then(() => client.invalidateQueries({ queryKey: snapshotKey }));
+        if (online) drain();
       }),
-    [client],
+    [drain],
   );
 
   useEffect(() => {
@@ -103,9 +113,7 @@ export function Providers({ children }: { children: ReactNode }) {
         dehydrateOptions: { shouldDehydrateMutation: (m) => m.state.isPaused && m.options.mutationKey?.[0] === entryMutationKey[0] },
       }}
       // Bez czekania: ekran pokazuje dane z IndexedDB od razu, a kolejka wysyła się w tle
-      onSuccess={() => {
-        void client.resumePausedMutations().then(() => client.invalidateQueries({ queryKey: snapshotKey }));
-      }}
+      onSuccess={drain}
     >
       {children}
     </PersistQueryClientProvider>

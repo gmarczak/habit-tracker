@@ -24,7 +24,11 @@ export function entriesCsv(snapshot: Snapshot): string {
 /** Pełny eksport: nawyki z planami, wpisy, pauzy, kategorie, przypomnienia, ustawienia, notatki i całe Apple Zdrowie. */
 export function snapshotJson(snapshot: Snapshot, exportedAt: string, allHealth?: HealthDay[]): string {
   const { userId: _userId, email: _email, ...data } = snapshot;
-  return JSON.stringify({ format: "nawyki-export", version: 1, exportedAt, ...data, health: allHealth ?? data.health }, null, 2);
+  // Całość z serwera uzupełniona świeższymi dniami ze snapshotu (pełna lista mogła być pobrana wcześniej)
+  const health = new Map((allHealth ?? []).map((h) => [`${h.date}:${h.metric}`, h]));
+  for (const h of data.health ?? []) health.set(`${h.date}:${h.metric}`, h);
+  const merged = [...health.values()].sort((a, b) => (a.date === b.date ? a.metric.localeCompare(b.metric) : a.date < b.date ? -1 : 1));
+  return JSON.stringify({ format: "nawyki-export", version: 1, exportedAt, ...data, health: merged }, null, 2);
 }
 
 /**

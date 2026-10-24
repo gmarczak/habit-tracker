@@ -66,6 +66,8 @@ export function StatsScreen() {
   }
 
   const { week, trend, perfectStreak, rates, notes, weekdays, mood } = data;
+  // Dzisiejsze otwarte nawyki nie wchodzą do procentu, dopóki dzień trwa
+  const todayOpen = week.days.some((d) => d.date === today && d.total > (d.settled ?? d.done));
   const last = trend.at(-1)?.share ?? null;
   const prev = trend.at(-2)?.share ?? null;
   const delta = last !== null && prev !== null ? Math.round((last - prev) * 100) : null;
@@ -88,7 +90,11 @@ export function StatsScreen() {
             <p className="text-[13px] font-semibold uppercase tracking-[0.02em] text-muted">Zrobione z wymaganych</p>
             <p className="font-serif text-[34px] font-bold leading-tight tabular-nums">{week.total ? pct(week.done / week.total) : "—"}</p>
             <p className="text-[13px] text-muted">
-              {week.total ? `${week.done} z ${week.total} wykonań` : "brak wymaganych"}
+              {week.total
+                ? `${week.done} z ${week.total} ${week.total === 1 ? "wykonania" : "wykonań"}${todayOpen ? " · dziś jeszcze trwa" : ""}`
+                : todayOpen
+                  ? "dzień trwa — procent pojawi się po pierwszym odhaczeniu"
+                  : "brak wymaganych"}
               {delta !== null && (
                 <span className={delta >= 0 ? "text-positive" : "text-danger"}>
                   {" "}

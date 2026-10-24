@@ -9,7 +9,8 @@ import { dayProgress } from "./today";
  * Nawyk przeniesiony do archiwum liczy się w dniach sprzed archiwizacji, więc archiwum nie przepisuje przeszłości.
  */
 
-export type DayTotals = { date: LocalDate; done: number; total: number };
+/** `settled` – ile z `total` ma już pewny wynik (zrobione albo wpadka „rzucam”); reszta dziś jeszcze czeka. */
+export type DayTotals = { date: LocalDate; done: number; total: number; settled?: number };
 
 export function dayTotals(
   habits: readonly Habit[],
@@ -43,7 +44,7 @@ export function weekReview(
   return {
     days,
     done: days.reduce((s, d) => s + d.done, 0),
-    total: days.reduce((s, d) => s + (d.date === today ? d.done : d.total), 0),
+    total: days.reduce((s, d) => s + (d.date === today ? (d.settled ?? d.done) : d.total), 0),
     perfectDays: days.filter(isPerfect).length,
   };
 }
@@ -172,7 +173,7 @@ export function moodInsights(
     for (const m of moods) {
       const state = dayState(habit, entries, pauses, m.date, today);
       if (state === "done") done.push(m.mood);
-      else if (m.date === today) continue;
+      else if (m.date === today && state !== "missed") continue; // dzień trwa (wpadka „rzucam” dziś jest już pewna)
       else if (state === "missed" || state === "partial" || state === "open") missed.push(m.mood);
     }
     if (done.length >= minEach && missed.length >= minEach) {

@@ -42,6 +42,19 @@ export function HabitsScreen() {
     [snapshot],
   );
   const archived = (snapshot?.habits ?? []).filter((h) => h.archivedAt !== null && !hiddenIds.includes(h.id));
+  // Seria i siła liczone raz na zmianę danych (nie przy każdym przełączeniu kolejności)
+  const stats = useMemo(() => {
+    if (!snapshot || !today) return new Map<string, { streak: ReturnType<typeof streakOf>; strength: number }>();
+    return new Map(
+      active.map((h) => [
+        h.id,
+        {
+          streak: streakOf(h, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart),
+          strength: habitStrength(h, snapshot.entries, snapshot.pauses, today),
+        },
+      ]),
+    );
+  }, [active, snapshot, today]);
 
   if (!snapshot || !today) return <DataFallback pending={isPending} onRetry={() => void refetch()} />;
 
@@ -60,6 +73,13 @@ export function HabitsScreen() {
     if (target < 0 || target >= ids.length) return;
     [ids[index], ids[target]] = [ids[target]!, ids[index]!];
     reorder.mutate(ids);
+  }
+
+  function restoreFromArchive(habit: Habit) {
+    // Dwa aktywne nawyki o tej samej nazwie: Siri i Skrót nie wiedziałyby, który odhaczyć
+    const clash = active.some((h) => h.name.trim().toLowerCase() === habit.name.trim().toLowerCase());
+    if (clash) return toast({ message: `Masz już aktywny nawyk „${habit.name}” — zmień nazwę jednego z nich.` });
+    restore.mutate({ id: habit.id, gap: archiveGap(habit, snapshot!.entries, today!) });
   }
 
   function deleteForever(habit: Habit) {
@@ -98,8 +118,7 @@ export function HabitsScreen() {
           <ul className="ios-group">
             {group.habits.map((habit) => {
               const plan = planOn(habit, today) ?? habit.plans.at(-1);
-              const streak = streakOf(habit, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart);
-              const strength = habitStrength(habit, snapshot.entries, snapshot.pauses, today);
+              const { streak, strength } = stats.get(habit.id)!;
               const index = active.findIndex((h) => h.id === habit.id);
               return (
                 <li key={habit.id} className="flex items-center gap-3 border-b-[0.5px] border-border py-3.5">
@@ -165,7 +184,7 @@ export function HabitsScreen() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => restore.mutate({ id: habit.id, gap: archiveGap(habit, snapshot.entries, today) })}
+                    onClick={() => restoreFromArchive(habit)}
                     className="h-11 rounded-full px-3 text-sm font-semibold text-accent"
                   >
                     Przywróć

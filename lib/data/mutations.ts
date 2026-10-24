@@ -14,13 +14,17 @@ const ERROR_TEXT: Record<string, string> = {
   date_before_start: "Ten dzień jest przed startem nawyku.",
   habit_not_found: "Nie ma już tego nawyku — odśwież aplikację.",
   not_authenticated: "Sesja wygasła — zaloguj się ponownie.",
+  habit_id_taken: "Nie udało się zapisać — spróbuj ponownie.",
+  bad_value: "Zła wartość.",
 };
 
 function check<T extends { error: { message: string; code?: string } | null; status?: number }>(result: T): T {
   if (!result.error) return result;
   if (result.status === 0) throw new NetworkError("Brak połączenia z serwerem — spróbuj ponownie.");
-  if (result.error.code === "23505") throw new Error("Taka nazwa już istnieje.");
-  throw new Error(ERROR_TEXT[result.error.message] ?? result.error.message);
+  const text = ERROR_TEXT[result.error.message];
+  if (text) throw new Error(text);
+  if (result.error.code === "23505") throw new Error(/name/.test(result.error.message) ? "Taka nazwa już istnieje." : "To już jest zapisane — odśwież aplikację.");
+  throw new Error(result.error.message);
 }
 
 // ---------- czyste aktualizacje cache (optymistycznie, przed odpowiedzią serwera) ----------

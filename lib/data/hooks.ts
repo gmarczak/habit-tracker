@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { supabaseBrowser, type Supabase } from "@/lib/db/client";
@@ -16,13 +16,31 @@ export const entryScope = { id: "entries" } as const;
 
 export const OFFLINE_MESSAGE = "Brak sieci — tej zmiany nie zapisano. Odhaczanie działa offline, reszta po powrocie sieci.";
 
+/** Zapisy dnia z kolejki, które jeszcze nie dotarły na serwer, nałożone na świeży stan z serwera. */
+function withQueuedEntries(qc: QueryClient, snapshot: Snapshot): Snapshot {
+  return qc
+    .getMutationCache()
+    .findAll({ mutationKey: entryMutationKey, predicate: (m) => m.state.isPaused })
+    .sort((a, b) => a.state.submittedAt - b.state.submittedAt)
+    .reduce((s, m) => {
+      const change = m.state.variables as EntryChange | undefined;
+      if (!change) return s;
+      const before = s.entries.find((e) => e.habitId === change.habitId && e.date === change.date);
+      return withEntry(s, change.habitId, change.date, entryFromChange(change, before));
+    }, snapshot);
+}
+
 export function useSnapshot() {
+  const qc = useQueryClient();
+  // W trakcie wysyłania kolejki dnia nie odświeżamy (serwer jeszcze nie zna tych zapisów); po niej odświeża sama kolejka
+  const idle = () => qc.isMutating({ mutationKey: entryMutationKey }) === 0;
   return useQuery({
     queryKey: snapshotKey,
-    queryFn: () => fetchSnapshot(supabaseBrowser()),
+    queryFn: async () => withQueuedEntries(qc, await fetchSnapshot(supabaseBrowser())),
     staleTime: 60_000,
+    refetchOnMount: () => idle(),
     // Po powrocie do aplikacji zawsze świeże dane: Siri, Skrót i inne urządzenie zapisują poza nią
-    refetchOnWindowFocus: "always",
+    refetchOnWindowFocus: () => (idle() ? "always" : false),
     // Po odzyskaniu sieci odświeża providers.tsx, dopiero gdy kolejka zapisów dotrze na serwer
     refetchOnReconnect: false,
   });

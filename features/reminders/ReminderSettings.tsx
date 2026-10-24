@@ -6,7 +6,7 @@ import { sectionTitle } from "@/components/ui/styles";
 import { useAction, useSnapshot } from "@/lib/data/hooks";
 import { deleteReminder, upsertReminder } from "@/lib/data/mutations";
 import type { Reminder, ReminderKind } from "@/lib/domain/model";
-import { currentSubscription, disablePush, enablePush, isIos, pushSupport, type PushSupport } from "./push";
+import { currentSubscription, deviceOptedOut, disablePush, enablePush, isIos, pushSupport, type PushSupport } from "./push";
 
 type Kind = Exclude<ReminderKind, "habit">;
 
@@ -35,7 +35,7 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
     return () => window.clearTimeout(id);
   }, []);
 
-  const turnOffDevice = useAction(async (supabase) => disablePush(supabase));
+  const turnOffDevice = useAction(async (supabase) => disablePush(supabase, true));
   const turnOnDevice = useAction(async (supabase) => enablePush(supabase));
   if (!snapshot) return null;
 
@@ -46,7 +46,8 @@ export function ReminderSettings({ showTitle = true }: { showTitle?: boolean }) 
   const lastDay = snapshot.settings.weekStart === 1 ? "niedzielę" : "sobotę";
   const canEnable = support === "supported";
   // Przypomnienia włączone na koncie, ale to urządzenie nie ma subskrypcji (np. po wylogowaniu)
-  const deviceOff = canEnable && subscribed === false && snapshot.reminders.some((r) => r.enabled);
+  // (chyba że to świadome „Wyłącz na tym urządzeniu”)
+  const deviceOff = canEnable && subscribed === false && !deviceOptedOut() && snapshot.reminders.some((r) => r.enabled);
 
   return (
     <section aria-labelledby="rem-title" className="flex flex-col gap-4">

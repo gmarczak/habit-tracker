@@ -36,7 +36,7 @@ export function SettingsScreen() {
         Icon: HeartPulse,
         color: "rose",
         // „Połączone” dopiero, gdy Skrót coś przysłał; sam klucz może służyć tylko Siri
-        value: (snapshot.health ?? []).length > 0 ? "Połączone" : token.data ? "Czeka na dane" : token.isSuccess ? "Wył." : undefined,
+        value: token.data ? ((snapshot.health ?? []).length > 0 ? "Połączone" : "Czeka na dane") : token.isSuccess ? "Wył." : undefined,
       },
       { href: "/settings/siri", title: "Siri i Skróty", Icon: AudioLines, color: "violet", value: token.data ? "Wł." : token.isSuccess ? "Wył." : undefined },
     ],

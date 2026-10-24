@@ -11,20 +11,43 @@ import { entriesByDate, entryOutcome, isPaused, planOn, requirementOn } from "./
  * Neutralne: przed startem, pauza, pominięcie, dni niewymagane, dzisiejszy niedokończony dzień.
  */
 const WINDOW = 14;
+const KEEP = 0.5 ** (1 / 13);
+
 export function habitStrength(habit: Habit, entries: readonly Entry[], pauses: readonly Pause[], today: LocalDate): number {
   const byDate = entriesByDate(entries, habit.id);
   let score = 0;
+  // Okno planu tygodniowego liczone przesuwnie (każdy dzień raz): zrobione i wymagane×7 w ostatnich WINDOW dniach
+  const slots: { done: number; times: number }[] = [];
+  let windowDone = 0;
+  let windowTimes = 0;
+
   for (let d = habit.startDate; d <= today; d = addDays(d, 1)) {
     const plan = planOn(habit, d);
-    if (!plan || isPaused(pauses, habit.id, d)) continue;
+    const paused = plan !== null && isPaused(pauses, habit.id, d);
     const entry = byDate.get(d);
+
+    const slot = { done: 0, times: 0 };
+    if (plan?.frequency === "weekly_count" && !paused && !entry?.skipped) {
+      slot.done = entryOutcome(entry, plan) === "done" ? 1 : 0;
+      slot.times = plan.timesPerWeek ?? 1;
+    }
+    slots.push(slot);
+    windowDone += slot.done;
+    windowTimes += slot.times;
+    if (slots.length > WINDOW) {
+      const old = slots.shift()!;
+      windowDone -= old.done;
+      windowTimes -= old.times;
+    }
+
+    if (!plan || paused) continue;
     if (entry?.skipped) continue;
 
     const weekly = plan.frequency === "weekly_count";
     if (!weekly && requirementOn(habit, pauses, d) !== "required") continue;
 
     let value: number;
-    if (weekly) value = weeklyFulfilment(habit, byDate, pauses, d);
+    if (weekly) value = windowTimes === 0 ? 0 : Math.min(1, (windowDone * 7) / windowTimes);
     else if (habit.goal === "quit") value = entryOutcome(entry, plan, "quit") === "done" ? 1 : 0;
     else if (habit.kind === "check") value = entry && (entry.value ?? 0) > 0 ? 1 : 0;
     else value = Math.min(1, (entry?.value ?? 0) / (plan.targetValue || 1));
@@ -34,23 +57,4 @@ export function habitStrength(habit: Habit, entries: readonly Entry[], pauses: r
     score = score * KEEP + value * (1 - KEEP);
   }
   return score;
-}
-
-const KEEP = 0.5 ** (1 / 13);
-
-/** Plan tygodniowy: zrobione w oknie WINDOW dni kończącym się w `day` względem wymaganych w dniach dostępnych. */
-function weeklyFulfilment(habit: Habit, byDate: ReadonlyMap<LocalDate, Entry>, pauses: readonly Pause[], day: LocalDate): number {
-  let done = 0;
-  let required = 0;
-  for (let k = 0; k < WINDOW; k++) {
-    const d = addDays(day, -k);
-    if (d < habit.startDate) break;
-    const plan = planOn(habit, d);
-    if (plan?.frequency !== "weekly_count" || isPaused(pauses, habit.id, d)) continue;
-    const outcome = entryOutcome(byDate.get(d), plan);
-    if (outcome === "skipped") continue;
-    if (outcome === "done") done++;
-    required += (plan.timesPerWeek ?? 1) / 7;
-  }
-  return required === 0 ? 0 : Math.min(1, done / required);
 }
