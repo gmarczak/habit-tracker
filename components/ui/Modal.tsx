@@ -8,6 +8,12 @@ type Props = { open: boolean; onClose: () => void; title: string; subtitle?: str
 export function Modal({ open, onClose, title, subtitle, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // Czy przy dotknięciu tła było aktywne pole (zapamiętane w pointerdown — przed kliknięciem fokus już znika)
+  const typing = useRef(false);
+  const fieldFocused = () => {
+    const active = document.activeElement;
+    return active instanceof HTMLElement && Boolean(ref.current?.contains(active)) && active.matches("input, textarea, select");
+  };
 
   useEffect(() => {
     const dialog = ref.current;
@@ -21,12 +27,18 @@ export function Modal({ open, onClose, title, subtitle, children }: Props) {
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
+      onPointerDown={(e) => {
+        typing.current = e.target === ref.current && fieldFocused();
+      }}
+      onMouseDown={(e) => {
+        if (e.target === ref.current && fieldFocused()) e.preventDefault();
+      }}
       onClick={(e) => {
         if (e.target !== ref.current) return;
         // Stuknięcie obok arkusza w trakcie pisania tylko chowa klawiaturę (jak w iOS) — wpisany tekst zostaje
-        const active = document.activeElement;
-        if (active instanceof HTMLElement && ref.current?.contains(active) && active.matches("input, textarea, select")) {
-          active.blur();
+        if (typing.current || fieldFocused()) {
+          typing.current = false;
+          (document.activeElement as HTMLElement | null)?.blur();
           return;
         }
         onClose();

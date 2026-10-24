@@ -17,7 +17,6 @@ import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
 import { deleteAccount, deleteCategory, endPause, updateSettings, withPauseEnded, type SettingsForm } from "@/lib/data/mutations";
 import { fetchAllHealth, type Snapshot } from "@/lib/data/snapshot";
-import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/db/client";
 import { signOutFlow } from "@/lib/db/session";
 import type { LocalDate, WeekStart } from "@/lib/domain/dates";
@@ -196,16 +195,19 @@ function Account({ email }: { email: string | null }) {
   async function signOut() {
     setSignOutError(null);
     const supabase = supabaseBrowser();
+    // Sesji, której nie da się wczytać (wygasła bez sieci), nie da się też usunąć — nic jeszcze nie ruszamy
+    const { data, error } = await supabase.auth.getSession();
+    if (error && !data.session) {
+      setSignOutError("Wylogowanie wymaga połączenia z internetem.");
+      return;
+    }
     signOutFlow.active = true;
     try {
       // Wylogowane urządzenie nie dostaje już przypomnień (subskrypcja znika także bez sieci)
       await disablePush(supabase).catch(() => {});
-      // Tylko to urządzenie — „Wyloguj” w Safari nie wylogowuje aplikacji z ekranu głównego
-      const { error } = await supabase.auth.signOut({ scope: "local" });
-      if (error && !isAuthSessionMissingError(error)) {
-        setSignOutError("Wylogowanie wymaga połączenia z internetem.");
-        return;
-      }
+      // Tylko to urządzenie — „Wyloguj” w Safari nie wylogowuje aplikacji z ekranu głównego.
+      // Błąd sieci tutaj nie szkodzi: wczytana sesja jest i tak usuwana z urządzenia.
+      await supabase.auth.signOut({ scope: "local" });
       if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
       qc.clear();
       await clearIdb();

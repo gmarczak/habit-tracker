@@ -63,24 +63,28 @@ export function entryFromChange(change: EntryChange, previous: Entry | undefined
     : { habitId: change.habitId, date: change.date, value: change.value, skipped: false, note };
 }
 
-export async function saveEntry(supabase: Supabase, change: EntryChange): Promise<void> {
+/** `signal`: przerwanie zapisu, który przekroczył czas (nie dotrze już później, poza kolejnością kolejki). */
+export async function saveEntry(supabase: Supabase, change: EntryChange, signal?: AbortSignal): Promise<void> {
+  const send = <T extends { abortSignal: (s: AbortSignal) => T }>(query: T) => (signal ? query.abortSignal(signal) : query);
   if (change.kind === "clear") {
-    check(await supabase.rpc("clear_entry", { p_habit_id: change.habitId, p_date: change.date }));
+    check(await send(supabase.rpc("clear_entry", { p_habit_id: change.habitId, p_date: change.date })));
     return;
   }
   if (change.kind === "add") {
-    check(await supabase.rpc("add_entry", { p_habit_id: change.habitId, p_date: change.date, p_delta: change.delta, p_request: change.requestId }));
+    check(await send(supabase.rpc("add_entry", { p_habit_id: change.habitId, p_date: change.date, p_delta: change.delta, p_request: change.requestId })));
     return;
   }
   check(
-    await supabase.rpc("set_entry", {
-      p_habit_id: change.habitId,
-      p_date: change.date,
-      p_value: change.kind === "set" ? change.value : 0,
-      p_skipped: change.kind === "skip",
-      // undefined = notatka bez zmian; null = usuń (serwer traktuje pusty tekst jako usunięcie)
-      ...(change.note !== undefined ? { p_note: change.note ?? "" } : {}),
-    }),
+    await send(
+      supabase.rpc("set_entry", {
+        p_habit_id: change.habitId,
+        p_date: change.date,
+        p_value: change.kind === "set" ? change.value : 0,
+        p_skipped: change.kind === "skip",
+        // undefined = notatka bez zmian; null = usuń (serwer traktuje pusty tekst jako usunięcie)
+        ...(change.note !== undefined ? { p_note: change.note ?? "" } : {}),
+      }),
+    ),
   );
 }
 
