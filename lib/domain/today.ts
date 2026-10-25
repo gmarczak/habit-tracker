@@ -23,7 +23,7 @@ export type TodayView = {
   done: TodayItem[];
   /** nawyki „rzucam”: czysto albo wpadka; poza listami do zrobienia */
   quit: TodayItem[];
-  /** pierścień dnia: tylko nawyki wymagane dziś, bez pominiętych */
+  /** pierścień dnia: tylko nawyki „buduję” wymagane dziś, bez pominiętych („rzucam” ma własną serię) */
   progress: { done: number; total: number };
 };
 
@@ -59,7 +59,8 @@ export function buildDay(
       week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null,
     };
 
-    if (req === "required") {
+    // „Rzucam” bez wpisu jest czysty z automatu: nie podbija pierścienia dnia, w którym nic nie zrobiono
+    if (req === "required" && habit.goal !== "quit") {
       if (state !== "skipped") view.progress.total++;
       if (state === "done") view.progress.done++;
     }
@@ -88,12 +89,13 @@ export function dayProgress(
 ): { done: number; total: number; settled: number } {
   const progress = { done: 0, total: 0, settled: 0 };
   for (const habit of habits) {
+    if (habit.goal === "quit") continue;
     if (habit.archivedAt !== null && !(history && habit.archivedOn && date < habit.archivedOn)) continue;
     if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
     const state = dayState(habit, entries, pauses, date, date);
     if (state !== "skipped") progress.total++;
     if (state === "done") progress.done++;
-    if (state === "done" || state === "missed") progress.settled++;
+    if (state === "done") progress.settled++;
   }
   return progress;
 }

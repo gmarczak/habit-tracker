@@ -80,11 +80,13 @@ describe("statystyki", () => {
     expect(perfectDayStreak([habits[0]!, archived], entries, [], TODAY, 1)).toBe(2);
   });
 
-  it("wpadka „rzucam” dziś liczy się od razu, otwarte „buduję” jeszcze nie", () => {
+  it("„rzucam” nie wchodzi do bilansu dnia, otwarte dziś „buduję” jeszcze nie obniża tygodnia", () => {
     const quit: Habit = { ...habit("q", plan({ frequency: "daily" })), goal: "quit" };
     const r = weekReview([habits[0]!, quit], [{ ...e("q", TODAY) }], [], TODAY, TODAY, 1);
-    expect(r.days.at(-1)).toMatchObject({ done: 0, total: 2, settled: 1 });
-    expect(r.total - r.days.slice(0, 6).reduce((s, d) => s + d.total, 0)).toBe(1);
+    expect(r.days.at(-1)).toMatchObject({ done: 0, total: 1, settled: 0 });
+    expect(r.total - r.days.slice(0, 6).reduce((s, d) => s + d.total, 0)).toBe(0);
+    // dzień bez wpisów nie jest „idealny” dzięki samym czystym „rzucam”
+    expect(weekReview([quit], [], [], TODAY, TODAY, 1).perfectDays).toBe(0);
   });
 
   it("isPerfect wymaga choć jednego nawyku", () => {
