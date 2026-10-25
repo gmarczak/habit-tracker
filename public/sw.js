@@ -1,9 +1,9 @@
 /* Service worker: powłoka offline + powiadomienia push. Bez zależności, żeby był przewidywalny. */
-const VERSION = "v2-7";
+const VERSION = "v2-8";
 const SHELL_CACHE = `shell-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
 const SHELL = [
-  "/", "/habits", "/stats", "/settings",
+  "/", "/review", "/habits", "/stats", "/settings",
   "/settings/reminders", "/settings/health", "/settings/siri", "/settings/day", "/settings/vacation", "/settings/categories", "/settings/data", "/settings/account",
   "/manifest.webmanifest", "/icon-192.png",
 ];

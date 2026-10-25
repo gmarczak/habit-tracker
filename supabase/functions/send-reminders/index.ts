@@ -439,7 +439,7 @@ function messagesFor(user, reminders, now) {
           ...base,
           title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(forToday.length)} na dzi\u015B`,
           body: forToday.length === 0 ? weekText : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` \xB7 w tym tygodniu: ${weekText}` : ""}`,
-          url: "/",
+          url: "/review",
           tag: "summary"
         });
         break;
@@ -459,7 +459,7 @@ function messagesFor(user, reminders, now) {
           ...base,
           title: `Wczoraj ${habitsLeft(gap.missing.length, false)}`,
           body: `${list(gap.missing.map((i) => i.habit.name))} \u2014 uzupe\u0142nij, je\u015Bli zrobi\u0142e\u015B.`,
-          url: `/?date=${gap.date}`,
+          url: `/review?date=${gap.date}`,
           tag: "yesterday"
         });
         break;

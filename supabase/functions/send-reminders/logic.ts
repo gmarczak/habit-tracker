@@ -81,7 +81,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
             forToday.length === 0
               ? weekText
               : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` · w tym tygodniu: ${weekText}` : ""}`,
-          url: "/",
+          url: "/review",
           tag: "summary",
         });
         break;
@@ -101,7 +101,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
           ...base,
           title: `Wczoraj ${habitsLeft(gap.missing.length, false)}`,
           body: `${list(gap.missing.map((i) => i.habit.name))} — uzupełnij, jeśli zrobiłeś.`,
-          url: `/?date=${gap.date}`,
+          url: `/review?date=${gap.date}`,
           tag: "yesterday",
         });
         break;
