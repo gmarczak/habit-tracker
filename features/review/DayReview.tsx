@@ -98,8 +98,10 @@ function Review({ snapshot, date, today }: { snapshot: Snapshot; date: LocalDate
       if (habit.kind === "duration") clearTimer(habit.id, date);
       mutation.mutate({ ...base, kind: "set", value: habit.kind === "check" ? 1 : plan.targetValue });
     }
-    // „Nie dziś” zapisuje odpowiedź (wpis 0, częściowy postęp zostaje): rano przegląd i powiadomienie już nie pytają
-    if (change === "not") mutation.mutate({ ...base, kind: "set", value: entry && !entry.skipped ? (entry.value ?? 0) : 0 });
+    // „Nie dziś” zapisuje odpowiedź (wpis 0; zostaje tylko prawdziwy częściowy postęp, a pomyłkowe „Zrobione”
+    // po „Wstecz” się cofa): rano przegląd i powiadomienie już nie pytają
+    const partial = entry && !entry.skipped && (entry.value ?? 0) < plan.targetValue ? (entry.value ?? 0) : 0;
+    if (change === "not") mutation.mutate({ ...base, kind: "set", value: habit.kind === "check" ? 0 : partial });
     if (change === "skip") mutation.mutate({ ...base, kind: "skip" });
     next();
   }

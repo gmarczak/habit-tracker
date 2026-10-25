@@ -129,15 +129,18 @@ export function ComebackCard({ away, snapshot, today }: { away: Absence; snapsho
   }
 
   function takeBreak() {
-    markBreak.mutate(away, {
-      onSuccess: (id) =>
+    // Karta znika od razu (pauza w cache kończy ciszę), więc komunikat po obietnicy, nie w callbacku obserwatora
+    markBreak
+      .mutateAsync(away)
+      .then((id) =>
         toast({
           message: `Przerwa ${formatRange(away.from, away.to)} — serie trwają dalej`,
           actionLabel: "Cofnij",
           durationMs: 8000,
           onAction: () => undo.mutate(id),
         }),
-    });
+      )
+      .catch(() => {}); // błąd pokazuje useAction (toastErrors)
   }
 
   const easy = easiestHabit(snapshot.habits, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart);
