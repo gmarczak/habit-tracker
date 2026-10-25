@@ -17,6 +17,7 @@ import { completionRate, dayState, streakOf } from "@/lib/domain/progress";
 import { entryOutcome, planOn } from "@/lib/domain/schedule";
 import { describePlan, formatDayLong, formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
+import { AppTrigger } from "./AppTrigger";
 import { HabitEditor } from "./HabitEditor";
 import { habitStrength } from "@/lib/domain/strength";
 import { MonthCalendar } from "./MonthCalendar";
@@ -166,6 +167,8 @@ export function HabitDetail({ id }: { id: string }) {
       </section>
 
       {!isArchived && <HabitReminder habit={habit} canRemind={habit.goal === "build" && !habit.source} />}
+
+      {!isArchived && habit.goal === "build" && !habit.source && <AppTrigger habit={habit} />}
 
       <section aria-labelledby="pause-title" className="flex flex-col gap-2">
         <h2 id="pause-title" className={sectionTitle}>

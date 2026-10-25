@@ -8,7 +8,8 @@ import { HabitEditor, type HabitPreset } from "@/features/habits/HabitEditor";
 import { useSnapshot, useToday } from "@/lib/data/hooks";
 import { useAppBadge } from "./useAppBadge";
 
-type AddHabit = (preset?: HabitPreset) => void;
+/** `openDetail`: po dodaniu przejdź na stronę nowego nawyku (np. żeby ustawić automatyzację). */
+type AddHabit = (preset?: HabitPreset, options?: { openDetail?: boolean }) => void;
 const AddHabitContext = createContext<AddHabit>(() => {});
 export const useAddHabit = () => useContext(AddHabitContext);
 
@@ -25,9 +26,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: snapshot } = useSnapshot();
   const today = useToday(snapshot);
   useAppBadge(snapshot, today);
-  const [adding, setAdding] = useState<{ preset?: HabitPreset } | null>(null);
+  const [adding, setAdding] = useState<{ preset?: HabitPreset; openDetail?: boolean } | null>(null);
 
-  const open: AddHabit = useCallback((preset) => setAdding({ preset }), []);
+  const open: AddHabit = useCallback((preset, options) => setAdding({ preset, openDetail: options?.openDetail }), []);
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const link = (item: (typeof NAV)[number]) => (
     <Link
@@ -76,9 +77,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             today={today}
             preset={adding.preset}
             onCancel={() => setAdding(null)}
-            onDone={() => {
+            onDone={(habitId) => {
+              const openDetail = adding.openDetail;
               setAdding(null);
-              if (pathname !== "/" && pathname !== "/habits") router.push("/");
+              if (openDetail && habitId) router.push(`/habits/${habitId}`);
+              else if (pathname !== "/" && pathname !== "/habits") router.push("/");
             }}
           />
         )}

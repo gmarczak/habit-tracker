@@ -1,13 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { groupHeader } from "@/components/ui/styles";
+import Link from "next/link";
+import { btnSecondarySm, groupHeader } from "@/components/ui/styles";
+import { useAddHabit } from "@/features/shell/AppShell";
 import type { Snapshot } from "@/lib/data/snapshot";
 import { ShortcutKey } from "./ShortcutKey";
+
+/** Gotowe nawyki „skorzystałem z aplikacji” (tak/nie, codziennie) — odhacza je automatyzacja Skrótów po otwarciu aplikacji. */
+const APP_HABITS = [
+  { name: "Fitatu", kind: "check" as const, icon: "utensils", color: "green" as const, frequency: "daily" as const },
+  { name: "Duolingo", kind: "check" as const, icon: "languages", color: "green" as const, frequency: "daily" as const },
+];
 
 /** Odhaczanie bez otwierania aplikacji: Siri, Action Button, naklejka NFC, Apple Watch — wszystko przez Skróty i /api/log. */
 export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const addHabit = useAddHabit();
   const endpoint = typeof window === "undefined" ? "/api/log" : `${window.location.origin}/api/log`;
   const habits = snapshot.habits.filter((h) => h.archivedAt === null && h.goal === "build");
 
@@ -76,6 +85,27 @@ export function SiriShortcuts({ snapshot }: { snapshot: Snapshot }) {
             Wybrany nawyk wyślij jak wyżej (POST, <code>habit</code> = wybrany element).
           </li>
         </ol>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <h2 className={groupHeader}>Po otwarciu aplikacji (Fitatu, Duolingo…)</h2>
+        <div className="flex flex-col gap-3 rounded-xl bg-surface px-4 py-3 text-sm">
+          <p>
+            Otwierasz Fitatu albo Duolingo — nawyk odhacza się sam. Robi to automatyzacja <b>Aplikacja</b> w Skrótach. Instrukcję z gotowym adresem i
+            identyfikatorem znajdziesz na stronie nawyku (
+            <Link href="/habits" className="font-semibold text-accent underline underline-offset-2">
+              Nawyki
+            </Link>{" "}
+            → nawyk → „Po otwarciu aplikacji”).
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {APP_HABITS.filter((p) => !habits.some((h) => h.name.trim().toLowerCase() === p.name.toLowerCase())).map((p) => (
+              <button key={p.name} type="button" onClick={() => addHabit(p, { openDetail: true })} className={btnSecondarySm}>
+                + {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
