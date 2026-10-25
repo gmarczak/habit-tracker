@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { btnPrimary, btnSecondary, field, label, labelText, sectionTitle } from "@/components/ui/styles";
 import { enablePush } from "@/features/reminders/push";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { addPause, archiveGap, deleteReminder, endPause, restoreHabit, setArchived, upsertReminder, withPauseEnded } from "@/lib/data/mutations";
+import { addPause, archiveGap, deletePause, deleteReminder, dropPause, restoreHabit, setArchived, upsertReminder, withPauseDropped } from "@/lib/data/mutations";
 import { addDays, eachDay, type LocalDate } from "@/lib/domain/dates";
 import { METRIC_INFO, healthAverage, healthValue, metricUnit } from "@/lib/domain/health";
 import type { Habit } from "@/lib/domain/model";
@@ -41,7 +41,7 @@ export function HabitDetail({ id }: { id: string }) {
     scope: `habit-${id}`,
     toastErrors: true,
   });
-  const removePause = useAction((s, p: { id: string; startDate: LocalDate }) => endPause(s, p, today!), (snap, p) => withPauseEnded(snap, p, today!), {
+  const removePause = useAction((s, p: { id: string; startDate: LocalDate; endDate: LocalDate }) => dropPause(s, p, today!), (snap, p) => withPauseDropped(snap, p, today!), {
     toastErrors: true,
   });
 
@@ -77,7 +77,8 @@ export function HabitDetail({ id }: { id: string }) {
     .filter((e) => e.habitId === habit.id && e.note)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 30);
-  const habitPauses = snapshot.pauses.filter((p) => p.habitId === habit.id && p.endDate >= today);
+  // Także minione z ostatnich 30 dni (pauza dodana wstecz musi dać się zobaczyć i usunąć)
+  const habitPauses = snapshot.pauses.filter((p) => p.habitId === habit.id && p.endDate >= addDays(today, -30));
   const strength = habitStrength(habit, entries, pauses, asOf);
   const health = snapshot.health ?? [];
   const metric = habit.source ? METRIC_INFO[habit.source] : null;
@@ -185,7 +186,7 @@ export function HabitDetail({ id }: { id: string }) {
               {p.reason ? ` · ${p.reason}` : ""}
             </span>
             <button type="button" onClick={() => removePause.mutate(p)} className="h-11 shrink-0 px-2 text-sm font-semibold text-danger">
-              {p.startDate < today ? "Zakończ" : "Usuń"}
+              {p.startDate < today && p.endDate >= today ? "Zakończ" : "Usuń"}
             </button>
           </div>
         ))}
@@ -263,10 +264,22 @@ export function PauseForm({ habitId, today, onDone }: { habitId: string | null; 
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = useAction(addPause);
+  const toast = useToast();
+  const undo = useAction((s, id: string) => deletePause(s, id), undefined, { toastErrors: true });
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    save.mutate({ habitId, startDate: start, endDate: end, reason }, { onSuccess: onDone, onError: (err) => setError(err.message) });
+    save.mutate(
+      { habitId, startDate: start, endDate: end, reason },
+      {
+        onSuccess: (id) => {
+          // Pauza dodana wstecz od razu zmienia serie i statystyki: łatwo cofnąć pomyłkę
+          toast({ message: "Pauza zapisana", actionLabel: "Cofnij", onAction: () => undo.mutate(id) });
+          onDone();
+        },
+        onError: (err) => setError(err.message),
+      },
+    );
   }
 
   return (

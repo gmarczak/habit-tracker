@@ -330,6 +330,16 @@ export async function endPause(supabase: Supabase, pause: { id: string; startDat
   check(await supabase.from("habit_pauses").update({ end_date: addDays(today, -1) }).eq("id", pause.id));
 }
 
+/** Usunięcie z listy pauz: miniona (np. dodana wstecz) i przyszła znikają, trwająca kończy się wczoraj. */
+export async function dropPause(supabase: Supabase, pause: { id: string; startDate: LocalDate; endDate: LocalDate }, today: LocalDate): Promise<void> {
+  if (pause.endDate < today) return deletePause(supabase, pause.id);
+  return endPause(supabase, pause, today);
+}
+
+export function withPauseDropped(snapshot: Snapshot, pause: { id: string; startDate: LocalDate; endDate: LocalDate }, today: LocalDate): Snapshot {
+  return pause.endDate < today ? withoutPause(snapshot, pause.id) : withPauseEnded(snapshot, pause, today);
+}
+
 export function withPauseEnded(snapshot: Snapshot, pause: { id: string; startDate: LocalDate }, today: LocalDate): Snapshot {
   if (pause.startDate >= today) return withoutPause(snapshot, pause.id);
   return { ...snapshot, pauses: snapshot.pauses.map((p) => (p.id === pause.id ? { ...p, endDate: addDays(today, -1) } : p)) };

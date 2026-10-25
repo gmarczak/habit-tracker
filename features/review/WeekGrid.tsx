@@ -10,8 +10,8 @@ import { clearTimer } from "@/features/today/HabitTimer";
 import { useAction, useEntryMutation, useSnapshot, useToday } from "@/lib/data/hooks";
 import { LIGHTER_REASON, addPause, changeTarget, deletePause, withPause, withoutPause } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
-import { addDays, eachDay, startOfWeek, type LocalDate } from "@/lib/domain/dates";
-import { unitOf, type Habit, type Plan } from "@/lib/domain/model";
+import { addDays, eachDay, type LocalDate } from "@/lib/domain/dates";
+import { unitOf, type Habit, type Pause, type Plan } from "@/lib/domain/model";
 import { dayState, type DayState } from "@/lib/domain/progress";
 import { entriesByDate, planOn, requirementOn } from "@/lib/domain/schedule";
 import { dayProgress } from "@/lib/domain/today";
@@ -124,7 +124,7 @@ function HabitWeek({ habit, days, today, snapshot, onLong }: { habit: Habit; day
       </div>
       <div className="grid grid-cols-7 gap-1">
         {days.map((d, i) => (
-          <Cell key={d} habit={habit} date={d} state={states[i]!} entry={byDate.get(d)} onLong={() => onLong(d)} />
+          <Cell key={d} habit={habit} date={d} state={states[i]!} entry={byDate.get(d)} pauses={snapshot.pauses} onLong={() => onLong(d)} />
         ))}
       </div>
     </div>
@@ -144,27 +144,33 @@ function Cell({
   date,
   state,
   entry,
+  pauses,
   onLong,
 }: {
   habit: Habit;
   date: LocalDate;
   state: DayState;
   entry: { value: number | null; skipped: boolean } | undefined;
+  pauses: readonly Pause[];
   onLong: () => void;
 }) {
   const mutation = useEntryMutation();
   const timer = useRef<number | null>(null);
   const longPressed = useRef(false);
   const quit = habit.goal === "quit";
-  const inactive = INACTIVE.includes(state);
+  // Dzień w pauzie albo niewymagany z wpisem (np. zrobione przed „dniem wolnym”) zostaje klikalny, żeby dało się go cofnąć
+  const inactive = INACTIVE.includes(state) && !entry;
   const saidNo = !quit && !!entry && !entry.skipped && (entry.value ?? 0) === 0;
+  // Częściowy postęp także dziś (dzień jeszcze trwa, więc stan to „pending”)
+  const partial = !quit && state !== "done" && !!entry && !entry.skipped && (entry.value ?? 0) > 0;
   const plan = planOn(habit, date);
 
   function tap() {
     const base = { habitId: habit.id, date };
     if (quit) return mutation.mutate(state === "missed" ? { ...base, kind: "clear" } : { ...base, kind: "set", value: 1 });
-    // zrobione → nie (wpis 0) → puste → zrobione; w planie tygodniowym „nie” nic nie znaczy: zrobione ↔ puste
-    if (state === "done") return mutation.mutate(plan?.frequency === "weekly_count" ? { ...base, kind: "clear" } : { ...base, kind: "set", value: 0 });
+    // zrobione → nie (wpis 0) → puste → zrobione; w planie tygodniowym i w dniu niewymaganym „nie” nic nie znaczy: zrobione ↔ puste
+    const required = requirementOn(habit, pauses, date) === "required";
+    if (state === "done" || (!required && entry && !entry.skipped)) return mutation.mutate(required ? { ...base, kind: "set", value: 0 } : { ...base, kind: "clear" });
     if (saidNo) return mutation.mutate({ ...base, kind: "clear" });
     if (habit.kind === "duration") clearTimer(habit.id, date);
     mutation.mutate({ ...base, kind: "set", value: habit.kind === "check" ? 1 : (plan?.targetValue ?? 1) });
@@ -178,7 +184,7 @@ function Cell({
         : "czysto"
     : state === "done"
       ? "zrobione"
-      : state === "partial"
+      : partial
         ? `częściowo, ${formatNumber(entry?.value ?? 0)}`
         : state === "skipped"
           ? "pominięte"
@@ -204,7 +210,7 @@ function Cell({
       : "bg-fill text-muted"
     : state === "done"
       ? "bg-accent text-accent-contrast"
-      : state === "partial"
+      : partial
         ? "border-2 border-accent text-accent text-[11px] font-bold"
         : state === "skipped"
           ? "border-[1.5px] border-control text-muted"
@@ -236,7 +242,7 @@ function Cell({
       className="flex h-10 select-none items-center justify-center"
     >
       <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-bold transition-colors ${look}`}>
-        {quit ? (state === "missed" ? "!" : <CheckIcon />) : state === "done" ? <CheckIcon /> : state === "partial" ? formatNumber(entry?.value ?? 0) : state === "skipped" ? "–" : saidNo ? "×" : null}
+        {quit ? (state === "missed" ? "!" : <CheckIcon />) : state === "done" ? <CheckIcon /> : partial ? formatNumber(entry?.value ?? 0) : state === "skipped" ? "–" : saidNo ? "×" : null}
       </span>
     </button>
   );
@@ -244,7 +250,7 @@ function Cell({
 
 // ---------- na lżej ----------
 
-const LIGHTER_KEY = "lighter-dismissed";
+const LIGHTER_KEY = "lighter-decided";
 
 type Weak = { habit: Habit; plan: Plan; done: number; required: number };
 
@@ -259,6 +265,9 @@ function weakHabits(snapshot: Snapshot, today: LocalDate, days: LocalDate[]): We
   for (const habit of snapshot.habits) {
     const plan = planOn(habit, today);
     if (habit.archivedAt !== null || habit.goal !== "build" || !plan || unitOf(plan.frequency) !== "days") continue;
+    // Już zdecydowane: trwa pauza albo cel zmieniono w ostatnim tygodniu
+    if (snapshot.pauses.some((p) => p.habitId === habit.id && p.startDate <= today && today <= p.endDate)) continue;
+    if (plan.validFrom > addDays(today, -7)) continue;
     let required = 0;
     let done = 0;
     for (const d of past) {
@@ -273,11 +282,13 @@ function weakHabits(snapshot: Snapshot, today: LocalDate, days: LocalDate[]): We
   return out;
 }
 
-function readDismissed(): string[] {
+/** habitId → dzień, do którego karta milczy (7 dni od decyzji, niezależnie od granicy tygodnia). */
+function readDismissed(): Record<string, LocalDate> {
   try {
-    return JSON.parse(localStorage.getItem(LIGHTER_KEY) ?? "[]") as string[];
+    const raw = JSON.parse(localStorage.getItem(LIGHTER_KEY) ?? "{}") as unknown;
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, LocalDate>) : {};
   } catch {
-    return [];
+    return {};
   }
 }
 
@@ -286,9 +297,8 @@ function smallerTarget(plan: Plan): number {
 }
 
 function Lighter({ snapshot, today, days }: { snapshot: Snapshot; today: LocalDate; days: LocalDate[] }) {
-  const [dismissed, setDismissed] = useState<string[] | null>(null);
+  const [dismissed, setDismissed] = useState<Record<string, LocalDate> | null>(null);
   const toast = useToast();
-  const week = startOfWeek(today, snapshot.settings.weekStart);
   const undoPause = useAction((s, id: string) => deletePause(s, id), withoutPause, { toastErrors: true });
   const pause = useAction(
     (s, habitId: string) => addPause(s, { habitId, startDate: today, endDate: addDays(today, 6), reason: LIGHTER_REASON }),
@@ -303,11 +313,11 @@ function Lighter({ snapshot, today, days }: { snapshot: Snapshot; today: LocalDa
   }, []);
 
   if (dismissed === null) return null;
-  const weak = weakHabits(snapshot, today, days).filter((w) => !dismissed.includes(`${w.habit.id}:${week}`));
+  const weak = weakHabits(snapshot, today, days).filter((w) => !(dismissed[w.habit.id] && today < dismissed[w.habit.id]!));
   if (weak.length === 0) return null;
 
   function keep(habitId: string) {
-    const next = [...new Set([...readDismissed(), `${habitId}:${week}`])].slice(-50);
+    const next = { ...readDismissed(), [habitId]: addDays(today, 7) };
     try {
       localStorage.setItem(LIGHTER_KEY, JSON.stringify(next));
     } catch {

@@ -15,11 +15,11 @@ import { disablePush } from "@/features/reminders/push";
 import { ReminderSettings } from "@/features/reminders/ReminderSettings";
 import { download, entriesCsv, snapshotJson } from "@/lib/data/export";
 import { useAction, useSnapshot, useToday } from "@/lib/data/hooks";
-import { deleteAccount, deleteCategory, endPause, updateSettings, withPauseEnded, type SettingsForm } from "@/lib/data/mutations";
+import { deleteAccount, deleteCategory, dropPause, updateSettings, withPauseDropped, type SettingsForm } from "@/lib/data/mutations";
 import { fetchAllHealth, type Snapshot } from "@/lib/data/snapshot";
 import { supabaseBrowser } from "@/lib/db/client";
 import { signOutFlow } from "@/lib/db/session";
-import type { LocalDate, WeekStart } from "@/lib/domain/dates";
+import { addDays, type LocalDate, type WeekStart } from "@/lib/domain/dates";
 import { formatDayLong } from "@/lib/format";
 import { HealthSync } from "./HealthSync";
 import { SiriShortcuts } from "./SiriShortcuts";
@@ -108,11 +108,12 @@ export function AccountPage() {
 
 function Vacation({ snapshot, today }: { snapshot: Snapshot; today: LocalDate }) {
   const [planning, setPlanning] = useState(false);
-  // Trwający urlop kończy się wczoraj (minione dni zostają neutralne), przyszły znika
-  const removePause = useAction((s, p: { id: string; startDate: LocalDate }) => endPause(s, p, today), (snap, p) => withPauseEnded(snap, p, today), {
+  // Trwający urlop kończy się wczoraj (minione dni zostają neutralne), przyszły i miniony znikają
+  const removePause = useAction((s, p: { id: string; startDate: LocalDate; endDate: LocalDate }) => dropPause(s, p, today), (snap, p) => withPauseDropped(snap, p, today), {
     toastErrors: true,
   });
-  const vacations = snapshot.pauses.filter((p) => p.habitId === null && p.endDate >= today);
+  // Także minione z ostatnich 30 dni: urlop albo przerwa dodane wstecz
+  const vacations = snapshot.pauses.filter((p) => p.habitId === null && p.endDate >= addDays(today, -30));
   return (
     <section className="flex flex-col gap-3">
       <p className="text-sm text-muted">Pauza dla wszystkich nawyków naraz. Serie przetrwają, statystyki nie spadną.</p>
@@ -125,7 +126,7 @@ function Vacation({ snapshot, today }: { snapshot: Snapshot; today: LocalDate })
                 {p.reason ? ` · ${p.reason}` : ""}
               </span>
               <button type="button" onClick={() => removePause.mutate(p)} className="h-11 shrink-0 px-2 text-[15px] text-danger">
-                {p.startDate < today ? "Zakończ" : "Usuń"}
+                {p.startDate < today && p.endDate >= today ? "Zakończ" : "Usuń"}
               </button>
             </li>
           ))}
