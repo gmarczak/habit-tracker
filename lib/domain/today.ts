@@ -1,7 +1,7 @@
-import type { LocalDate, WeekStart } from "./dates";
-import type { Entry, Habit, Pause, Plan } from "./model";
+import { addDays, type LocalDate, type WeekStart } from "./dates";
+import { unitOf, type Entry, type Habit, type Pause, type Plan } from "./model";
 import { currentWeekProgress, dayState, streakOf, type DayState, type Streak, type WeekProgress } from "./progress";
-import { entriesByDate, planOn, requirementOn } from "./schedule";
+import { entriesByDate, entryOutcome, planOn, requirementOn } from "./schedule";
 
 export type TodayItem = {
   habit: Habit;
@@ -11,11 +11,50 @@ export type TodayItem = {
   streak: Streak;
   /** tylko dla planów tygodniowych */
   week: WeekProgress | null;
+  /** poprzedni wymagany dzień wypadł, a ten jeszcze czeka: drugi brak z rzędu przerwie serię */
+  missedLast: boolean;
 };
+
+/** Odpowiedź „nie dziś”: wpis 0 przy nawyku „buduję” (dzień rozstrzygnięty jako niezrobiony). */
+export function isAnsweredNo(item: Pick<TodayItem, "habit" | "entry">): boolean {
+  return item.habit.goal === "build" && !!item.entry && !item.entry.skipped && (item.entry.value ?? 0) === 0;
+}
+
+/**
+ * Nawyk czeka na odpowiedź (przegląd, „wczoraj zostało”, licznik do domknięcia).
+ * Za miniony dzień każdy wpis jest odpowiedzią; dziś częściowy postęp jeszcze czeka na resztę.
+ */
+export function awaitsAnswer(item: Pick<TodayItem, "habit" | "entry">, isToday: boolean): boolean {
+  if (!item.entry) return true;
+  if (item.entry.skipped || item.habit.goal === "quit") return false;
+  return isToday && (item.entry.value ?? 0) > 0;
+}
+
+/**
+ * Poprzedni wymagany dzień (do tygodnia wstecz) wypadł: odpowiedź „nie”, częściowo albo brak wpisu w dniu,
+ * w którym zapisano coś innego. Dzień bez żadnego zapisu to niewiadoma (mogło być zrobione, tylko niezapisane).
+ */
+export function missedPrevious(habit: Habit, entries: readonly Entry[], pauses: readonly Pause[], date: LocalDate): boolean {
+  if (habit.goal === "quit") return false;
+  for (let d = addDays(date, -1), i = 0; i < 7 && d >= habit.startDate; d = addDays(d, -1), i++) {
+    const plan = planOn(habit, d);
+    if (!plan || unitOf(plan.frequency) !== "days") return false;
+    const req = requirementOn(habit, pauses, d);
+    if (req === "paused" || req === "not_required") continue;
+    if (req !== "required") return false;
+    const entry = entriesByDate(entries, habit.id).get(d);
+    const outcome = entryOutcome(entry, plan);
+    // pominięcie jest neutralne jak w serii: patrzymy na wcześniejszy dzień
+    if (outcome === "skipped") continue;
+    if (outcome === "done") return false;
+    return entry !== undefined || entries.some((e) => e.date === d);
+  }
+  return false;
+}
 
 export type TodayView = {
   date: LocalDate;
-  /** wymagane dziś i jeszcze nie zrobione (w tym częściowo) */
+  /** wymagane dziś i jeszcze nie zrobione (w tym częściowo i „nie dziś”); najpierw te, które wczoraj wypadły */
   todo: TodayItem[];
   /** plany tygodniowe: tydzień jeszcze niezaliczony i dziś nie zrobione */
   thisWeek: TodayItem[];
@@ -57,6 +96,7 @@ export function buildDay(
       entry: entriesByDate(entries, habit.id).get(date),
       streak: streakOf(habit, entries, pauses, today, weekStart),
       week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null,
+      missedLast: req === "required" && state !== "done" && state !== "skipped" && missedPrevious(habit, entries, pauses, date),
     };
 
     // „Rzucam” bez wpisu jest czysty z automatu: nie podbija pierścienia dnia, w którym nic nie zrobiono
@@ -72,6 +112,8 @@ export function buildDay(
       else view.done.push(item);
     } else view.todo.push(item);
   }
+  // „Nie odpuszczaj dwa razy”: wczoraj wypadło → na górę (sort stabilny, reszta w kolejności użytkownika)
+  view.todo.sort((a, b) => Number(b.missedLast) - Number(a.missedLast));
   return view;
 }
 

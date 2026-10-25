@@ -1,12 +1,14 @@
-import { addDays, eachDay, startOfWeek, type LocalDate, type WeekStart } from "./dates";
+import { addDays, diffDays, eachDay, startOfWeek, type LocalDate, type WeekStart } from "./dates";
 import { unitOf, type Entry, type Habit, type Pause, type StreakUnit } from "./model";
 import { entriesByDate, entryOutcome, isPaused, planOn, requirementOn } from "./schedule";
 
 /*
  * Reguły (uzgodnione w planie remasteru):
  * - Seria w dniach (plany dzienne): kolejne wymagane dni z osiągniętym celem.
- *   Pominięte, pauza i dni niewymagane są neutralne. Częściowo (wartość < cel) przerywa.
- *   Dzisiejszy brak nie przerywa serii do końca dnia.
+ *   Pominięte, pauza i dni niewymagane są neutralne. Dzisiejszy brak nie przerywa serii do końca dnia.
+ *   „Nie odpuszczaj dwa razy”: jeden brak (albo wykonanie częściowe) nie przerywa serii „buduję”,
+ *   przerywają dwa z rzędu albo drugi w ciągu 7 dni. Potknięcie nie wlicza się do długości serii.
+ *   „Rzucam”: każda wpadka przerywa.
  * - Seria w tygodniach ("X razy w tygodniu"): tydzień zaliczony, gdy zrobione >= wymagane.
  *   Wymagane = ceil(X * dostępne dni / 7); dostępne = dni tygodnia objęte planem tygodniowym,
  *   bez pauz i pominięć. Bieżący tydzień jest neutralny, dopóki nie zostanie zaliczony.
@@ -114,21 +116,38 @@ export function currentWeekProgress(
 
 // ---------- serie ----------
 
-export type Streak = { current: number; best: number; unit: StreakUnit };
+/** `slips` – potknięcia (pojedyncze braki) w bieżącej serii dziennej */
+export type Streak = { current: number; best: number; unit: StreakUnit; slips?: number };
 
-function currentDays(c: Ctx): number {
+/** Najkrótszy odstęp między dwoma potknięciami, które seria jeszcze wybacza. */
+const SLIP_GAP_DAYS = 7;
+
+function currentDays(c: Ctx): { streak: number; slips: number } {
   let streak = 0;
+  let slips = 0;
+  // `pending`: nowszy wymagany dzień był potknięciem, więc kolejny brak to już drugi z rzędu
+  let pending = false;
+  let lastSlip: LocalDate | null = null;
   for (let d = c.today; d >= c.habit.startDate; d = addDays(d, -1)) {
     const plan = planOn(c.habit, d);
     if (!plan || unitOf(plan.frequency) !== "days") break;
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
     const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
-    if (outcome === "done") streak++;
-    else if (outcome === "skipped" || (d === c.today && c.habit.goal !== "quit")) continue;
-    else break;
+    if (outcome === "done") {
+      streak++;
+      pending = false;
+    } else if (outcome === "skipped" || (d === c.today && c.habit.goal !== "quit")) continue;
+    else if (c.habit.goal === "quit" || pending || (lastSlip !== null && diffDays(d, lastSlip) < SLIP_GAP_DAYS)) break;
+    else {
+      pending = true;
+      lastSlip = d;
+      slips++;
+    }
   }
-  return streak;
+  // brak tuż przed serią (dwa z rzędu albo początek historii) nie należy do niej
+  if (pending) slips--;
+  return { streak, slips };
 }
 
 function currentWeeks(c: Ctx): number {
@@ -142,21 +161,40 @@ function currentWeeks(c: Ctx): number {
   return streak;
 }
 
+/** Ta sama reguła co `currentDays`, liczona od początku: potknięcie za blisko poprzedniego zaczyna serię od dni po tamtym. */
 function bestDays(c: Ctx): number {
   let best = 0;
   let run = 0;
+  let sinceSlip = 0;
+  let pending = false;
+  let lastSlip: LocalDate | null = null;
+  const reset = () => {
+    run = 0;
+    sinceSlip = 0;
+    pending = false;
+    lastSlip = null;
+  };
   for (let d = c.habit.startDate; d <= c.today; d = addDays(d, 1)) {
     const plan = planOn(c.habit, d);
     if (!plan || unitOf(plan.frequency) !== "days") {
-      run = 0;
+      reset();
       continue;
     }
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
     const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
-    if (outcome === "done") best = Math.max(best, ++run);
-    else if (outcome === "skipped" || (d === c.today && c.habit.goal !== "quit")) continue;
-    else run = 0;
+    if (outcome === "done") {
+      best = Math.max(best, ++run);
+      sinceSlip++;
+      pending = false;
+    } else if (outcome === "skipped" || (d === c.today && c.habit.goal !== "quit")) continue;
+    else if (c.habit.goal === "quit" || run === 0 || pending) reset();
+    else {
+      if (lastSlip !== null && diffDays(lastSlip, d) < SLIP_GAP_DAYS) run = sinceSlip;
+      pending = true;
+      lastSlip = d;
+      sinceSlip = 0;
+    }
   }
   return best;
 }
@@ -184,9 +222,10 @@ export function streakOf(
   const plan = planOn(habit, today) ?? habit.plans[habit.plans.length - 1] ?? null;
   const unit: StreakUnit = plan ? unitOf(plan.frequency) : "days";
   if (today < habit.startDate) return { current: 0, best: 0, unit };
-  return unit === "days"
-    ? { current: currentDays(c), best: bestDays(c), unit }
-    : { current: currentWeeks(c), best: bestWeeks(c), unit };
+  if (unit === "weeks") return { current: currentWeeks(c), best: bestWeeks(c), unit };
+  const { streak, slips } = currentDays(c);
+  // rekord nigdy mniejszy niż bieżąca seria
+  return { current: streak, best: Math.max(bestDays(c), streak), unit, slips };
 }
 
 // ---------- skuteczność ----------

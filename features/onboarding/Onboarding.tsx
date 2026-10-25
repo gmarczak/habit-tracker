@@ -82,11 +82,6 @@ export function Onboarding({ today }: { today: LocalDate }) {
           );
         })}
       </ul>
-      {picked.some((id) => TEMPLATES.find((t) => t.id === id)?.source) && (
-        <p className="px-1 text-[13px] text-muted">
-          Nawyki „z Apple Zdrowie” odhaczą się same, gdy ustawisz Skrót w Ustawieniach → Apple Zdrowie. Do tego czasu odhaczasz je ręcznie.
-        </p>
-      )}
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex flex-col gap-3">
         <button

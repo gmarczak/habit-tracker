@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Entry, Habit, Plan } from "./model";
-import { groupByPart, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "./nudges";
+import { absence, easiestHabit, groupByPart, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "./nudges";
 import { buildDay } from "./today";
 
 const daily: Plan = { validFrom: "2026-10-05", frequency: "daily", weekdays: null, timesPerWeek: null, intervalDays: null, targetValue: 1 };
@@ -28,6 +28,13 @@ describe("wczoraj", () => {
     expect(gap?.date).toBe("2026-10-12");
     expect(gap?.missing.map((i) => i.habit.name)).toEqual(["Spacer"]);
   });
+  it("odpowiedź „nie” (wpis 0) domyka dzień: rano już nie pyta", () => {
+    const no = { habitId: "b", date: "2026-10-12", value: 0, skipped: false, note: null };
+    expect(yesterdayGap(habits, [done("a", "2026-10-12"), no], [], "2026-10-13", 1)).toBeNull();
+    // częściowy postęp za wczoraj to też odpowiedź
+    expect(yesterdayGap(habits, [{ ...no, value: 3 }], [], "2026-10-13", 1)?.missing.map((i) => i.habit.name)).toEqual(["Czytanie"]);
+  });
+
   it("null gdy domknięte, pominięte albo dzień wolny", () => {
     expect(yesterdayGap(habits, [done("a", "2026-10-12"), done("b", "2026-10-12")], [], "2026-10-13", 1)).toBeNull();
     expect(yesterdayGap(habits, [done("a", "2026-10-12"), { habitId: "b", date: "2026-10-12", value: null, skipped: true, note: null }], [], "2026-10-13", 1)).toBeNull();
@@ -75,5 +82,39 @@ describe("podsumowanie tygodnia", () => {
     expect(s.logged).toEqual({ checks: 5, days: 3, top: { name: "Medytacja", count: 3 } });
     expect(weeklyMessage(s)).toEqual({ title: "Twój tydzień", body: "5 odhaczeń w 3 dni · Najczęściej: Medytacja 3× · Od jutra nowy tydzień" });
     expect(weeklyMessage(weeklySummary(habits, [], [], "2026-10-11", 1))?.title).toBe("Nowy tydzień od jutra");
+  });
+});
+
+describe("powrót po przerwie", () => {
+  const habits = [h("a", "Medytacja"), h("b", "Spacer"), h("q", "Rzucam", { goal: "quit" })];
+  it("liczy dni ciszy do wczoraj, przerywa wpis, notatka albo pauza wszystkich nawyków", () => {
+    const entries = [done("a", "2026-10-12")];
+    expect(absence(habits, entries, [], [], "2026-10-22")).toEqual({ from: "2026-10-13", to: "2026-10-21", days: 9 });
+    expect(absence(habits, [...entries, done("b", "2026-10-21")], [], [], "2026-10-22")).toBeNull();
+    expect(absence(habits, entries, [], [{ date: "2026-10-18", note: null, mood: 3 }], "2026-10-22")).toEqual({ from: "2026-10-19", to: "2026-10-21", days: 3 });
+    expect(absence(habits, entries, [{ habitId: null, startDate: "2026-10-13", endDate: "2026-10-21" }], [], "2026-10-22")).toBeNull();
+    // pauza jednego nawyku to nie przerwa w zapisywaniu
+    expect(absence(habits, entries, [{ habitId: "a", startDate: "2026-10-13", endDate: "2026-10-21" }], [], "2026-10-22")?.days).toBe(9);
+  });
+
+  it("dni bez wymaganych nawyków są neutralne, „rzucam” się nie liczy", () => {
+    const weekdays = [h("a", "Praca", { plans: [{ ...daily, frequency: "weekdays", weekdays: [1, 2, 3, 4, 5] }] }), h("q", "Rzucam", { goal: "quit" })];
+    // pon 19.10 – pt 23.10 bez wpisów, wcześniej weekend: cisza od poniedziałku
+    expect(absence(weekdays, [done("a", "2026-10-16")], [], [], "2026-10-24")).toEqual({ from: "2026-10-19", to: "2026-10-23", days: 5 });
+    expect(absence([h("q", "Rzucam", { goal: "quit" })], [], [], [], "2026-10-24")).toBeNull();
+    // jeden opuszczony piątek przy planie pn–pt to nie trzy dni przerwy
+    expect(absence(weekdays, [done("a", "2026-10-22")], [], [], "2026-10-26")).toEqual({ from: "2026-10-23", to: "2026-10-25", days: 1 });
+  });
+
+  it("wpisy z Apple Zdrowie (Skrót) nie przerywają ciszy", () => {
+    const withAuto = [...habits, h("s", "Kroki", { source: "steps", sourceMin: 7000 })];
+    const auto = ["2026-10-19", "2026-10-20", "2026-10-21"].map((d) => done("s", d));
+    expect(absence(withAuto, [done("a", "2026-10-18"), ...auto], [], [], "2026-10-22")?.days).toBe(3);
+  });
+
+  it("najłatwiejszy start: najmocniejszy nawyk bez dzisiejszego wpisu", () => {
+    const entries = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"].map((d) => done("b", d));
+    expect(easiestHabit(habits, entries, [], "2026-10-12", 1)?.habit.name).toBe("Spacer");
+    expect(easiestHabit(habits, [...entries, done("b", "2026-10-12")], [], "2026-10-12", 1)?.habit.name).toBe("Medytacja");
   });
 });

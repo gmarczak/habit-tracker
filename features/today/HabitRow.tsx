@@ -5,7 +5,7 @@ import { useEntryMutation, useSnapshot } from "@/lib/data/hooks";
 import type { LocalDate } from "@/lib/domain/dates";
 import { METRIC_INFO, healthValue, metricUnit, metricUnitOf } from "@/lib/domain/health";
 import { planOn } from "@/lib/domain/schedule";
-import type { TodayItem } from "@/lib/domain/today";
+import { isAnsweredNo, type TodayItem } from "@/lib/domain/today";
 import { formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { EntrySheet } from "./EntrySheet";
@@ -54,6 +54,8 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
   const target = plan.targetValue;
   const isDone = state === "done";
   const isSkipped = state === "skipped";
+  // „Nie dziś” z przeglądu albo karty „Wczoraj”: wpis 0, dzień rozstrzygnięty
+  const saidNo = !isDone && !isSkipped && isAnsweredNo(item);
   const unit = habit.kind === "duration" ? "min" : (habit.unit ?? "");
 
   /** Główny gest: tak/nie przełącza, ilość dodaje 1, czas zalicza pełny cel. */
@@ -87,7 +89,7 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
   }
   const toRight: SwipeAction | undefined = isDone ? undefined : { label: "Zrobione", tone: "accent", run: () => settle("done") };
   const toLeft: SwipeAction =
-    isDone || isSkipped ? { label: "Cofnij", tone: "neutral", run: () => settle("clear") } : { label: "Pomiń", tone: "neutral", run: () => settle("skip") };
+    isDone || isSkipped || saidNo ? { label: "Cofnij", tone: "neutral", run: () => settle("clear") } : { label: "Pomiń", tone: "neutral", run: () => settle("skip") };
 
   function startPress() {
     longPressed.current = false;
@@ -120,8 +122,12 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
     ? "Pominięte"
     : isDone
       ? streakText
-      : [habit.cue, progressText, autoText(habit, measured), streakText].filter(Boolean).join(" · ") ||
-        (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
+      : saidNo
+        ? "Nie dziś"
+        : item.missedLast
+          ? `Wczoraj wypadło — dziś nie odpuść${streak.current > 0 ? ` · ${streakText}` : ""}`
+          : [habit.cue, progressText, autoText(habit, measured), streakText].filter(Boolean).join(" · ") ||
+            (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
 
   const actionLabel =
     habit.kind === "count" && !isDone && !isSkipped
@@ -140,7 +146,15 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
 
           <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
             <span className={`w-full truncate ${compact ? "text-[17px] text-done" : "text-[17px] font-medium"}`}>{title}</span>
-            {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
+            {detail && (
+              <span
+                className={`text-[13px] ${
+                  (isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : item.missedLast && !saidNo && !isDone && !isSkipped ? "font-semibold" : "text-muted"
+                }`}
+              >
+                {detail}
+              </span>
+            )}
           </button>
 
           <button

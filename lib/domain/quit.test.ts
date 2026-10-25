@@ -20,8 +20,8 @@ describe("nawyk „rzucam”", () => {
   });
 
   it("seria to dni bez wpadki; dzisiejsza wpadka ją zeruje", () => {
-    expect(streakOf(sweets, [], [], "2026-10-13", 1)).toEqual({ current: 13, best: 13, unit: "days" });
-    expect(streakOf(sweets, [slip("2026-10-10")], [], "2026-10-13", 1)).toEqual({ current: 3, best: 9, unit: "days" });
+    expect(streakOf(sweets, [], [], "2026-10-13", 1)).toEqual({ current: 13, best: 13, unit: "days", slips: 0 });
+    expect(streakOf(sweets, [slip("2026-10-10")], [], "2026-10-13", 1)).toEqual({ current: 3, best: 9, unit: "days", slips: 0 });
     expect(streakOf(sweets, [slip("2026-10-13")], [], "2026-10-13", 1).current).toBe(0);
   });
 

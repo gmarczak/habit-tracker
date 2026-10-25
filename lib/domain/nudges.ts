@@ -1,11 +1,12 @@
 import { addDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
 import { plural } from "./words";
-import type { Entry, Habit, Pause, TimeOfDay } from "./model";
+import type { DayNote, Entry, Habit, Pause, TimeOfDay } from "./model";
 import { completionRate, currentWeekProgress } from "./progress";
 import { unitOf } from "./model";
 import { planOn } from "./schedule";
 import { weekReview } from "./stats";
-import { buildDay, type TodayItem } from "./today";
+import { habitStrength } from "./strength";
+import { awaitsAnswer, buildDay, dayProgress, type TodayItem } from "./today";
 
 // ---------- pory dnia ----------
 
@@ -24,8 +25,8 @@ export function groupByPart(items: readonly TodayItem[]): PartGroup[] {
 export type DayGap = { date: LocalDate; missing: TodayItem[]; done: number; total: number };
 
 /**
- * Wymagane wczoraj nawyki bez wpisu (ani zrobione, ani pominięte). null, gdy wczoraj jest domknięte
- * albo nic nie było wymagane. Plany tygodniowe się nie liczą — można je nadrobić innego dnia.
+ * Wymagane wczoraj nawyki bez żadnej odpowiedzi (ani zrobione, ani pominięte, ani „nie”). null, gdy wczoraj
+ * jest domknięte albo nic nie było wymagane. Plany tygodniowe się nie liczą — można je nadrobić innego dnia.
  */
 export function yesterdayGap(
   habits: readonly Habit[],
@@ -36,8 +37,63 @@ export function yesterdayGap(
 ): DayGap | null {
   const date = addDays(today, -1);
   const view = buildDay(habits, entries, pauses, date, today, weekStart);
-  if (view.progress.total === 0 || view.todo.length === 0) return null;
-  return { date, missing: view.todo, done: view.progress.done, total: view.progress.total };
+  const missing = view.todo.filter((i) => awaitsAnswer(i, false));
+  if (view.progress.total === 0 || missing.length === 0) return null;
+  return { date, missing, done: view.progress.done, total: view.progress.total };
+}
+
+// ---------- powrót po przerwie ----------
+
+/**
+ * Ciąg dni kończący się wczoraj bez żadnego zapisu, choć nawyki „buduję” były wymagane.
+ * `days` liczy tylko dni z wymaganymi nawykami (weekend przy planie pn–pt nie wydłuża przerwy); from..to to cały zakres.
+ */
+export type Absence = { from: LocalDate; to: LocalDate; days: number };
+
+/**
+ * Cisza przed dziś: dni z wymaganymi nawykami „buduję”, w których nie ma żadnego wpisu (także „nie” i pominięcia)
+ * ani notatki dnia. Kończy ją wpis, notatka albo pauza wszystkich nawyków (przerwa już opisana).
+ * Wpisy z Apple Zdrowie (Skrót zapisuje je sam) nie są aktywnością. Dni bez wymaganych nawyków są neutralne.
+ * `maxDays` ogranicza, jak daleko patrzymy wstecz.
+ */
+export function absence(
+  habits: readonly Habit[],
+  entries: readonly Entry[],
+  pauses: readonly Pause[],
+  notes: readonly DayNote[],
+  today: LocalDate,
+  maxDays = 60,
+): Absence | null {
+  const logged = manualDates(habits, entries, notes);
+  const to = addDays(today, -1);
+  let from: LocalDate | null = null;
+  let days = 0;
+  for (let d = to, i = 0; i < maxDays; d = addDays(d, -1), i++) {
+    if (logged.has(d) || pauses.some((p) => p.habitId === null && p.startDate <= d && d <= p.endDate)) break;
+    if (dayProgress(habits, entries, pauses, d, true).total > 0) {
+      from = d;
+      days++;
+    }
+  }
+  return from ? { from, to, days } : null;
+}
+
+/** Dni, w których użytkownik coś zapisał sam (wpis nawyku bez Apple Zdrowie albo notatka/nastrój). */
+export function manualDates(habits: readonly Habit[], entries: readonly Entry[], notes: readonly DayNote[]): Set<LocalDate> {
+  const auto = new Set(habits.filter((h) => h.source).map((h) => h.id));
+  return new Set<LocalDate>([...entries.filter((e) => !auto.has(e.habitId)).map((e) => e.date), ...notes.map((n) => n.date)]);
+}
+
+/**
+ * Najłatwiejszy start po przerwie: codzienny nawyk „buduję” wymagany dziś, najmocniejszy
+ * (najdłużej trzymany), a przy remisie z najmniejszym celem.
+ */
+export function easiestHabit(habits: readonly Habit[], entries: readonly Entry[], pauses: readonly Pause[], today: LocalDate, weekStart: WeekStart): TodayItem | null {
+  const view = buildDay(habits, entries, pauses, today, today, weekStart);
+  const candidates = view.todo.filter((i) => !i.entry);
+  if (candidates.length === 0) return null;
+  const score = new Map(candidates.map((i) => [i.habit.id, habitStrength(i.habit, entries, pauses, today)]));
+  return [...candidates].sort((a, b) => score.get(b.habit.id)! - score.get(a.habit.id)! || a.plan.targetValue - b.plan.targetValue)[0]!;
 }
 
 // ---------- podsumowanie tygodnia ----------

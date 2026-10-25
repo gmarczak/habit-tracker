@@ -188,19 +188,31 @@ function currentWeekProgress(habit, entries, pauses, today, weekStart) {
   const c = ctx(habit, entries, pauses, today, weekStart);
   return evaluateWeek(c, startOfWeek(today, weekStart));
 }
+var SLIP_GAP_DAYS = 7;
 function currentDays(c) {
   let streak = 0;
+  let slips = 0;
+  let pending = false;
+  let lastSlip = null;
   for (let d = c.today; d >= c.habit.startDate; d = addDays(d, -1)) {
     const plan = planOn(c.habit, d);
     if (!plan || unitOf(plan.frequency) !== "days") break;
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
     const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
-    if (outcome === "done") streak++;
-    else if (outcome === "skipped" || d === c.today && c.habit.goal !== "quit") continue;
-    else break;
+    if (outcome === "done") {
+      streak++;
+      pending = false;
+    } else if (outcome === "skipped" || d === c.today && c.habit.goal !== "quit") continue;
+    else if (c.habit.goal === "quit" || pending || lastSlip !== null && diffDays(d, lastSlip) < SLIP_GAP_DAYS) break;
+    else {
+      pending = true;
+      lastSlip = d;
+      slips++;
+    }
   }
-  return streak;
+  if (pending) slips--;
+  return { streak, slips };
 }
 function currentWeeks(c) {
   let streak = 0;
@@ -215,18 +227,36 @@ function currentWeeks(c) {
 function bestDays(c) {
   let best = 0;
   let run = 0;
+  let sinceSlip = 0;
+  let pending = false;
+  let lastSlip = null;
+  const reset = () => {
+    run = 0;
+    sinceSlip = 0;
+    pending = false;
+    lastSlip = null;
+  };
   for (let d = c.habit.startDate; d <= c.today; d = addDays(d, 1)) {
     const plan = planOn(c.habit, d);
     if (!plan || unitOf(plan.frequency) !== "days") {
-      run = 0;
+      reset();
       continue;
     }
     const req = requirementOn(c.habit, c.pauses, d);
     if (req === "paused" || req === "not_required") continue;
     const outcome = entryOutcome(c.byDate.get(d), plan, c.habit.goal);
-    if (outcome === "done") best = Math.max(best, ++run);
-    else if (outcome === "skipped" || d === c.today && c.habit.goal !== "quit") continue;
-    else run = 0;
+    if (outcome === "done") {
+      best = Math.max(best, ++run);
+      sinceSlip++;
+      pending = false;
+    } else if (outcome === "skipped" || d === c.today && c.habit.goal !== "quit") continue;
+    else if (c.habit.goal === "quit" || run === 0 || pending) reset();
+    else {
+      if (lastSlip !== null && diffDays(lastSlip, d) < SLIP_GAP_DAYS) run = sinceSlip;
+      pending = true;
+      lastSlip = d;
+      sinceSlip = 0;
+    }
   }
   return best;
 }
@@ -246,7 +276,9 @@ function streakOf(habit, entries, pauses, today, weekStart) {
   const plan = planOn(habit, today) ?? habit.plans[habit.plans.length - 1] ?? null;
   const unit = plan ? unitOf(plan.frequency) : "days";
   if (today < habit.startDate) return { current: 0, best: 0, unit };
-  return unit === "days" ? { current: currentDays(c), best: bestDays(c), unit } : { current: currentWeeks(c), best: bestWeeks(c), unit };
+  if (unit === "weeks") return { current: currentWeeks(c), best: bestWeeks(c), unit };
+  const { streak, slips } = currentDays(c);
+  return { current: streak, best: Math.max(bestDays(c), streak), unit, slips };
 }
 function completionRate(habit, entries, pauses, from, to, today, weekStart) {
   const c = ctx(habit, entries, pauses, today, weekStart);
@@ -280,6 +312,30 @@ function completionRate(habit, entries, pauses, from, to, today, weekStart) {
 }
 
 // lib/domain/today.ts
+function isAnsweredNo(item) {
+  return item.habit.goal === "build" && !!item.entry && !item.entry.skipped && (item.entry.value ?? 0) === 0;
+}
+function awaitsAnswer(item, isToday) {
+  if (!item.entry) return true;
+  if (item.entry.skipped || item.habit.goal === "quit") return false;
+  return isToday && (item.entry.value ?? 0) > 0;
+}
+function missedPrevious(habit, entries, pauses, date) {
+  if (habit.goal === "quit") return false;
+  for (let d = addDays(date, -1), i = 0; i < 7 && d >= habit.startDate; d = addDays(d, -1), i++) {
+    const plan = planOn(habit, d);
+    if (!plan || unitOf(plan.frequency) !== "days") return false;
+    const req = requirementOn(habit, pauses, d);
+    if (req === "paused" || req === "not_required") continue;
+    if (req !== "required") return false;
+    const entry = entriesByDate(entries, habit.id).get(d);
+    const outcome = entryOutcome(entry, plan);
+    if (outcome === "skipped") continue;
+    if (outcome === "done") return false;
+    return entry !== void 0 || entries.some((e) => e.date === d);
+  }
+  return false;
+}
 function buildDay(habits, entries, pauses, date, today, weekStart) {
   const view = { date, todo: [], thisWeek: [], done: [], quit: [], progress: { done: 0, total: 0 } };
   const active = habits.filter((h) => h.archivedAt === null).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -295,7 +351,8 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
       state,
       entry: entriesByDate(entries, habit.id).get(date),
       streak: streakOf(habit, entries, pauses, today, weekStart),
-      week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null
+      week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null,
+      missedLast: req === "required" && state !== "done" && state !== "skipped" && missedPrevious(habit, entries, pauses, date)
     };
     if (req === "required" && habit.goal !== "quit") {
       if (state !== "skipped") view.progress.total++;
@@ -308,6 +365,7 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
       else view.done.push(item);
     } else view.todo.push(item);
   }
+  view.todo.sort((a, b) => Number(b.missedLast) - Number(a.missedLast));
   return view;
 }
 function dayProgress(habits, entries, pauses, date, history = false) {
@@ -347,13 +405,80 @@ function weekReview(habits, entries, pauses, anyDayInWeek, today, weekStart) {
   };
 }
 
+// lib/domain/strength.ts
+var WINDOW = 14;
+var KEEP = 0.5 ** (1 / 13);
+function habitStrength(habit, entries, pauses, today) {
+  const byDate = entriesByDate(entries, habit.id);
+  let score = 0;
+  const slots = [];
+  let windowDone = 0;
+  let windowTimes = 0;
+  for (let d = habit.startDate; d <= today; d = addDays(d, 1)) {
+    const plan = planOn(habit, d);
+    const paused = plan !== null && isPaused(pauses, habit.id, d);
+    const entry = byDate.get(d);
+    const slot = { done: 0, times: 0 };
+    if (plan?.frequency === "weekly_count" && !paused && !entry?.skipped) {
+      slot.done = entryOutcome(entry, plan) === "done" ? 1 : 0;
+      slot.times = plan.timesPerWeek ?? 1;
+    }
+    slots.push(slot);
+    windowDone += slot.done;
+    windowTimes += slot.times;
+    if (slots.length > WINDOW) {
+      const old = slots.shift();
+      windowDone -= old.done;
+      windowTimes -= old.times;
+    }
+    if (!plan || paused) continue;
+    if (entry?.skipped) continue;
+    const weekly = plan.frequency === "weekly_count";
+    if (!weekly && requirementOn(habit, pauses, d) !== "required") continue;
+    let value;
+    if (weekly) value = windowTimes === 0 ? 0 : Math.min(1, windowDone * 7 / windowTimes);
+    else if (habit.goal === "quit") value = entryOutcome(entry, plan, "quit") === "done" ? 1 : 0;
+    else if (habit.kind === "check") value = entry && (entry.value ?? 0) > 0 ? 1 : 0;
+    else value = Math.min(1, (entry?.value ?? 0) / (plan.targetValue || 1));
+    if (d === today && value < 1 && habit.goal !== "quit") continue;
+    score = score * KEEP + value * (1 - KEEP);
+  }
+  return score;
+}
+
 // lib/domain/nudges.ts
 var PART_LABELS = { morning: "Rano", day: "W ci\u0105gu dnia", evening: "Wieczorem" };
 function yesterdayGap(habits, entries, pauses, today, weekStart) {
   const date = addDays(today, -1);
   const view = buildDay(habits, entries, pauses, date, today, weekStart);
-  if (view.progress.total === 0 || view.todo.length === 0) return null;
-  return { date, missing: view.todo, done: view.progress.done, total: view.progress.total };
+  const missing = view.todo.filter((i) => awaitsAnswer(i, false));
+  if (view.progress.total === 0 || missing.length === 0) return null;
+  return { date, missing, done: view.progress.done, total: view.progress.total };
+}
+function absence(habits, entries, pauses, notes, today, maxDays = 60) {
+  const logged = manualDates(habits, entries, notes);
+  const to = addDays(today, -1);
+  let from = null;
+  let days = 0;
+  for (let d = to, i = 0; i < maxDays; d = addDays(d, -1), i++) {
+    if (logged.has(d) || pauses.some((p) => p.habitId === null && p.startDate <= d && d <= p.endDate)) break;
+    if (dayProgress(habits, entries, pauses, d, true).total > 0) {
+      from = d;
+      days++;
+    }
+  }
+  return from ? { from, to, days } : null;
+}
+function manualDates(habits, entries, notes) {
+  const auto = new Set(habits.filter((h) => h.source).map((h) => h.id));
+  return /* @__PURE__ */ new Set([...entries.filter((e) => !auto.has(e.habitId)).map((e) => e.date), ...notes.map((n) => n.date)]);
+}
+function easiestHabit(habits, entries, pauses, today, weekStart) {
+  const view = buildDay(habits, entries, pauses, today, today, weekStart);
+  const candidates = view.todo.filter((i) => !i.entry);
+  if (candidates.length === 0) return null;
+  const score = new Map(candidates.map((i) => [i.habit.id, habitStrength(i.habit, entries, pauses, today)]));
+  return [...candidates].sort((a, b) => score.get(b.habit.id) - score.get(a.habit.id) || a.plan.targetValue - b.plan.targetValue)[0];
 }
 function isLastDayOfWeek(date, weekStart) {
   return addDays(startOfWeek(date, weekStart), 6) === date;
@@ -437,25 +562,51 @@ function list(names) {
   if (names.length <= 3) return names.join(", ");
   return `${names.slice(0, 3).join(", ")} i ${names.length - 3} wi\u0119cej`;
 }
+var QUIET_AFTER_DAYS = 2;
+var SPARSE_AFTER_DAYS = 7;
+function easyText(item) {
+  const { habit, plan } = item;
+  const amount = habit.kind === "check" ? "" : ` ${plan.targetValue} ${habit.kind === "duration" ? "min" : habit.unit ?? ""}`.trimEnd();
+  const cue = habit.cue ? ` \u2014 ${habit.cue}` : "";
+  return `${habit.name}${amount}${cue}`;
+}
+function quietMessage(user, today, days) {
+  const newWeek = startOfWeek(today, user.weekStart) === today;
+  if (days >= SPARSE_AFTER_DAYS && !newWeek && diffDays("2026-01-01", today) % 3 !== 0) return null;
+  const easy = easiestHabit(user.habits, user.entries, user.pauses, today, user.weekStart);
+  if (!easy) return null;
+  return days >= SPARSE_AFTER_DAYS && newWeek ? { title: "Nowy tydzie\u0144, czysta karta", body: `Dzi\u015B wystarczy jedno: ${easyText(easy)}` } : { title: "Dzi\u015B wystarczy jedno", body: easyText(easy) };
+}
 function messagesFor(user, reminders, now) {
   const nowMin = localMinutes(now, user.timeZone);
   const today = localDate(now, user.timeZone, user.dayStartHour);
   const due = reminders.filter((r) => isDue(r.localTime, nowMin, user.dayStartHour));
   if (due.length === 0) return [];
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
-  const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source);
+  const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source && !isAnsweredNo(i));
   const out = [];
+  const notes = user.notes ?? [];
+  const silence = absence(user.habits, user.entries, user.pauses, notes, today, 60);
+  const activeToday = manualDates(user.habits, user.entries, notes).has(today);
+  const quiet = silence !== null && silence.days >= QUIET_AFTER_DAYS && !activeToday;
+  const carrier = reminders.find((r) => r.kind === "yesterday") ?? reminders.find((r) => r.kind === "summary") ?? [...reminders].filter((r) => r.kind !== "weekly").sort((a, b) => a.localTime.localeCompare(b.localTime))[0];
   for (const r of due) {
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
+    if (quiet && r.kind !== "weekly") {
+      const msg = r.id === carrier?.id ? quietMessage(user, today, silence.days) : null;
+      if (msg) out.push({ ...base, ...msg, url: "/", tag: "comeback" });
+      continue;
+    }
     switch (r.kind) {
       case "summary": {
         const forToday = open.filter((i) => !i.week);
         const forWeek = open.filter((i) => i.week);
         if (open.length === 0) break;
         const weekText = forWeek.map((i) => `${i.habit.name} ${i.week.done}/${i.week.required}`).join(", ");
+        const again = forToday.filter((i) => i.missedLast);
         out.push({
           ...base,
-          title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(forToday.length)} na dzi\u015B`,
+          title: again.length > 0 ? `Nie odpu\u015B\u0107 dwa razy: ${list(again.map((i) => i.habit.name))}` : forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Zosta\u0142 jeden nawyk" : `${habitsLeft(forToday.length)} na dzi\u015B`,
           body: forToday.length === 0 ? weekText : `${list(forToday.map((i) => i.habit.name))}${forWeek.length ? ` \xB7 w tym tygodniu: ${weekText}` : ""}`,
           url: "/review",
           tag: "summary"
@@ -486,7 +637,7 @@ function messagesFor(user, reminders, now) {
         if (!isLastDayOfWeek(today, user.weekStart)) break;
         const msg = weeklyMessage(weeklySummary(user.habits, user.entries, user.pauses, today, user.weekStart));
         if (!msg) break;
-        out.push({ ...base, ...msg, url: "/stats", tag: "weekly" });
+        out.push({ ...base, ...msg, url: "/review/week", tag: "weekly" });
         break;
       }
       case "habit": {
@@ -559,13 +710,16 @@ Deno.serve(async (req) => {
     if (!profile) continue;
     const today = localDate(now, profile.timezone, profile.day_start_hour);
     const since = addDays(today, -14);
-    const [habitsRes, plansRes, entriesRes, pausesRes, subsRes] = await Promise.all([
+    const history = addDays(today, -90);
+    const [habitsRes, plansRes, entriesRes, pausesRes, subsRes, notesRes] = await Promise.all([
       // także zarchiwizowane w ostatnich dniach: podsumowanie tygodnia liczy je w dniach sprzed archiwizacji (jak aplikacja)
       supabase.from("habits").select("*").eq("user_id", userId).or(`archived_at.is.null,archived_at.gte.${since}`),
       supabase.from("habit_plans").select("*").eq("user_id", userId),
-      supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", since),
-      supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", since),
-      supabase.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId)
+      supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", history).order("entry_date", { ascending: false }),
+      supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", history),
+      supabase.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId),
+      // notatka albo nastrój to też zapis: dzień nie liczy się do ciszy
+      supabase.from("day_notes").select("note_date, mood").eq("user_id", userId).gte("note_date", history)
     ]);
     const subs = subsRes.data ?? [];
     if (subs.length === 0) continue;
@@ -607,8 +761,13 @@ Deno.serve(async (req) => {
       startDate: p.start_date,
       endDate: p.end_date
     }));
+    const notes = (notesRes.data ?? []).map((n) => ({
+      date: n.note_date,
+      note: null,
+      mood: n.mood ?? null
+    }));
     const messages = messagesFor(
-      { timeZone: profile.timezone, dayStartHour: profile.day_start_hour, weekStart: profile.week_start, habits, entries, pauses },
+      { timeZone: profile.timezone, dayStartHour: profile.day_start_hour, weekStart: profile.week_start, habits, entries, pauses, notes },
       userReminders,
       now
     );

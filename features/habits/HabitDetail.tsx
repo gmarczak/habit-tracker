@@ -15,7 +15,7 @@ import { METRIC_INFO, healthAverage, healthValue, metricUnit } from "@/lib/domai
 import type { Habit } from "@/lib/domain/model";
 import { completionRate, dayState, streakOf } from "@/lib/domain/progress";
 import { entryOutcome, planOn } from "@/lib/domain/schedule";
-import { describePlan, formatDayLong, formatNumber, formatStreak } from "@/lib/format";
+import { describePlan, formatDayLong, formatNumber, formatStreak, plural } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { HabitEditor } from "./HabitEditor";
 import { habitStrength } from "@/lib/domain/strength";
@@ -143,6 +143,12 @@ export function HabitDetail({ id }: { id: string }) {
           </>
         )}
       </dl>
+      {habit.goal === "build" && streak.unit === "days" && (
+        <p className="-mt-4 px-1 text-xs text-muted">
+          Jeden opuszczony dzień nie przerywa serii — dopiero drugi z rzędu albo drugi w ciągu tygodnia.
+          {streak.slips ? ` W tej serii: ${streak.slips} ${plural(streak.slips, "potknięcie", "potknięcia", "potknięć")}.` : ""}
+        </p>
+      )}
       {metric && measuredToday === null && measuredAvg === null && (
         <p className="-mt-4 px-1 text-xs text-muted">Wartości pojawią się, gdy Skrót z Ustawień → Apple Zdrowie wyśle pierwsze dane.</p>
       )}
@@ -268,7 +274,8 @@ export function PauseForm({ habitId, today, onDone }: { habitId: string | null; 
       <div className="grid grid-cols-2 gap-3">
         <label className={label}>
           <span className={labelText}>Od</span>
-          <input type="date" value={start} min={today} onChange={(e) => setStart(e.target.value)} className={field} required />
+          {/* także wstecz (do 30 dni): przerwa, której nie oznaczono na czas */}
+          <input type="date" value={start} min={addDays(today, -30)} onChange={(e) => setStart(e.target.value)} className={field} required />
         </label>
         <label className={label}>
           <span className={labelText}>Do</span>

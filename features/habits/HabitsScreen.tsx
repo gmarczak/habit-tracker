@@ -12,7 +12,7 @@ import type { Snapshot } from "@/lib/data/snapshot";
 import type { Habit } from "@/lib/domain/model";
 import { streakOf } from "@/lib/domain/progress";
 import { planOn } from "@/lib/domain/schedule";
-import { describePlan, formatStreak } from "@/lib/format";
+import { describePlan, formatDayMonth, formatStreak } from "@/lib/format";
 import { habitStrength } from "@/lib/domain/strength";
 import { HabitBadge } from "@/lib/ui/icons";
 import { StrengthRing } from "./StrengthRing";
@@ -141,6 +141,7 @@ export function HabitsScreen() {
                         <span className="truncate text-[13px] text-muted">
                           {plan ? describePlan(plan, habit.kind, habit.unit) : ""}
                           {habit.source ? " · Apple Zdrowie" : ""}
+                          {habit.startDate > today ? ` · od ${formatDayMonth(habit.startDate)}` : ""}
                           {streak.current > 0 ? ` · seria ${formatStreak(streak)}` : ""}
                         </span>
                       </span>
