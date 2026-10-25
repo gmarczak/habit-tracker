@@ -22,7 +22,7 @@ function haptic() {
 
 /**
  * Wiersz z gestem jak w Mailu na iPhonie: przesunięcie w prawo wykonuje `toRight`, w lewo — `toLeft`.
- * Ruch w pionie zostaje przewijaniem (touch-action: pan-y), a dotknięcia przycisków w wierszu działają jak dotąd.
+ * Ruch w pionie zostaje przewijaniem (touch-action: pan-y, szczypanie dalej powiększa), a dotknięcia przycisków w wierszu działają jak dotąd.
  * Lista nad wierszem musi mieć overflow-hidden: tło akcji wychodzi na pełną szerokość grupy (-mx-4).
  */
 export function SwipeRow({
@@ -62,14 +62,25 @@ export function SwipeRow({
   }
 
   function down(e: PointerEvent<HTMLDivElement>) {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
+    // Drugi palec w trakcie gestu nie przejmuje wiersza
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
     swiped.current = false;
     drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: "pending" };
   }
 
   function move(e: PointerEvent<HTMLDivElement>) {
     const d = drag.current;
-    if (!d || d.id !== e.pointerId || d.mode === "ignore") return;
+    if (!d || d.id !== e.pointerId) return;
+    // Mysz puszczona poza wierszem (np. nad arkuszem z długiego przytrzymania): samo najechanie nie przesuwa
+    if (e.pointerType !== "touch" && (e.buttons & 1) === 0) {
+      drag.current = null;
+      if (d.mode === "swipe") {
+        place(0, true);
+        arm(false);
+      }
+      return;
+    }
+    if (d.mode === "ignore") return;
     const dx = e.clientX - d.x;
     const dy = e.clientY - d.y;
     if (d.mode === "pending") {
@@ -140,7 +151,7 @@ export function SwipeRow({
         onTransitionEnd={(e) => {
           if (e.target === e.currentTarget && !drag.current) setDir(0);
         }}
-        className="relative -mx-4 select-none bg-surface px-4 [touch-action:pan-y]"
+        className="relative -mx-4 select-none bg-surface px-4 [touch-action:pan-y_pinch-zoom]"
       >
         {children}
       </div>

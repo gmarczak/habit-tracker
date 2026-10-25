@@ -9,7 +9,7 @@ import type { LocalDate } from "@/lib/domain/dates";
  * Stan w localStorage i liczony od godziny startu, więc przetrwa zamknięcie aplikacji
  * i wygaszony ekran; po powrocie od razu widać właściwy czas.
  */
-type TimerState = { startedAt: number | null; elapsedMs: number };
+export type TimerState = { startedAt: number | null; elapsedMs: number };
 
 const key = (habitId: string, date: LocalDate) => `timer:${habitId}:${date}`;
 
@@ -41,6 +41,18 @@ export function hasTimer(habitId: string, date: LocalDate): boolean {
 /** Wpis dnia zapisany inną drogą (przycisk, wartość, pominięcie): stary minutnik nie dopisze już minut. */
 export function clearTimer(habitId: string, date: LocalDate) {
   store(habitId, date, null);
+}
+
+/** Jak `clearTimer`, ale oddaje zapisany stan, żeby „Cofnij” mogło go przywrócić. */
+export function takeTimer(habitId: string, date: LocalDate): TimerState | null {
+  const state = load(habitId, date);
+  store(habitId, date, null);
+  return state.startedAt !== null || state.elapsedMs > 0 ? state : null;
+}
+
+/** Przywrócony minutnik liczy dalej od godziny startu, więc czas się zgadza. */
+export function restoreTimer(habitId: string, date: LocalDate, state: TimerState | null) {
+  if (state) store(habitId, date, state);
 }
 
 // iPhone gra dźwięk tylko z kontekstu audio odblokowanego dotknięciem: tworzymy go przy „Start”

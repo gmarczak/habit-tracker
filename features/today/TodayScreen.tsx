@@ -20,7 +20,7 @@ import { Celebration, type CelebrationInfo } from "./Celebration";
 import { DayHeader } from "./DayHeader";
 import { HabitRow } from "./HabitRow";
 import { DayNote } from "./DayNote";
-import { clearTimer } from "./HabitTimer";
+import { restoreTimer, takeTimer } from "./HabitTimer";
 import { DayOffButton, DayOffCard, YesterdayCard, pauseOn } from "./Nudges";
 import { QuitRow } from "./QuitRow";
 import { WeekStrip } from "./WeekStrip";
@@ -94,18 +94,20 @@ export function TodayScreen() {
    * Pomyłkę poprawia się gestem na wierszu albo cofa całość z komunikatu.
    */
   function markAllDone(items: TodayItem[], day: LocalDate) {
-    for (const { habit, plan } of items) {
-      if (habit.kind === "duration") clearTimer(habit.id, day);
+    // Minutnik nie dopisze minut ponad cel; jego stan wraca przy „Cofnij”
+    const timers = items.map(({ habit }) => (habit.kind === "duration" ? takeTimer(habit.id, day) : null));
+    for (const { habit, plan } of items)
       mutation.mutate({ habitId: habit.id, date: day, kind: "set", value: habit.kind === "check" ? 1 : plan.targetValue });
-    }
     toast({
       message: `Odhaczono ${habitCount(items.length)}`,
       actionLabel: "Cofnij",
       durationMs: 8000,
       onAction: () => {
-        // Wraca stan sprzed: częściowa ilość albo brak wpisu
-        for (const { habit, entry } of items)
+        // Wraca stan sprzed: częściowa ilość albo brak wpisu, i minutnik
+        items.forEach(({ habit, entry }, i) => {
           mutation.mutate(entry ? { habitId: habit.id, date: day, kind: "set", value: entry.value ?? 0 } : { habitId: habit.id, date: day, kind: "clear" });
+          restoreTimer(habit.id, day, timers[i] ?? null);
+        });
       },
     });
   }
