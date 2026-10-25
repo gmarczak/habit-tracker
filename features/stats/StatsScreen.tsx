@@ -187,7 +187,7 @@ export function StatsScreen() {
           Nastrój · ostatnie 60 dni
         </h2>
         {mood.average === null ? (
-          <p className="text-sm text-muted">Oceniaj nastrój na ekranie Dziś (jedno dotknięcie). Po kilku dniach zobaczysz tu, które nawyki idą w parze z lepszym dniem.</p>
+          <p className="text-sm text-muted">Nastrój zaznaczasz jednym dotknięciem na końcu Przeglądu dnia (albo na ekranie Dziś). Po kilku dniach zobaczysz tu, które nawyki idą w parze z lepszym dniem.</p>
         ) : (
           <>
             <div className="flex items-center gap-4 rounded-xl bg-surface p-4">

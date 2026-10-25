@@ -3,7 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { addDays, localDate, type WeekStart } from "../../../lib/domain/dates";
-import type { Entry, Habit, Pause } from "../../../lib/domain/model";
+import type { DayNote, Entry, Habit, Pause } from "../../../lib/domain/model";
 import { messagesFor, type ReminderRow } from "./logic";
 
 declare const Deno: { env: { get(name: string): string | undefined }; serve(handler: (req: Request) => Promise<Response>): void };
@@ -78,13 +78,15 @@ Deno.serve(async (req) => {
     const today = localDate(now, profile.timezone, profile.day_start_hour);
     const since = addDays(today, -14);
 
-    const [habitsRes, plansRes, entriesRes, pausesRes, subsRes] = await Promise.all([
+    const [habitsRes, plansRes, entriesRes, pausesRes, subsRes, notesRes] = await Promise.all([
       // także zarchiwizowane w ostatnich dniach: podsumowanie tygodnia liczy je w dniach sprzed archiwizacji (jak aplikacja)
       supabase.from("habits").select("*").eq("user_id", userId).or(`archived_at.is.null,archived_at.gte.${since}`),
       supabase.from("habit_plans").select("*").eq("user_id", userId),
       supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", since),
       supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", since),
       supabase.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId),
+      // notatka albo nastrój to też zapis: dzień nie liczy się do ciszy
+      supabase.from("day_notes").select("note_date, mood").eq("user_id", userId).gte("note_date", since),
     ]);
     const subs = (subsRes.data ?? []) as Row[];
     if (subs.length === 0) continue;
@@ -130,9 +132,14 @@ Deno.serve(async (req) => {
       startDate: p.start_date as string,
       endDate: p.end_date as string,
     }));
+    const notes: DayNote[] = ((notesRes.data ?? []) as Row[]).map((n) => ({
+      date: n.note_date as string,
+      note: null,
+      mood: (n.mood as number | null) ?? null,
+    }));
 
     const messages = messagesFor(
-      { timeZone: profile.timezone, dayStartHour: profile.day_start_hour, weekStart: profile.week_start as WeekStart, habits, entries, pauses },
+      { timeZone: profile.timezone, dayStartHour: profile.day_start_hour, weekStart: profile.week_start as WeekStart, habits, entries, pauses, notes },
       userReminders,
       now,
     );

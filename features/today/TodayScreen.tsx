@@ -3,32 +3,29 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useToast } from "@/components/ui/Toast";
 import { btnSecondarySm, groupHeader } from "@/components/ui/styles";
 import { Onboarding } from "@/features/onboarding/Onboarding";
 import { ReminderPrompt } from "@/features/reminders/ReminderPrompt";
-import { snapshotKey, useEntryMutation, useSnapshot, useToday } from "@/lib/data/hooks";
+import { snapshotKey, useSnapshot, useToday } from "@/lib/data/hooks";
 import { syncTimeZone } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 import { isLocalDate, type LocalDate } from "@/lib/domain/dates";
 import { reachedMilestone } from "@/lib/domain/milestones";
-import { PART_LABELS, groupByPart, yesterdayGap } from "@/lib/domain/nudges";
-import { buildDay, type TodayItem } from "@/lib/domain/today";
-import { habitCount } from "@/lib/domain/words";
+import { PART_LABELS, absence, groupByPart, yesterdayGap } from "@/lib/domain/nudges";
+import { awaitsAnswer, buildDay } from "@/lib/domain/today";
 import { formatDayMonth, formatWeekday } from "@/lib/format";
 import { Celebration, type CelebrationInfo } from "./Celebration";
 import { DayHeader } from "./DayHeader";
 import { HabitRow } from "./HabitRow";
 import { DayNote } from "./DayNote";
-import { restoreTimer, takeTimer } from "./HabitTimer";
-import { DayOffButton, DayOffCard, YesterdayCard, pauseOn } from "./Nudges";
+import { markAllCandidates, useMarkAllDone } from "./markAll";
+import { ComebackCard, DayOffButton, DayOffCard, YesterdayCard, pauseOn } from "./Nudges";
 import { QuitRow } from "./QuitRow";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayScreen() {
   const qc = useQueryClient();
-  const toast = useToast();
-  const mutation = useEntryMutation();
+  const markAllDone = useMarkAllDone();
   const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   // Dzień wybrany do uzupełnienia; ważny tylko w dniu, w którym go wybrano (rano znów otwiera się „dziś”)
@@ -89,29 +86,6 @@ export function TodayScreen() {
 
   const closeCelebration = useCallback(() => setCelebration(null), []);
 
-  /**
-   * „Wszystko zrobione”: cały cel każdego nawyku wymaganego tego dnia (plany tygodniowe zostają — to nie codzienne).
-   * Pomyłkę poprawia się gestem na wierszu albo cofa całość z komunikatu.
-   */
-  function markAllDone(items: TodayItem[], day: LocalDate) {
-    // Minutnik nie dopisze minut ponad cel; jego stan wraca przy „Cofnij”
-    const timers = items.map(({ habit }) => (habit.kind === "duration" ? takeTimer(habit.id, day) : null));
-    for (const { habit, plan } of items)
-      mutation.mutate({ habitId: habit.id, date: day, kind: "set", value: habit.kind === "check" ? 1 : plan.targetValue });
-    toast({
-      message: `Odhaczono ${habitCount(items.length)}`,
-      actionLabel: "Cofnij",
-      durationMs: 8000,
-      onAction: () => {
-        // Wraca stan sprzed: częściowa ilość albo brak wpisu, i minutnik
-        items.forEach(({ habit, entry }, i) => {
-          mutation.mutate(entry ? { habitId: habit.id, date: day, kind: "set", value: entry.value ?? 0 } : { habitId: habit.id, date: day, kind: "clear" });
-          restoreTimer(habit.id, day, timers[i] ?? null);
-        });
-      },
-    });
-  }
-
   if (isPending) return <TodaySkeleton />;
   // Błąd odświeżenia przy danych z cache (np. Wi-Fi bez internetu) nie zasłania ekranu
   if (!snapshot || !view || !today || !date) {
@@ -131,7 +105,18 @@ export function TodayScreen() {
   const groups = groupByPart(open);
   const grouped = groups.some((g) => g.part !== null);
   const dayPause = pauseOn(snapshot, date);
-  const gap = isToday && hasHabits ? yesterdayGap(snapshot.habits, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart) : null;
+  // Po kilku dniach ciszy zamiast „wczoraj zostało…” karta powrotu (przerwa, uzupełnienie albo start od dziś)
+  const away = isToday && hasHabits ? absence(snapshot.habits, snapshot.entries, snapshot.pauses, snapshot.notes, today) : null;
+  const comeback = away && away.days >= 2 ? away : null;
+  const gap = isToday && hasHabits && !comeback ? yesterdayGap(snapshot.habits, snapshot.entries, snapshot.pauses, today, snapshot.settings.weekStart) : null;
+  // „Nie dziś” to już odpowiedź: przegląd i licznik pomijają takie nawyki
+  const toAnswer = open.filter((i) => awaitsAnswer(i, isToday));
+  const allCandidates = markAllCandidates(view.todo);
+  const reviewHref = isToday ? "/review" : `/review?date=${date}`;
+  const pausedHabits = snapshot.pauses
+    .filter((p) => p.habitId !== null && p.startDate <= date && date <= p.endDate)
+    .map((p) => ({ pause: p, habit: snapshot.habits.find((h) => h.id === p.habitId && h.archivedAt === null) }))
+    .filter((x) => x.habit);
   const allDone = view.progress.total > 0 && view.progress.done === view.progress.total && view.todo.length === 0;
 
   const dayNote = snapshot.notes.find((n) => n.date === date);
@@ -144,18 +129,25 @@ export function TodayScreen() {
           title={formatDayMonth(date)}
           progress={view.progress}
         />
-        {hasHabits && <WeekStrip today={today} selected={date} onSelect={setPicked} snapshot={snapshot} />}
-        {open.length > 0 && view.todo.length < 2 && (
-          <Link href={isToday ? "/review" : `/review?date=${date}`} className={`${btnSecondarySm} w-full`}>
-            Przegląd dnia · {open.length} do domknięcia
+        {hasHabits && (
+          <div className="flex flex-col">
+            <WeekStrip today={today} selected={date} onSelect={setPicked} snapshot={snapshot} />
+            <Link href="/review/week" className="-mb-2 flex h-11 items-center self-end text-[15px] text-accent">
+              Cały tydzień ›
+            </Link>
+          </div>
+        )}
+        {toAnswer.length > 0 && allCandidates.length < 2 && (
+          <Link href={reviewHref} className={`${btnSecondarySm} w-full`}>
+            Przegląd dnia · {toAnswer.length} do domknięcia
           </Link>
         )}
-        {view.todo.length >= 2 && (
+        {allCandidates.length >= 2 && (
           <div className="grid grid-cols-2 gap-2">
-            <Link href={isToday ? "/review" : `/review?date=${date}`} className={`${btnSecondarySm} h-auto! min-h-11 py-1.5 leading-tight`}>
+            <Link href={reviewHref} className={`${btnSecondarySm} h-auto! min-h-11 py-1.5 leading-tight`}>
               Przegląd dnia
             </Link>
-            <button type="button" onClick={() => markAllDone(view.todo, date)} className={`${btnSecondarySm} h-auto! min-h-11 py-1.5 leading-tight`}>
+            <button type="button" onClick={() => markAllDone(allCandidates, date)} className={`${btnSecondarySm} h-auto! min-h-11 py-1.5 leading-tight`}>
               Wszystko zrobione
             </button>
           </div>
@@ -165,7 +157,9 @@ export function TodayScreen() {
       <div className="flex flex-col px-4 pt-2">
         {!hasHabits && <Onboarding today={today} />}
 
-        {gap && <YesterdayCard gap={gap} onFill={() => setPicked(gap.date)} />}
+        {comeback && <ComebackCard away={comeback} snapshot={snapshot} today={today} />}
+
+        {gap && <YesterdayCard gap={gap} />}
 
         {hasHabits && isToday && <ReminderPrompt snapshot={snapshot} />}
 
@@ -236,6 +230,12 @@ export function TodayScreen() {
         )}
 
         {hasHabits && !dayPause && open.length + view.done.length + view.quit.length === 0 && <p className="mt-4 text-muted">Tego dnia nic nie jest zaplanowane.</p>}
+
+        {pausedHabits.length > 0 && !dayPause && (
+          <p className="mt-4 px-4 text-[13px] text-muted">
+            Na pauzie: {pausedHabits.map(({ pause, habit }) => `${habit!.name} (do ${formatDayMonth(pause.endDate)})`).join(", ")}
+          </p>
+        )}
 
         {hasHabits && (
           <DayNote

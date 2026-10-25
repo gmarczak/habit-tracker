@@ -271,18 +271,48 @@ export async function deleteCategory(supabase: Supabase, id: string): Promise<vo
 
 // ---------- pauzy ----------
 
+/** Nowa pauza; zwraca jej id (np. do „Cofnij”). */
 export async function addPause(
   supabase: Supabase,
   pause: { habitId: string | null; startDate: LocalDate; endDate: LocalDate; reason: string | null },
-): Promise<void> {
+): Promise<string> {
   if (!isLocalDate(pause.startDate) || !isLocalDate(pause.endDate) || pause.endDate < pause.startDate)
     throw new Error("Koniec pauzy nie może być przed jej początkiem");
+  const { data } = check(
+    await supabase
+      .from("habit_pauses")
+      .insert({
+        habit_id: pause.habitId,
+        start_date: pause.startDate,
+        end_date: pause.endDate,
+        reason: pause.reason?.trim() || null,
+      })
+      .select("id")
+      .single(),
+  );
+  return data!.id;
+}
+
+/** Pauza od razu w cache (tymczasowe id do czasu odświeżenia z serwera). */
+export function withPause(snapshot: Snapshot, pause: { habitId: string | null; startDate: LocalDate; endDate: LocalDate; reason: string | null }): Snapshot {
+  return { ...snapshot, pauses: [...snapshot.pauses, { id: `pending-${pause.habitId ?? "all"}-${pause.startDate}`, ...pause }] };
+}
+
+/** Przerwa w zapisywaniu oznaczona po powrocie („To była przerwa”): dni neutralne, serie trwają. */
+export const BREAK_REASON = "Przerwa";
+/** Tydzień pauzy jednego nawyku zamiast archiwizacji („na lżej”). */
+export const LIGHTER_REASON = "Na lżej";
+
+/** Nowy cel od dziś (ta sama częstotliwość); ponowne wywołanie tego samego dnia nadpisuje wersję planu. */
+export async function changeTarget(supabase: Supabase, habitId: string, plan: Plan, targetValue: number): Promise<void> {
   check(
-    await supabase.from("habit_pauses").insert({
-      habit_id: pause.habitId,
-      start_date: pause.startDate,
-      end_date: pause.endDate,
-      reason: pause.reason?.trim() || null,
+    await supabase.rpc("change_plan", {
+      p_habit_id: habitId,
+      p_frequency: plan.frequency,
+      p_weekdays: plan.weekdays as number[],
+      p_times_per_week: plan.timesPerWeek as number,
+      p_interval_days: plan.intervalDays as number,
+      p_target_value: targetValue,
     }),
   );
 }

@@ -3,9 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { chip, errorText, field, label, labelText, btnPrimary, btnSecondary } from "@/components/ui/styles";
 import { useAction } from "@/lib/data/hooks";
-import { createCategory, createHabit, habitFormSchema, updateHabit, type HabitForm } from "@/lib/data/mutations";
+import { archiveGap, createCategory, createHabit, habitFormSchema, restoreHabit, updateHabit, type HabitForm } from "@/lib/data/mutations";
 import type { Snapshot } from "@/lib/data/snapshot";
-import type { LocalDate } from "@/lib/domain/dates";
+import { addDays, startOfWeek, type LocalDate } from "@/lib/domain/dates";
 import { HEALTH_METRICS, METRIC_INFO, type HealthMetric } from "@/lib/domain/health";
 import { HABIT_COLORS, type Frequency, type Habit, type Goal, type HabitKind, type TimeOfDay } from "@/lib/domain/model";
 import { planOn } from "@/lib/domain/schedule";
@@ -104,6 +104,16 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
 
   const set = <K extends keyof HabitForm>(key: K, value: HabitForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
+  // Nowy nawyk o nazwie z archiwum: zamiast zaczynać od zera, przywróć go z całą historią
+  const typedName = form.name.trim().toLowerCase();
+  const fromArchive =
+    !habit && typedName && !snapshot.habits.some((h) => h.archivedAt === null && h.name.trim().toLowerCase() === typedName)
+      ? snapshot.habits.find((h) => h.archivedAt !== null && h.name.trim().toLowerCase() === typedName)
+      : undefined;
+  const restore = useAction((s, h: Habit) => restoreHabit(s, h.id, archiveGap(h, snapshot.entries, today)), undefined, { toastErrors: true });
+  // Start od nowego tygodnia: łatwiej zacząć od czystej karty niż dokładać coś w środku tygodnia
+  const nextWeek = addDays(startOfWeek(today, snapshot.settings.weekStart), 7);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const quit = form.goal === "quit";
@@ -163,6 +173,16 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
           {errors.name && <span className={errorText}>{errors.name}</span>}
         </label>
       </div>
+      {fromArchive && (
+        <button
+          type="button"
+          disabled={restore.isPending}
+          onClick={() => restore.mutate(fromArchive, { onSuccess: () => onDone(fromArchive.id) })}
+          className="-mt-3 rounded-xl bg-fill px-4 py-3 text-left text-[15px] text-accent"
+        >
+          {`Masz „${fromArchive.name}” w archiwum — przywróć z całą historią`}
+        </button>
+      )}
 
       <fieldset>
         <legend className={`${labelText} mb-2`}>Cel</legend>
@@ -375,6 +395,20 @@ export function HabitEditor({ snapshot, today, habit, preset, onDone, onCancel }
         </div>
         <p className="mt-2 text-sm text-muted">Na ekranie Dziś nawyki układają się według pory, a przypomnienie dla pory przychodzi tylko z tym, co jeszcze czeka.</p>
       </fieldset>
+
+      {!habit && (
+        <fieldset>
+          <legend className={`${labelText} mb-2`}>Start</legend>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" aria-pressed={form.startDate === today} onClick={() => set("startDate", today)} className={chip(form.startDate === today)}>
+              Dziś
+            </button>
+            <button type="button" aria-pressed={form.startDate === nextWeek} onClick={() => set("startDate", nextWeek)} className={chip(form.startDate === nextWeek)}>
+              {snapshot.settings.weekStart === 1 ? "Od poniedziałku" : "Od niedzieli"}
+            </button>
+          </div>
+        </fieldset>
+      )}
 
       <fieldset className="flex flex-col gap-3">
         <legend className={`${labelText} mb-2`}>Po czym i po co</legend>

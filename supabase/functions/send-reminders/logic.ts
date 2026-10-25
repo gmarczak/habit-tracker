@@ -1,10 +1,10 @@
 /**
  * Czysta logika przypomnień (bez Deno i bez sieci), testowana w Vitest i wbudowywana do funkcji Edge.
  */
-import { localDate, type LocalDate, type WeekStart } from "../../../lib/domain/dates";
-import type { Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
-import { PART_LABELS, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
-import { badgeCount, buildDay } from "../../../lib/domain/today";
+import { diffDays, localDate, startOfWeek, type LocalDate, type WeekStart } from "../../../lib/domain/dates";
+import type { DayNote, Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
+import { PART_LABELS, absence, easiestHabit, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
+import { badgeCount, buildDay, isAnsweredNo, type TodayItem } from "../../../lib/domain/today";
 import { habitCount, habitsLeft } from "../../../lib/domain/words";
 
 export type ReminderRow = { id: string; kind: ReminderKind; habitId: string | null; localTime: string };
@@ -15,6 +15,8 @@ export type UserContext = {
   habits: Habit[];
   entries: Entry[];
   pauses: Pause[];
+  /** notatki dnia (nastrój też jest zapisem: dzień nie jest „cichy”) */
+  notes?: DayNote[];
 };
 /** badge: liczba na ikonie aplikacji (niezrobione wymagane dziś) */
 export type Message = { reminderId: string; localDate: LocalDate; title: string; body: string; url: string; tag: string; badge: number };
@@ -53,6 +55,32 @@ function list(names: string[]): string {
   return `${names.slice(0, 3).join(", ")} i ${names.length - 3} więcej`;
 }
 
+/** Po tylu dniach ciszy zamiast zwykłych przypomnień idzie jedno łagodne dziennie. */
+export const QUIET_AFTER_DAYS = 2;
+/** Po tygodniu ciszy łagodne przypomnienie co trzeci dzień i w pierwszy dzień tygodnia. */
+const SPARSE_AFTER_DAYS = 7;
+
+function easyText(item: TodayItem): string {
+  const { habit, plan } = item;
+  const amount = habit.kind === "check" ? "" : ` ${plan.targetValue} ${habit.kind === "duration" ? "min" : (habit.unit ?? "")}`.trimEnd();
+  const cue = habit.cue ? ` — ${habit.cue}` : "";
+  return `${habit.name}${amount}${cue}`;
+}
+
+/**
+ * Cisza w zapisach: zamiast „Zostało N” i „Wczoraj zostało N” jedno krótkie przypomnienie o porze porannej
+ * (albo wieczornej, gdy poranne wyłączone) z najłatwiejszym nawykiem. Podsumowanie tygodnia zostaje.
+ */
+function quietMessage(user: UserContext, today: LocalDate, days: number): { title: string; body: string } | null {
+  const newWeek = startOfWeek(today, user.weekStart) === today;
+  if (days >= SPARSE_AFTER_DAYS && !newWeek && diffDays("2026-01-01", today) % 3 !== 0) return null;
+  const easy = easiestHabit(user.habits, user.entries, user.pauses, today, user.weekStart);
+  if (!easy) return null;
+  return days >= SPARSE_AFTER_DAYS && newWeek
+    ? { title: "Nowy tydzień, czysta karta", body: `Dziś wystarczy jedno: ${easyText(easy)}` }
+    : { title: "Dziś wystarczy jedno", body: easyText(easy) };
+}
+
 /** Co wysłać (albo nic) dla przypomnień jednego użytkownika w chwili `now`. */
 export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Date): Message[] {
   const nowMin = localMinutes(now, user.timeZone);
@@ -61,12 +89,23 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
   if (due.length === 0) return [];
 
   const view = buildDay(user.habits, user.entries, user.pauses, today, today, user.weekStart);
-  // Nawyki z Apple Zdrowie odhacza Skrót (zwykle wieczorem) — nie przypominamy o nich.
-  const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source);
+  // Nawyki z Apple Zdrowie odhacza Skrót (zwykle wieczorem) — nie przypominamy o nich. „Nie dziś” to już odpowiedź.
+  const open = [...view.todo, ...view.thisWeek].filter((i) => !i.habit.source && !isAnsweredNo(i));
   const out: Message[] = [];
+
+  const notes = user.notes ?? [];
+  const silence = absence(user.habits, user.entries, user.pauses, notes, today, 14);
+  const activeToday = user.entries.some((e) => e.date === today) || notes.some((n) => n.date === today);
+  const quiet = silence !== null && silence.days >= QUIET_AFTER_DAYS && !activeToday;
+  const carrier = reminders.find((r) => r.kind === "yesterday") ?? reminders.find((r) => r.kind === "summary");
 
   for (const r of due) {
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };
+    if (quiet && r.kind !== "weekly") {
+      const msg = r.id === carrier?.id ? quietMessage(user, today, silence.days) : null;
+      if (msg) out.push({ ...base, ...msg, url: "/", tag: "comeback" });
+      continue;
+    }
     switch (r.kind) {
       case "summary": {
         // „Na dziś” tylko wymagane dziś (jak liczba na ikonie); tygodniowe osobno, z postępem
@@ -74,9 +113,18 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
         const forWeek = open.filter((i) => i.week);
         if (open.length === 0) break;
         const weekText = forWeek.map((i) => `${i.habit.name} ${i.week!.done}/${i.week!.required}`).join(", ");
+        // Wczoraj wypadło: drugi brak z rzędu przerwie serię
+        const again = forToday.filter((i) => i.missedLast);
         out.push({
           ...base,
-          title: forToday.length === 0 ? "W tym tygodniu jeszcze" : forToday.length === 1 ? "Został jeden nawyk" : `${habitsLeft(forToday.length)} na dziś`,
+          title:
+            again.length > 0
+              ? `Nie odpuść dwa razy: ${list(again.map((i) => i.habit.name))}`
+              : forToday.length === 0
+                ? "W tym tygodniu jeszcze"
+                : forToday.length === 1
+                  ? "Został jeden nawyk"
+                  : `${habitsLeft(forToday.length)} na dziś`,
           body:
             forToday.length === 0
               ? weekText
@@ -110,7 +158,7 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
         if (!isLastDayOfWeek(today, user.weekStart)) break;
         const msg = weeklyMessage(weeklySummary(user.habits, user.entries, user.pauses, today, user.weekStart));
         if (!msg) break;
-        out.push({ ...base, ...msg, url: "/stats", tag: "weekly" });
+        out.push({ ...base, ...msg, url: "/review/week", tag: "weekly" });
         break;
       }
       case "habit": {

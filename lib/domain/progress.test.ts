@@ -44,8 +44,40 @@ describe("seria dzienna", () => {
     expect(streakOf(daily, days("2026-10-09", "2026-10-10"), [], TODAY, 1).current).toBe(2);
   });
 
-  it("wczorajszy brak przerywa", () => {
-    expect(streakOf(daily, days("2026-10-08", "2026-10-09", "2026-10-11"), [], TODAY, 1).current).toBe(1);
+  it("nie odpuszczaj dwa razy: jeden brak nie przerywa, nie wlicza się do serii", () => {
+    // jak u właściciela: 22✓ 23✓ 24✗ 25✓
+    const s = streakOf(daily, days("2026-10-08", "2026-10-09", "2026-10-11"), [], TODAY, 1);
+    expect(s).toMatchObject({ current: 3, slips: 1 });
+    // dziś jeszcze otwarte, wczoraj brak: seria trwa („dziś nie odpuść”)
+    expect(streakOf(daily, days("2026-10-08", "2026-10-09"), [], TODAY, 1)).toMatchObject({ current: 2, slips: 1 });
+  });
+
+  it("dwa braki z rzędu przerywają serię", () => {
+    expect(streakOf(daily, days("2026-10-07", "2026-10-08", "2026-10-11"), [], TODAY, 1)).toMatchObject({ current: 1, slips: 0 });
+    // wczoraj i przedwczoraj brak, dziś jeszcze nic
+    expect(streakOf(daily, days("2026-10-07", "2026-10-08"), [], TODAY, 1).current).toBe(0);
+  });
+
+  it("drugie potknięcie w ciągu 7 dni przerywa, po tygodniu znowu wolno", () => {
+    // 05✓ 06✗ 07✓ 08✓ 09✗ 10✓ 11✓ → drugie potknięcie 3 dni po pierwszym: seria od 07
+    const close = days("2026-10-05", "2026-10-07", "2026-10-08", "2026-10-10", "2026-10-11");
+    expect(streakOf(daily, close, [], TODAY, 1)).toMatchObject({ current: 4, slips: 1 });
+    // 01✗ i 09✗ dzieli 8 dni: oba wybaczone
+    const far = days("2026-09-30", ...["02", "03", "04", "05", "06", "07", "08", "10", "11"].map((d) => `2026-10-${d}`));
+    expect(streakOf(daily, far, [], TODAY, 1)).toMatchObject({ current: 10, slips: 2 });
+  });
+
+  it("rekord liczy według tej samej zasady i nie jest mniejszy od bieżącej serii", () => {
+    const close = days("2026-10-05", "2026-10-07", "2026-10-08", "2026-10-10", "2026-10-11");
+    expect(streakOf(daily, close, [], TODAY, 1).best).toBe(4);
+    // dawniej: 5 dni z jednym potknięciem w środku
+    const past = days("2026-09-01", "2026-09-02", "2026-09-04", "2026-09-05", "2026-09-06");
+    expect(streakOf(daily, past, [], TODAY, 1).best).toBe(5);
+  });
+
+  it("„rzucam”: każda wpadka przerywa", () => {
+    const quit = habit([plan({ frequency: "daily" })], "2026-10-01", { goal: "quit" });
+    expect(streakOf(quit, [done("2026-10-09")], [], TODAY, 1).current).toBe(2);
   });
 
   it("pominięcie i pauza są neutralne", () => {
@@ -54,10 +86,11 @@ describe("seria dzienna", () => {
     expect(streakOf(daily, entries, pauses, TODAY, 1).current).toBe(3);
   });
 
-  it("częściowe wykonanie przerywa serię (cel 20, zrobione 12)", () => {
+  it("częściowe wykonanie to potknięcie (cel 20, zrobione 12)", () => {
     const reading = habit([plan({ frequency: "daily", targetValue: 20 })], "2026-09-01", { kind: "count", unit: "strony" });
     const entries = [done("2026-10-08", 20), done("2026-10-09", 12), done("2026-10-10", 25), done("2026-10-11", 20)];
-    expect(streakOf(reading, entries, [], TODAY, 1).current).toBe(2);
+    expect(streakOf(reading, entries, [], TODAY, 1)).toMatchObject({ current: 3, slips: 1 });
+    expect(streakOf(reading, [...entries, done("2026-10-07", 3)], [], TODAY, 1).current).toBe(3);
     expect(dayState(reading, entries, [], "2026-10-09", TODAY)).toBe("partial");
   });
 
@@ -101,7 +134,7 @@ describe("seria dzienna", () => {
   it("najlepsza seria pamięta przeszłość", () => {
     const entries = days("2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-10-10", "2026-10-11");
     const s = streakOf(daily, entries, [], TODAY, 1);
-    expect(s).toEqual({ current: 2, best: 4, unit: "days" });
+    expect(s).toEqual({ current: 2, best: 4, unit: "days", slips: 0 });
   });
 
   it("przed startem nawyku nic nie liczy", () => {
