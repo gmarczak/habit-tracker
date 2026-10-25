@@ -77,16 +77,19 @@ Deno.serve(async (req) => {
     if (!profile) continue;
     const today = localDate(now, profile.timezone, profile.day_start_hour);
     const since = addDays(today, -14);
+    // Wpisy i pauzy z dłuższego okresu: siła nawyku (najłatwiejszy na powrót) i cisza liczone jak w aplikacji.
+    // Starsze dni prawie nie zmieniają siły (półtrwanie ~13 dni); najnowsze pierwsze, gdyby serwer uciął wynik.
+    const history = addDays(today, -90);
 
     const [habitsRes, plansRes, entriesRes, pausesRes, subsRes, notesRes] = await Promise.all([
       // także zarchiwizowane w ostatnich dniach: podsumowanie tygodnia liczy je w dniach sprzed archiwizacji (jak aplikacja)
       supabase.from("habits").select("*").eq("user_id", userId).or(`archived_at.is.null,archived_at.gte.${since}`),
       supabase.from("habit_plans").select("*").eq("user_id", userId),
-      supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", since),
-      supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", since),
+      supabase.from("habit_entries").select("habit_id, entry_date, value, skipped, note").eq("user_id", userId).gte("entry_date", history).order("entry_date", { ascending: false }),
+      supabase.from("habit_pauses").select("habit_id, start_date, end_date").eq("user_id", userId).gte("end_date", history),
       supabase.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId),
       // notatka albo nastrój to też zapis: dzień nie liczy się do ciszy
-      supabase.from("day_notes").select("note_date, mood").eq("user_id", userId).gte("note_date", since),
+      supabase.from("day_notes").select("note_date, mood").eq("user_id", userId).gte("note_date", history),
     ]);
     const subs = (subsRes.data ?? []) as Row[];
     if (subs.length === 0) continue;

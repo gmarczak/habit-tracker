@@ -3,7 +3,7 @@
  */
 import { diffDays, localDate, startOfWeek, type LocalDate, type WeekStart } from "../../../lib/domain/dates";
 import type { DayNote, Entry, Habit, Pause, ReminderKind } from "../../../lib/domain/model";
-import { PART_LABELS, absence, easiestHabit, isLastDayOfWeek, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
+import { PART_LABELS, absence, easiestHabit, isLastDayOfWeek, manualDates, weeklyMessage, weeklySummary, yesterdayGap } from "../../../lib/domain/nudges";
 import { badgeCount, buildDay, isAnsweredNo, type TodayItem } from "../../../lib/domain/today";
 import { habitCount, habitsLeft } from "../../../lib/domain/words";
 
@@ -94,10 +94,15 @@ export function messagesFor(user: UserContext, reminders: ReminderRow[], now: Da
   const out: Message[] = [];
 
   const notes = user.notes ?? [];
-  const silence = absence(user.habits, user.entries, user.pauses, notes, today, 14);
-  const activeToday = user.entries.some((e) => e.date === today) || notes.some((n) => n.date === today);
+  const silence = absence(user.habits, user.entries, user.pauses, notes, today, 60);
+  // Wpisy ze Skrótu Apple Zdrowie nie znaczą, że ktoś otworzył aplikację
+  const activeToday = manualDates(user.habits, user.entries, notes).has(today);
   const quiet = silence !== null && silence.days >= QUIET_AFTER_DAYS && !activeToday;
-  const carrier = reminders.find((r) => r.kind === "yesterday") ?? reminders.find((r) => r.kind === "summary");
+  // Łagodne przypomnienie niesie poranne, potem wieczorne, a bez nich najwcześniejsze inne (tygodniowe zostaje swoje)
+  const carrier =
+    reminders.find((r) => r.kind === "yesterday") ??
+    reminders.find((r) => r.kind === "summary") ??
+    [...reminders].filter((r) => r.kind !== "weekly").sort((a, b) => a.localTime.localeCompare(b.localTime))[0];
 
   for (const r of due) {
     const base = { reminderId: r.id, localDate: today, badge: badgeCount(view) };

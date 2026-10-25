@@ -232,6 +232,8 @@ function Card({
 }) {
   const { habit, plan, entry, week, state } = item;
   const unit = habit.kind === "duration" ? "min" : (habit.unit ?? "");
+  // Dziś z częściowym postępem „nie dziś” nie miałoby czego zapisać (postęp zostaje): zamiast tego „jeszcze nie”
+  const partialToday = isToday && !!entry && !entry.skipped && (entry.value ?? 0) > 0;
   const status =
     state === "done"
       ? "Zrobione"
@@ -262,8 +264,8 @@ function Card({
       </div>
 
       <div className="grid w-full grid-cols-2 gap-3">
-        <button type="button" onClick={() => onAnswer("not")} className={btnSecondary}>
-          Nie dziś
+        <button type="button" onClick={() => onAnswer(partialToday ? "later" : "not")} className={btnSecondary}>
+          {partialToday ? "Jeszcze nie" : "Nie dziś"}
         </button>
         <button type="button" onClick={() => onAnswer("done")} className={btnPrimary}>
           Zrobione
@@ -271,7 +273,7 @@ function Card({
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-x-4">
-        {isToday && (
+        {isToday && !partialToday && (
           <button type="button" onClick={() => onAnswer("later")} className={btnQuiet}>
             Jeszcze nie
           </button>

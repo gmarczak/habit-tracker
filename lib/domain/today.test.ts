@@ -98,6 +98,9 @@ describe("nie odpuszczaj dwa razy", () => {
   it("wczoraj bez żadnego zapisu: niewiadoma, bez ostrzeżenia", () => {
     expect(missed([])).toEqual([]);
   });
+  it("pominięty dzień jest neutralny: liczy się dzień przed nim", () => {
+    expect(missed([e("a", "2026-10-10"), e("b", "2026-10-10", null, true), e("a", "2026-10-09")])).toEqual(["b"]);
+  });
 });
 
 describe("dayProgress", () => {

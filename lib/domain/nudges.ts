@@ -1,4 +1,4 @@
-import { addDays, diffDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
+import { addDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
 import { plural } from "./words";
 import type { DayNote, Entry, Habit, Pause, TimeOfDay } from "./model";
 import { completionRate, currentWeekProgress } from "./progress";
@@ -44,13 +44,17 @@ export function yesterdayGap(
 
 // ---------- powrót po przerwie ----------
 
-/** Ciąg dni kończący się wczoraj bez żadnego zapisu, choć nawyki „buduję” były wymagane. */
+/**
+ * Ciąg dni kończący się wczoraj bez żadnego zapisu, choć nawyki „buduję” były wymagane.
+ * `days` liczy tylko dni z wymaganymi nawykami (weekend przy planie pn–pt nie wydłuża przerwy); from..to to cały zakres.
+ */
 export type Absence = { from: LocalDate; to: LocalDate; days: number };
 
 /**
  * Cisza przed dziś: dni z wymaganymi nawykami „buduję”, w których nie ma żadnego wpisu (także „nie” i pominięcia)
  * ani notatki dnia. Kończy ją wpis, notatka albo pauza wszystkich nawyków (przerwa już opisana).
- * Dni bez wymaganych nawyków są neutralne. `maxDays` ogranicza, jak daleko patrzymy wstecz.
+ * Wpisy z Apple Zdrowie (Skrót zapisuje je sam) nie są aktywnością. Dni bez wymaganych nawyków są neutralne.
+ * `maxDays` ogranicza, jak daleko patrzymy wstecz.
  */
 export function absence(
   habits: readonly Habit[],
@@ -60,14 +64,24 @@ export function absence(
   today: LocalDate,
   maxDays = 60,
 ): Absence | null {
-  const logged = new Set<LocalDate>([...entries.map((e) => e.date), ...notes.map((n) => n.date)]);
+  const logged = manualDates(habits, entries, notes);
   const to = addDays(today, -1);
   let from: LocalDate | null = null;
+  let days = 0;
   for (let d = to, i = 0; i < maxDays; d = addDays(d, -1), i++) {
     if (logged.has(d) || pauses.some((p) => p.habitId === null && p.startDate <= d && d <= p.endDate)) break;
-    if (dayProgress(habits, entries, pauses, d, true).total > 0) from = d;
+    if (dayProgress(habits, entries, pauses, d, true).total > 0) {
+      from = d;
+      days++;
+    }
   }
-  return from ? { from, to, days: diffDays(from, to) + 1 } : null;
+  return from ? { from, to, days } : null;
+}
+
+/** Dni, w których użytkownik coś zapisał sam (wpis nawyku bez Apple Zdrowie albo notatka/nastrój). */
+export function manualDates(habits: readonly Habit[], entries: readonly Entry[], notes: readonly DayNote[]): Set<LocalDate> {
+  const auto = new Set(habits.filter((h) => h.source).map((h) => h.id));
+  return new Set<LocalDate>([...entries.filter((e) => !auto.has(e.habitId)).map((e) => e.date), ...notes.map((n) => n.date)]);
 }
 
 /**

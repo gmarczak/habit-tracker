@@ -94,6 +94,17 @@ describe("przypomnienia", () => {
     expect(messagesFor(back, reminders.slice(1, 2), at2005).map((x) => x.title)).toEqual(["Zostały 2 nawyki na dziś"]);
   });
 
+  it("bez porannego i wieczornego łagodne przypomnienie niesie najwcześniejsze inne", () => {
+    const silent = { ...user, entries: [{ habitId: "b", date: "2026-10-07", value: 1, skipped: false, note: null }] };
+    const reminders = [
+      { id: "re", kind: "evening" as const, habitId: null, localTime: "20:00" },
+      { id: "rh", kind: "habit" as const, habitId: "a", localTime: "20:00" },
+      { id: "rm", kind: "morning" as const, habitId: null, localTime: "08:00" },
+    ];
+    expect(messagesFor(silent, reminders, at2005)).toEqual([]); // nośnikiem jest poranne (08:00), wieczorem cisza
+    expect(messagesFor(silent, reminders, new Date("2026-10-11T06:05:00Z")).map((x) => [x.reminderId, x.title])).toEqual([["rm", "Dziś wystarczy jedno"]]);
+  });
+
   it("po tygodniu ciszy łagodne przypomnienie co trzeci dzień i w poniedziałek", () => {
     const long = { ...user, entries: [{ habitId: "b", date: "2026-09-25", value: 1, skipped: false, note: null }] };
     const ry = [{ id: "ry", kind: "yesterday" as const, habitId: null, localTime: "09:00" }];

@@ -102,6 +102,14 @@ describe("powrót po przerwie", () => {
     // pon 19.10 – pt 23.10 bez wpisów, wcześniej weekend: cisza od poniedziałku
     expect(absence(weekdays, [done("a", "2026-10-16")], [], [], "2026-10-24")).toEqual({ from: "2026-10-19", to: "2026-10-23", days: 5 });
     expect(absence([h("q", "Rzucam", { goal: "quit" })], [], [], [], "2026-10-24")).toBeNull();
+    // jeden opuszczony piątek przy planie pn–pt to nie trzy dni przerwy
+    expect(absence(weekdays, [done("a", "2026-10-22")], [], [], "2026-10-26")).toEqual({ from: "2026-10-23", to: "2026-10-25", days: 1 });
+  });
+
+  it("wpisy z Apple Zdrowie (Skrót) nie przerywają ciszy", () => {
+    const withAuto = [...habits, h("s", "Kroki", { source: "steps", sourceMin: 7000 })];
+    const auto = ["2026-10-19", "2026-10-20", "2026-10-21"].map((d) => done("s", d));
+    expect(absence(withAuto, [done("a", "2026-10-18"), ...auto], [], [], "2026-10-22")?.days).toBe(3);
   });
 
   it("najłatwiejszy start: najmocniejszy nawyk bez dzisiejszego wpisu", () => {

@@ -44,7 +44,9 @@ export function missedPrevious(habit: Habit, entries: readonly Entry[], pauses: 
     if (req !== "required") return false;
     const entry = entriesByDate(entries, habit.id).get(d);
     const outcome = entryOutcome(entry, plan);
-    if (outcome === "done" || outcome === "skipped") return false;
+    // pominięcie jest neutralne jak w serii: patrzymy na wcześniejszy dzień
+    if (outcome === "skipped") continue;
+    if (outcome === "done") return false;
     return entry !== undefined || entries.some((e) => e.date === d);
   }
   return false;
