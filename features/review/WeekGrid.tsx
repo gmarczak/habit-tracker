@@ -113,12 +113,14 @@ function HabitWeek({ habit, days, today, snapshot, onLong }: { habit: Habit; day
   const quit = habit.goal === "quit";
   const doneCount = states.filter((s) => s === "done").length;
   const counted = states.filter((s) => !INACTIVE.includes(s) && s !== "skipped").length;
+  // Plan „X razy w tygodniu”: licznik względem X, nie 7 dni
+  const weekly = planOn(habit, today)?.frequency === "weekly_count" ? (planOn(habit, today)?.timesPerWeek ?? null) : null;
   return (
     <div className="border-t-[0.5px] border-border py-2 first-of-type:border-t-0">
       <div className="flex items-center gap-2 pb-1.5">
         <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size="sm" />
         <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{habit.name}</span>
-        {!quit && counted > 0 && <span className="text-[13px] tabular-nums text-muted">{`${doneCount}/${counted}`}</span>}
+        {!quit && (weekly !== null || counted > 0) && <span className="text-[13px] tabular-nums text-muted">{`${doneCount}/${weekly ?? counted}`}</span>}
       </div>
       <div className="grid grid-cols-7 gap-1">
         {days.map((d, i) => (
@@ -161,8 +163,8 @@ function Cell({
   function tap() {
     const base = { habitId: habit.id, date };
     if (quit) return mutation.mutate(state === "missed" ? { ...base, kind: "clear" } : { ...base, kind: "set", value: 1 });
-    // zrobione → nie (wpis 0) → puste → zrobione
-    if (state === "done") return mutation.mutate({ ...base, kind: "set", value: 0 });
+    // zrobione → nie (wpis 0) → puste → zrobione; w planie tygodniowym „nie” nic nie znaczy: zrobione ↔ puste
+    if (state === "done") return mutation.mutate(plan?.frequency === "weekly_count" ? { ...base, kind: "clear" } : { ...base, kind: "set", value: 0 });
     if (saidNo) return mutation.mutate({ ...base, kind: "clear" });
     if (habit.kind === "duration") clearTimer(habit.id, date);
     mutation.mutate({ ...base, kind: "set", value: habit.kind === "check" ? 1 : (plan?.targetValue ?? 1) });

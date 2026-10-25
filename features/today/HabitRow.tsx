@@ -125,7 +125,7 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
       : saidNo
         ? "Nie dziś"
         : item.missedLast
-          ? `Wczoraj przerwa — dziś nie odpuść${streak.current > 0 ? ` · ${streakText}` : ""}`
+          ? `Wczoraj wypadło — dziś nie odpuść${streak.current > 0 ? ` · ${streakText}` : ""}`
           : [habit.cue, progressText, autoText(habit, measured), streakText].filter(Boolean).join(" · ") ||
             (streak.best > 0 ? `Wracasz — rekord: ${formatStreak({ ...streak, current: streak.best })}` : "Zaczynasz nową serię");
 

@@ -30,7 +30,10 @@ export function awaitsAnswer(item: Pick<TodayItem, "habit" | "entry">, isToday: 
   return isToday && (item.entry.value ?? 0) > 0;
 }
 
-/** Poprzedni wymagany dzień (do tygodnia wstecz) bez zrobienia: brak, „nie” albo częściowo. */
+/**
+ * Poprzedni wymagany dzień (do tygodnia wstecz) wypadł: odpowiedź „nie”, częściowo albo brak wpisu w dniu,
+ * w którym zapisano coś innego. Dzień bez żadnego zapisu to niewiadoma (mogło być zrobione, tylko niezapisane).
+ */
 export function missedPrevious(habit: Habit, entries: readonly Entry[], pauses: readonly Pause[], date: LocalDate): boolean {
   if (habit.goal === "quit") return false;
   for (let d = addDays(date, -1), i = 0; i < 7 && d >= habit.startDate; d = addDays(d, -1), i++) {
@@ -39,8 +42,10 @@ export function missedPrevious(habit: Habit, entries: readonly Entry[], pauses: 
     const req = requirementOn(habit, pauses, d);
     if (req === "paused" || req === "not_required") continue;
     if (req !== "required") return false;
-    const outcome = entryOutcome(entriesByDate(entries, habit.id).get(d), plan);
-    return outcome === "none" || outcome === "partial";
+    const entry = entriesByDate(entries, habit.id).get(d);
+    const outcome = entryOutcome(entry, plan);
+    if (outcome === "done" || outcome === "skipped") return false;
+    return entry !== undefined || entries.some((e) => e.date === d);
   }
   return false;
 }

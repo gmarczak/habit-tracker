@@ -36,15 +36,21 @@ type Step = { kind: "habit"; id: string } | { kind: "quit" } | { kind: "mood" };
 
 /**
  * Kolejka ustalona na wejściu: odpowiedź nie przestawia kart (zrobiony nawyk nie znika spod palca).
- * Tylko nawyki bez odpowiedzi; dziś wieczorne na koniec. Nastrój tylko, gdy jeszcze go nie ma.
+ * Tylko nawyki bez odpowiedzi: najpierw codzienne (dziś wieczorne na koniec), potem plany tygodniowe,
+ * które „Wszystko zrobione” pomija. Nastrój tylko, gdy jeszcze go nie ma.
  */
-function queueOf(snapshot: Snapshot, date: LocalDate, today: LocalDate): { build: string[]; quit: string[]; mood: boolean } {
+function queueOf(snapshot: Snapshot, date: LocalDate, today: LocalDate): { build: string[]; daily: number; quit: string[]; mood: boolean } {
   const view = buildDay(snapshot.habits, snapshot.entries, snapshot.pauses, date, today, snapshot.settings.weekStart);
   const isToday = date === today;
-  const build = [...view.todo, ...view.thisWeek].filter((i) => awaitsAnswer(i, isToday));
-  if (isToday) build.sort((a, b) => Number(a.habit.timeOfDay === "evening") - Number(b.habit.timeOfDay === "evening"));
+  const rank = (i: TodayItem) => (i.week ? 2 : isToday && i.habit.timeOfDay === "evening" ? 1 : 0);
+  const build = [...view.todo, ...view.thisWeek].filter((i) => awaitsAnswer(i, isToday)).sort((a, b) => rank(a) - rank(b));
   const mood = snapshot.notes.find((n) => n.date === date)?.mood ?? null;
-  return { build: build.map((i) => i.habit.id), quit: view.quit.filter((i) => !i.entry).map((i) => i.habit.id), mood: mood === null };
+  return {
+    build: build.map((i) => i.habit.id),
+    daily: build.filter((i) => !i.week).length,
+    quit: view.quit.filter((i) => !i.entry).map((i) => i.habit.id),
+    mood: mood === null,
+  };
 }
 
 function dayLabel(date: LocalDate, today: LocalDate): string {
@@ -60,7 +66,7 @@ function names(items: readonly TodayItem[]): string {
 
 function Review({ snapshot, date, today }: { snapshot: Snapshot; date: LocalDate; today: LocalDate }) {
   const [queue] = useState(() => queueOf(snapshot, date, today));
-  const [started, setStarted] = useState(queue.build.length < 2);
+  const [started, setStarted] = useState(queue.daily < 2);
   const [index, setIndex] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const mutation = useEntryMutation();
@@ -98,14 +104,18 @@ function Review({ snapshot, date, today }: { snapshot: Snapshot; date: LocalDate
     next();
   }
 
+  // „Wszystko zrobione” odhacza codzienne; plany tygodniowe (np. 2× w tygodniu) przegląd zadaje potem osobno
+  const daily = buildItems.filter((i) => !i.week);
+  const weekly = buildItems.filter((i) => i.week);
+
   function allDone() {
-    markAllDone(buildItems, date);
+    markAllDone(daily, date);
     setStarted(true);
-    setIndex(buildItems.length);
+    setIndex(daily.length);
   }
 
   const dayNote = snapshot.notes.find((n) => n.date === date);
-  const showStart = !started && buildItems.length >= 2;
+  const showStart = !started && daily.length >= 2;
 
   return (
     <main className="flex min-h-[calc(100dvh-7rem)] flex-col gap-5 px-4 pt-4">
@@ -140,7 +150,7 @@ function Review({ snapshot, date, today }: { snapshot: Snapshot; date: LocalDate
       )}
 
       {showStart ? (
-        <StartCard label={dayLabel(date, today)} items={buildItems} onAllDone={allDone} onOneByOne={() => setStarted(true)} />
+        <StartCard label={dayLabel(date, today)} items={daily} later={weekly} onAllDone={allDone} onOneByOne={() => setStarted(true)} />
       ) : item ? (
         <Card item={item} isToday={isToday} onAnswer={answer} onExact={() => setSheetOpen(true)} />
       ) : step?.kind === "quit" ? (
@@ -175,13 +185,26 @@ function Review({ snapshot, date, today }: { snapshot: Snapshot; date: LocalDate
   );
 }
 
-/** Pierwsza karta przy kilku nawykach: wszystko jednym dotknięciem (z „Cofnij”) albo po kolei. */
-function StartCard({ label, items, onAllDone, onOneByOne }: { label: string; items: readonly TodayItem[]; onAllDone: () => void; onOneByOne: () => void }) {
+/** Pierwsza karta przy kilku nawykach: codzienne jednym dotknięciem (z „Cofnij”) albo po kolei. */
+function StartCard({
+  label,
+  items,
+  later,
+  onAllDone,
+  onOneByOne,
+}: {
+  label: string;
+  items: readonly TodayItem[];
+  later: readonly TodayItem[];
+  onAllDone: () => void;
+  onOneByOne: () => void;
+}) {
   return (
     <section className="flex flex-1 flex-col items-center justify-center gap-6 rounded-2xl bg-surface px-5 py-8 text-center">
       <div className="flex flex-col gap-2">
         <h2 className="font-serif text-[28px] font-bold leading-tight">{label} do domknięcia</h2>
         <p className="text-[15px] text-muted">{names(items)}</p>
+        {later.length > 0 && <p className="text-[13px] text-muted">{`Potem osobno: ${names(later)}`}</p>}
       </div>
       <div className="flex w-full flex-col gap-3">
         <button type="button" onClick={onAllDone} className={btnPrimary}>

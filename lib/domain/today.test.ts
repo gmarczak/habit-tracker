@@ -85,6 +85,21 @@ describe("ekran Dziś", () => {
   });
 });
 
+describe("nie odpuszczaj dwa razy", () => {
+  const a = habit("a", plan({ frequency: "daily" }));
+  const b = habit("b", plan({ frequency: "daily" }));
+  const missed = (entries: Entry[]) => buildDay([a, b], entries, [], TODAY, TODAY, 1).todo.filter((i) => i.missedLast).map((i) => i.habit.id);
+  it("wczoraj zapisane coś innego albo „nie”: ten nawyk wypadł i idzie na górę", () => {
+    expect(missed([e("a", "2026-10-10")])).toEqual(["b"]);
+    expect(missed([e("b", "2026-10-10", 0), e("a", "2026-10-10")])).toEqual(["b"]);
+    const view = buildDay([a, b], [e("a", "2026-10-10")], [], TODAY, TODAY, 1);
+    expect(view.todo.map((i) => i.habit.id)).toEqual(["b", "a"]);
+  });
+  it("wczoraj bez żadnego zapisu: niewiadoma, bez ostrzeżenia", () => {
+    expect(missed([])).toEqual([]);
+  });
+});
+
 describe("dayProgress", () => {
   it("daje ten sam pierścień co buildDay dla każdego z ostatnich 14 dni", () => {
     const habits = [

@@ -91,7 +91,7 @@ describe("przypomnienia", () => {
     expect(messagesFor(silent, reminders.slice(1, 2), at2005).map((x) => x.title)).toEqual(["Dziś wystarczy jedno"]);
     // dzisiejszy wpis albo nastrój kończy ciszę: wraca zwykłe podsumowanie
     const back = { ...silent, notes: [{ date: "2026-10-11", note: null, mood: 4 }] };
-    expect(messagesFor(back, reminders.slice(1, 2), at2005).map((x) => x.title)).toEqual(["Nie odpuść dwa razy: Czytanie, Spacer"]);
+    expect(messagesFor(back, reminders.slice(1, 2), at2005).map((x) => x.title)).toEqual(["Zostały 2 nawyki na dziś"]);
   });
 
   it("po tygodniu ciszy łagodne przypomnienie co trzeci dzień i w poniedziałek", () => {
