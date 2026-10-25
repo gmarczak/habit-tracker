@@ -3,27 +3,32 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useToast } from "@/components/ui/Toast";
 import { btnSecondarySm, groupHeader } from "@/components/ui/styles";
 import { Onboarding } from "@/features/onboarding/Onboarding";
 import { ReminderPrompt } from "@/features/reminders/ReminderPrompt";
-import { snapshotKey, useSnapshot, useToday } from "@/lib/data/hooks";
+import { snapshotKey, useEntryMutation, useSnapshot, useToday } from "@/lib/data/hooks";
 import { syncTimeZone } from "@/lib/data/mutations";
 import { supabaseBrowser } from "@/lib/db/client";
 import { isLocalDate, type LocalDate } from "@/lib/domain/dates";
 import { reachedMilestone } from "@/lib/domain/milestones";
 import { PART_LABELS, groupByPart, yesterdayGap } from "@/lib/domain/nudges";
-import { buildDay } from "@/lib/domain/today";
+import { buildDay, type TodayItem } from "@/lib/domain/today";
+import { habitCount } from "@/lib/domain/words";
 import { formatDayMonth, formatWeekday } from "@/lib/format";
 import { Celebration, type CelebrationInfo } from "./Celebration";
 import { DayHeader } from "./DayHeader";
 import { HabitRow } from "./HabitRow";
 import { DayNote } from "./DayNote";
+import { clearTimer } from "./HabitTimer";
 import { DayOffButton, DayOffCard, YesterdayCard, pauseOn } from "./Nudges";
 import { QuitRow } from "./QuitRow";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayScreen() {
   const qc = useQueryClient();
+  const toast = useToast();
+  const mutation = useEntryMutation();
   const { data: snapshot, isPending, refetch } = useSnapshot();
   const today = useToday(snapshot);
   // Dzień wybrany do uzupełnienia; ważny tylko w dniu, w którym go wybrano (rano znów otwiera się „dziś”)
@@ -84,6 +89,27 @@ export function TodayScreen() {
 
   const closeCelebration = useCallback(() => setCelebration(null), []);
 
+  /**
+   * „Wszystko zrobione”: cały cel każdego nawyku wymaganego tego dnia (plany tygodniowe zostają — to nie codzienne).
+   * Pomyłkę poprawia się gestem na wierszu albo cofa całość z komunikatu.
+   */
+  function markAllDone(items: TodayItem[], day: LocalDate) {
+    for (const { habit, plan } of items) {
+      if (habit.kind === "duration") clearTimer(habit.id, day);
+      mutation.mutate({ habitId: habit.id, date: day, kind: "set", value: habit.kind === "check" ? 1 : plan.targetValue });
+    }
+    toast({
+      message: `Odhaczono ${habitCount(items.length)}`,
+      actionLabel: "Cofnij",
+      durationMs: 8000,
+      onAction: () => {
+        // Wraca stan sprzed: częściowa ilość albo brak wpisu
+        for (const { habit, entry } of items)
+          mutation.mutate(entry ? { habitId: habit.id, date: day, kind: "set", value: entry.value ?? 0 } : { habitId: habit.id, date: day, kind: "clear" });
+      },
+    });
+  }
+
   if (isPending) return <TodaySkeleton />;
   // Błąd odświeżenia przy danych z cache (np. Wi-Fi bez internetu) nie zasłania ekranu
   if (!snapshot || !view || !today || !date) {
@@ -117,10 +143,20 @@ export function TodayScreen() {
           progress={view.progress}
         />
         {hasHabits && <WeekStrip today={today} selected={date} onSelect={setPicked} snapshot={snapshot} />}
-        {open.length > 0 && (
+        {open.length > 0 && view.todo.length < 2 && (
           <Link href={isToday ? "/review" : `/review?date=${date}`} className={`${btnSecondarySm} w-full`}>
             Przegląd dnia · {open.length} do domknięcia
           </Link>
+        )}
+        {view.todo.length >= 2 && (
+          <div className="grid grid-cols-2 gap-2">
+            <Link href={isToday ? "/review" : `/review?date=${date}`} className={`${btnSecondarySm} h-auto! min-h-11 py-1.5 leading-tight`}>
+              Przegląd dnia
+            </Link>
+            <button type="button" onClick={() => markAllDone(view.todo, date)} className={`${btnSecondarySm} h-auto! min-h-11 py-1.5 leading-tight`}>
+              Wszystko zrobione
+            </button>
+          </div>
         )}
       </div>
 
@@ -140,7 +176,7 @@ export function TodayScreen() {
         )}
 
         {open.length > 0 && !grouped && (
-          <ul aria-label="Do zrobienia" className="ios-group mt-4">
+          <ul aria-label="Do zrobienia" className="ios-group mt-4 overflow-hidden">
             {open.map((item) => (
               <li key={item.habit.id}>
                 <HabitRow item={item} date={date} today={today} compact={false} />
@@ -156,7 +192,7 @@ export function TodayScreen() {
             return (
               <section key={g.part ?? "any"} aria-label={title}>
                 <h2 className={`${groupHeader} pt-6`}>{title}</h2>
-                <ul className="ios-group">
+                <ul className="ios-group overflow-hidden">
                   {g.items.map((item) => (
                     <li key={item.habit.id}>
                       <HabitRow item={item} date={date} today={today} compact={false} />
@@ -187,7 +223,7 @@ export function TodayScreen() {
             <h2 id="done-heading" className={`${groupHeader} pt-6`}>
               Zrobione
             </h2>
-            <ul className="ios-group">
+            <ul className="ios-group overflow-hidden">
               {view.done.map((item) => (
                 <li key={item.habit.id}>
                   <HabitRow item={item} date={date} today={today} compact />
