@@ -10,6 +10,7 @@ import { formatNumber, formatStreak } from "@/lib/format";
 import { HabitBadge } from "@/lib/ui/icons";
 import { EntrySheet } from "./EntrySheet";
 import { clearTimer } from "./HabitTimer";
+import { SwipeRow, type SwipeAction } from "./SwipeRow";
 
 const LONG_PRESS_MS = 450;
 
@@ -74,6 +75,20 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
     return mutation.mutate({ habitId: habit.id, date, kind: "set", value: target });
   }
 
+  /** Gesty: w prawo — zrobione w całości (także ilość i czas), w lewo — pomiń albo cofnij wpis */
+  function settle(kind: "done" | "skip" | "clear") {
+    const base = { habitId: habit.id, date };
+    if (habit.kind === "duration") clearTimer(habit.id, date);
+    if (kind === "done") {
+      haptic();
+      return mutation.mutate({ ...base, kind: "set", value: habit.kind === "check" ? 1 : target });
+    }
+    return mutation.mutate(kind === "skip" ? { ...base, kind: "skip" } : { ...base, kind: "clear" });
+  }
+  const toRight: SwipeAction | undefined = isDone ? undefined : { label: "Zrobione", tone: "accent", run: () => settle("done") };
+  const toLeft: SwipeAction =
+    isDone || isSkipped ? { label: "Cofnij", tone: "neutral", run: () => settle("clear") } : { label: "Pomiń", tone: "neutral", run: () => settle("skip") };
+
   function startPress() {
     longPressed.current = false;
     pressTimer.current = window.setTimeout(() => {
@@ -118,42 +133,46 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
           : `${habit.name}: ${isDone || isSkipped ? "cofnij" : "odhacz"}`;
 
   return (
-    <div className={`flex items-center gap-3 border-b-[0.5px] border-border ${compact ? "py-2" : "py-2.5"}`}>
-      <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size={compact ? "sm" : "md"} />
+    <>
+      <SwipeRow toRight={toRight} toLeft={toLeft} onSwipeStart={cancelPress} className="border-b-[0.5px] border-border">
+        <div className={`flex items-center gap-3 ${compact ? "py-2" : "py-2.5"}`}>
+          <HabitBadge icon={habit.icon} color={habit.color} name={habit.name} size={compact ? "sm" : "md"} />
 
-      <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-        <span className={`w-full truncate ${compact ? "text-[17px] text-done" : "text-[17px] font-medium"}`}>{title}</span>
-        {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
-      </button>
+          <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+            <span className={`w-full truncate ${compact ? "text-[17px] text-done" : "text-[17px] font-medium"}`}>{title}</span>
+            {detail && <span className={`text-[13px] ${(isDone || weekMet) && !isSkipped ? "font-semibold text-accent" : "text-muted"}`}>{detail}</span>}
+          </button>
 
-      <button
-        type="button"
-        aria-label={actionLabel}
-        aria-pressed={isDone}
-        onClick={() => {
-          if (!longPressed.current) primary();
-        }}
-        onPointerDown={startPress}
-        onPointerUp={cancelPress}
-        onPointerLeave={cancelPress}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          openSheet();
-        }}
-        className={`flex h-11 shrink-0 select-none items-center justify-center rounded-full text-[15px] font-bold transition-colors ${
-          isDone
-            ? "w-11 bg-accent text-accent-contrast"
-            : weekMet
-              ? "w-11 border-2 border-accent text-accent"
-              : isSkipped
-              ? "w-11 border-[1.5px] border-control text-muted"
-              : habit.kind === "count"
-                ? "min-w-14 bg-fill px-3 text-accent"
-                : "w-11 border-2 border-control"
-        }`}
-      >
-        {isDone || weekMet ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}
-      </button>
+          <button
+            type="button"
+            aria-label={actionLabel}
+            aria-pressed={isDone}
+            onClick={() => {
+              if (!longPressed.current) primary();
+            }}
+            onPointerDown={startPress}
+            onPointerUp={cancelPress}
+            onPointerLeave={cancelPress}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              openSheet();
+            }}
+            className={`flex h-11 shrink-0 select-none items-center justify-center rounded-full text-[15px] font-bold transition-colors ${
+              isDone
+                ? "w-11 bg-accent text-accent-contrast"
+                : weekMet
+                  ? "w-11 border-2 border-accent text-accent"
+                  : isSkipped
+                  ? "w-11 border-[1.5px] border-control text-muted"
+                  : habit.kind === "count"
+                    ? "min-w-14 bg-fill px-3 text-accent"
+                    : "w-11 border-2 border-control"
+            }`}
+          >
+            {isDone || weekMet ? <CheckIcon /> : isSkipped ? "–" : habit.kind === "count" ? "+1" : null}
+          </button>
+        </div>
+      </SwipeRow>
 
       <EntrySheet
         open={sheetDate !== null}
@@ -164,6 +183,6 @@ export function HabitRow({ item, date, today, compact }: { item: TodayItem; date
         date={sheetDate ?? date}
         today={today}
       />
-    </div>
+    </>
   );
 }
