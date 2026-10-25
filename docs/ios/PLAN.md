@@ -620,16 +620,28 @@ Projekt eksperymentu jest w §6.
 
 ## 8. Otwarte pytania do ownera
 
-1. **Jaki nosisz zegarek: Apple Watch czy Garmin?** Repo wspomina Garmin Connect. Czy nosisz go w nocy i na basenie? To decyduje o „Ruchu” (`appleExerciseTime` albo `workout_min`) oraz o „Śnie”. Sprawdź w Zdrowie → Kroki / Sen / Treningi → Źródła danych.
+### Odpowiedzi (2026-10-25)
+
+- **Zegarek: Garmin, bez Apple Watcha.** Skutki dla planu:
+  - **Ruch** liczymy z czasu treningów Garmina (`HKWorkout.duration`, metryka `workout_min` z M4). `appleExerciseTime` odpada, bo liczy go tylko Apple Watch.
+  - **Spacer** z kroków, które zapisuje Garmin Connect i iPhone. Zdrowie samo usuwa duplikaty.
+  - **Basen**: w Etapie 3 sprawdzić, czy „Pływanie w basenie” z Garmina trafia do Zdrowia jako `HKWorkoutActivityType.swimming`.
+  - **Sen**: działa tylko, jeśli Garmin jest noszony w nocy (pytanie zostaje otwarte).
+  - **Medytacja**: Garmin raczej nie zapisuje `mindfulSession`. W Etapie 3 sprawdzić, jako co trafia aktywność „Medytacja” lub „Oddychanie” z Garmina (np. trening `mindAndBody`). Jeśli nie trafia wcale, minutnik Nawyków zapisuje sesję do Zdrowia (pytanie 2).
+  - Dane ze Zdrowia pojawiają się dopiero po synchronizacji Garmin Connect z iPhone'em (w tle, z opóźnieniem od minut do godzin). Wybudzenia HealthKit przyjdą więc po tej synchronizacji, a nie zaraz po treningu. To wystarcza, bo poranny przegląd jest o 09:00.
+- **Mac: MacBook Air M2.** Apple silicon, więc Xcode 27 działa. Przed Etapem 0 sprawdzić macOS ≥ 26.6 (Tahoe) i wolne miejsce na dysku: Xcode z symulatorem iOS zajmuje około 40–50 GB.
+- **Zamykanie aplikacji przesunięciem: nie.** Ryzyko z §7 (blokada startu w tle) nie dotyczy ownera.
+- **`day_start_hour` = 0** (odczytane z bazy, `profiles.day_start_hour`).
+
+### Pytania wciąż otwarte
+
+1. Czy Garmina nosisz **w nocy** (Sen przed 23:00) i **na basenie** (Basen)?
 2. Czym medytujesz? Czy minutnik Nawyków ma zapisywać sesje do Zdrowia (wymaga zgody na zapis)?
 3. Jaki język ma Siri na Twoim iPhonie? Jaki to model iPhone'a (czy ma przycisk czynności) i jaka wersja iOS?
-4. **Jaki masz Mac** (Apple silicon? macOS ≥ 26.6)?
-5. Progi: Spacer od 7000 kroków? Basen od 10 min? „Sen przed 23:00” liczony od zaśnięcia, i z jaką tolerancją?
-6. Jaki masz `day_start_hour`: 0 czy na przykład 3?
-7. Czy odhaczanie z powiadomień i Controls bez Face ID jest OK? Domyślnie zakładam, że tak.
-8. **Czy masz nawyk zamykania aplikacji przesunięciem w górę?** Jeśli tak, HealthKit w tle nie zadziała bez zmiany tego nawyku.
-9. Czy zgadzasz się na tydzień „zamrożenia” telefonu w Etapie 3 (bez instalacji z Xcode)?
-10. Jaki jest Twój nick w Duolingo i czy profil jest publiczny? Czy Fitatu widać w Zdrowie → Źródła?
+4. Progi: Spacer od 7000 kroków? Basen od 10 min? „Sen przed 23:00” liczony od zaśnięcia, i z jaką tolerancją?
+5. Czy odhaczanie z powiadomień i Controls bez Face ID jest OK? Domyślnie zakładam, że tak.
+6. Czy zgadzasz się na tydzień „zamrożenia” telefonu w Etapie 3 (bez instalacji z Xcode)?
+7. Jaki jest Twój nick w Duolingo i czy profil jest publiczny? Czy Fitatu widać w Zdrowie → Źródła?
 
 ## 9. Słownik i źródła
 
