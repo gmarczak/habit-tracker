@@ -50,7 +50,7 @@ describe("przypomnienia", () => {
 
   it("podsumowanie wymienia tylko niezrobione", () => {
     const m = messagesFor(user, [{ id: "r1", kind: "summary" as const, habitId: null, localTime: "20:00" }], at2005);
-    expect(m).toEqual([{ reminderId: "r1", localDate: "2026-10-11", title: "Został jeden nawyk", body: "Spacer", url: "/", tag: "summary", badge: 1 }]);
+    expect(m).toEqual([{ reminderId: "r1", localDate: "2026-10-11", title: "Został jeden nawyk", body: "Spacer", url: "/review", tag: "summary", badge: 1 }]);
   });
 
   it("podsumowanie: „na dziś” tylko wymagane dziś, tygodniowe osobno z postępem", () => {
@@ -102,7 +102,7 @@ describe("przypomnienia", () => {
     // 11.10: Czytanie zrobione, Spacer nie → rano 12.10 przypomnienie o Spacerze
     const morning = new Date("2026-10-12T07:05:00Z"); // 9:05 w Warszawie
     const m = messagesFor(user, [{ id: "ry", kind: "yesterday", habitId: null, localTime: "09:00" }], morning);
-    expect(m).toEqual([{ reminderId: "ry", localDate: "2026-10-12", title: "Wczoraj został 1 nawyk", body: "Spacer — uzupełnij, jeśli zrobiłeś.", url: "/?date=2026-10-11", tag: "yesterday", badge: 2 }]);
+    expect(m).toEqual([{ reminderId: "ry", localDate: "2026-10-12", title: "Wczoraj został 1 nawyk", body: "Spacer — uzupełnij, jeśli zrobiłeś.", url: "/review?date=2026-10-11", tag: "yesterday", badge: 2 }]);
     const closed = { ...user, entries: [...user.entries, { habitId: "b", date: "2026-10-11", value: null, skipped: true, note: null }] };
     expect(messagesFor(closed, [{ id: "ry", kind: "yesterday", habitId: null, localTime: "09:00" }], morning)).toEqual([]);
   });

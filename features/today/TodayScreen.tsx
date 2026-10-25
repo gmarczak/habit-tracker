@@ -2,7 +2,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { groupHeader } from "@/components/ui/styles";
+import Link from "next/link";
+import { btnSecondarySm, groupHeader } from "@/components/ui/styles";
 import { Onboarding } from "@/features/onboarding/Onboarding";
 import { ReminderPrompt } from "@/features/reminders/ReminderPrompt";
 import { snapshotKey, useSnapshot, useToday } from "@/lib/data/hooks";
@@ -116,6 +117,11 @@ export function TodayScreen() {
           progress={view.progress}
         />
         {hasHabits && <WeekStrip today={today} selected={date} onSelect={setPicked} snapshot={snapshot} />}
+        {open.length > 0 && (
+          <Link href={isToday ? "/review" : `/review?date=${date}`} className={`${btnSecondarySm} w-full`}>
+            Przegląd dnia · {open.length} do domknięcia
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-col px-4 pt-2">
