@@ -51,6 +51,21 @@ function eachDay(from, to) {
   return out;
 }
 
+// lib/domain/words.ts
+function plural(n, one, few, many) {
+  if (n === 1) return one;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  return Number.isInteger(n) && mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
+}
+function habitCount(n) {
+  return `${n} ${plural(n, "nawyk", "nawyki", "nawyk\xF3w")}`;
+}
+function habitsLeft(n, capital = true) {
+  const verb = plural(n, "zosta\u0142", "zosta\u0142y", "zosta\u0142o");
+  return `${capital ? verb.charAt(0).toUpperCase() + verb.slice(1) : verb} ${habitCount(n)}`;
+}
+
 // lib/domain/model.ts
 function unitOf(frequency) {
   return frequency === "weekly_count" ? "weeks" : "days";
@@ -282,7 +297,7 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
       streak: streakOf(habit, entries, pauses, today, weekStart),
       week: req === "flexible" ? currentWeekProgress(habit, entries, pauses, date, weekStart) : null
     };
-    if (req === "required") {
+    if (req === "required" && habit.goal !== "quit") {
       if (state !== "skipped") view.progress.total++;
       if (state === "done") view.progress.done++;
     }
@@ -298,12 +313,13 @@ function buildDay(habits, entries, pauses, date, today, weekStart) {
 function dayProgress(habits, entries, pauses, date, history = false) {
   const progress = { done: 0, total: 0, settled: 0 };
   for (const habit of habits) {
+    if (habit.goal === "quit") continue;
     if (habit.archivedAt !== null && !(history && habit.archivedOn && date < habit.archivedOn)) continue;
     if (requirementOn(habit, pauses, date) !== "required" || !planOn(habit, date)) continue;
     const state = dayState(habit, entries, pauses, date, date);
     if (state !== "skipped") progress.total++;
     if (state === "done") progress.done++;
-    if (state === "done" || state === "missed") progress.settled++;
+    if (state === "done") progress.settled++;
   }
   return progress;
 }
@@ -350,7 +366,7 @@ function weeklySummary(habits, entries, pauses, today, weekStart) {
   const weekly = [];
   for (const habit of active) {
     const plan = planOn(habit, today);
-    if (!plan) continue;
+    if (!plan || habit.goal === "quit") continue;
     if (unitOf(plan.frequency) === "weeks") {
       const w = currentWeekProgress(habit, entries, pauses, today, weekStart);
       if (w.required > 0) weekly.push({ name: habit.name, done: w.done, required: w.required });
@@ -362,6 +378,13 @@ function weeklySummary(habits, entries, pauses, today, weekStart) {
   const sorted = [...rated].sort((a, b) => b.rate - a.rate);
   const best = sorted.length >= 2 && sorted[0].rate > sorted[sorted.length - 1].rate ? sorted[0] : null;
   const worst = best ? sorted[sorted.length - 1] : null;
+  const ids = new Set(active.filter((h) => h.goal !== "quit").map((h) => h.id));
+  const inWeek = entries.filter((e) => e.date >= first && e.date <= today);
+  const checks = inWeek.filter((e) => ids.has(e.habitId) && !e.skipped && (e.value ?? 0) > 0);
+  const counts = /* @__PURE__ */ new Map();
+  for (const e of checks) counts.set(e.habitId, (counts.get(e.habitId) ?? 0) + 1);
+  const topId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const top = topId ? { name: active.find((h) => h.id === topId[0]).name, count: topId[1] } : null;
   return {
     weekStart: first,
     share: review.total === 0 ? null : review.done / review.total,
@@ -369,32 +392,27 @@ function weeklySummary(habits, entries, pauses, today, weekStart) {
     daysSoFar: review.days.filter((d) => d.date <= today && d.total > 0).length,
     best,
     worst,
-    weekly
+    weekly,
+    logged: { checks: checks.length, days: new Set(inWeek.map((e) => e.date)).size, top }
   };
 }
 function weeklyMessage(s) {
   if (s.share === null && s.weekly.length === 0) return null;
+  if (s.share !== null && (s.logged.days <= 3 || s.share < 0.5)) {
+    const { checks, days, top } = s.logged;
+    if (checks === 0) return { title: "Nowy tydzie\u0144 od jutra", body: "Czysta karta. Wystarczy jeden nawyk dziennie, \u017Ceby ruszy\u0107." };
+    const parts2 = [`${checks} ${plural(checks, "odhaczenie", "odhaczenia", "odhacze\u0144")} w ${days} ${plural(days, "dzie\u0144", "dni", "dni")}`];
+    if (top && top.count > 1) parts2.push(`Najcz\u0119\u015Bciej: ${top.name} ${top.count}\xD7`);
+    for (const w of s.weekly) parts2.push(`${w.name} ${w.done}/${w.required}`);
+    parts2.push("Od jutra nowy tydzie\u0144");
+    return { title: "Tw\xF3j tydzie\u0144", body: parts2.join(" \xB7 ") };
+  }
   const pct = (x) => `${Math.round(x * 100)}%`;
   const parts = [];
   if (s.share !== null) parts.push(`Idealne dni: ${s.perfectDays} z ${s.daysSoFar}`);
   if (s.best && s.worst) parts.push(`Najlepiej: ${s.best.name} (${pct(s.best.rate)})`, `Do poprawy: ${s.worst.name} (${pct(s.worst.rate)})`);
   for (const w of s.weekly) parts.push(`${w.name} ${w.done}/${w.required}`);
   return { title: s.share === null ? "Tw\xF3j tydzie\u0144" : `Tw\xF3j tydzie\u0144: ${pct(s.share)}`, body: parts.join(" \xB7 ") };
-}
-
-// lib/domain/words.ts
-function plural(n, one, few, many) {
-  if (n === 1) return one;
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  return Number.isInteger(n) && mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many;
-}
-function habitCount(n) {
-  return `${n} ${plural(n, "nawyk", "nawyki", "nawyk\xF3w")}`;
-}
-function habitsLeft(n, capital = true) {
-  const verb = plural(n, "zosta\u0142", "zosta\u0142y", "zosta\u0142o");
-  return `${capital ? verb.charAt(0).toUpperCase() + verb.slice(1) : verb} ${habitCount(n)}`;
 }
 
 // supabase/functions/send-reminders/logic.ts

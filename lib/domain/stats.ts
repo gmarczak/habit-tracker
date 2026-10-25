@@ -5,11 +5,11 @@ import { dayProgress } from "./today";
 
 /*
  * Statystyki globalne. Dzień liczy się z nawyków wymaganych tego dnia (jak pierścień na ekranie Dziś):
- * pominięte i pauzy nie wchodzą do mianownika, plany tygodniowe nie wchodzą do bilansu dnia.
+ * pominięte i pauzy nie wchodzą do mianownika, plany tygodniowe i „rzucam” (własna seria) nie wchodzą do bilansu dnia.
  * Nawyk przeniesiony do archiwum liczy się w dniach sprzed archiwizacji, więc archiwum nie przepisuje przeszłości.
  */
 
-/** `settled` – ile z `total` ma już pewny wynik (zrobione albo wpadka „rzucam”); reszta dziś jeszcze czeka. */
+/** `settled` – ile z `total` ma już pewny wynik (zrobione); reszta dziś jeszcze czeka. */
 export type DayTotals = { date: LocalDate; done: number; total: number; settled?: number };
 
 export function dayTotals(

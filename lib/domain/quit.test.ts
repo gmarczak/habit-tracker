@@ -29,12 +29,13 @@ describe("nawyk „rzucam”", () => {
     expect(completionRate(sweets, [slip("2026-10-10")], [], "2026-10-07", "2026-10-13", "2026-10-13", 1)).toBeCloseTo(6 / 7);
   });
 
-  it("na ekranie dnia osobna lista, pierścień liczy czyste dni, „wczoraj” jej nie wymienia", () => {
+  it("na ekranie dnia osobna lista poza pierścieniem, „wczoraj” jej nie wymienia", () => {
     const view = buildDay([sweets], [], [], "2026-10-13", "2026-10-13", 1);
     expect(view.quit.map((i) => i.habit.id)).toEqual(["q"]);
     expect(view.todo).toEqual([]);
-    expect(view.progress).toEqual({ done: 1, total: 1 });
-    expect(buildDay([sweets], [slip("2026-10-13")], [], "2026-10-13", "2026-10-13", 1).progress).toEqual({ done: 0, total: 1 });
+    // czysty dzień z automatu nie podbija pierścienia; wpadkę widać w serii „rzucam”
+    expect(view.progress).toEqual({ done: 0, total: 0 });
+    expect(buildDay([sweets], [slip("2026-10-13")], [], "2026-10-13", "2026-10-13", 1).progress).toEqual({ done: 0, total: 0 });
     expect(yesterdayGap([sweets], [slip("2026-10-12")], [], "2026-10-13", 1)).toBeNull();
   });
 });

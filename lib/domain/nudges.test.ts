@@ -57,4 +57,23 @@ describe("podsumowanie tygodnia", () => {
       body: "Idealne dni: 2 z 7 · Najlepiej: Łóżko (100%) · Do poprawy: Medytacja (33%) · Basen 2/3",
     });
   });
+
+  it("„rzucam” bez wpisów nie jest „najlepszy”", () => {
+    const habits = [h("a", "Łóżko"), h("b", "Medytacja"), h("q", "Rzucam palenie", { goal: "quit" })];
+    const week = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10"];
+    const entries = [...week.map((d) => done("a", d)), ...week.slice(0, 4).map((d) => done("b", d))];
+    const s = weeklySummary(habits, entries, [], "2026-10-11", 1);
+    expect(s.best?.name).toBe("Łóżko");
+    expect(s.worst?.name).toBe("Medytacja");
+    expect(s.share).toBeCloseTo(10 / 12);
+  });
+
+  it("rzadko zapisywany tydzień: co się udało zamiast procentów", () => {
+    const habits = [h("a", "Medytacja"), h("b", "Spacer"), h("c", "Czytanie"), h("q", "Rzucam palenie", { goal: "quit" })];
+    const entries = [done("a", "2026-10-08"), done("b", "2026-10-08"), done("a", "2026-10-09"), done("a", "2026-10-11"), done("c", "2026-10-11")];
+    const s = weeklySummary(habits, entries, [], "2026-10-11", 1);
+    expect(s.logged).toEqual({ checks: 5, days: 3, top: { name: "Medytacja", count: 3 } });
+    expect(weeklyMessage(s)).toEqual({ title: "Twój tydzień", body: "5 odhaczeń w 3 dni · Najczęściej: Medytacja 3× · Od jutra nowy tydzień" });
+    expect(weeklyMessage(weeklySummary(habits, [], [], "2026-10-11", 1))?.title).toBe("Nowy tydzień od jutra");
+  });
 });

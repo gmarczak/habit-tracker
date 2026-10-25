@@ -1,4 +1,5 @@
 import { addDays, startOfWeek, type LocalDate, type WeekStart } from "./dates";
+import { plural } from "./words";
 import type { Entry, Habit, Pause, TimeOfDay } from "./model";
 import { completionRate, currentWeekProgress } from "./progress";
 import { unitOf } from "./model";
@@ -50,6 +51,8 @@ export type WeeklySummary = {
   best: { name: string; rate: number } | null;
   worst: { name: string; rate: number } | null;
   weekly: { name: string; done: number; required: number }[];
+  /** odhaczenia nawyków „buduję” w tym tygodniu, dni z jakimkolwiek wpisem i najczęściej robiony nawyk */
+  logged: { checks: number; days: number; top: { name: string; count: number } | null };
 };
 
 /** Ostatni dzień tygodnia (wtedy wysyłamy podsumowanie). */
@@ -72,7 +75,8 @@ export function weeklySummary(
   const weekly: WeeklySummary["weekly"] = [];
   for (const habit of active) {
     const plan = planOn(habit, today);
-    if (!plan) continue;
+    // „Rzucam” bez wpisów ma zawsze 100%: nie wygrywa z nawykami, które naprawdę trzeba było zrobić
+    if (!plan || habit.goal === "quit") continue;
     if (unitOf(plan.frequency) === "weeks") {
       const w = currentWeekProgress(habit, entries, pauses, today, weekStart);
       if (w.required > 0) weekly.push({ name: habit.name, done: w.done, required: w.required });
@@ -87,6 +91,14 @@ export function weeklySummary(
   const best = sorted.length >= 2 && sorted[0]!.rate > sorted[sorted.length - 1]!.rate ? sorted[0]! : null;
   const worst = best ? sorted[sorted.length - 1]! : null;
 
+  const ids = new Set(active.filter((h) => h.goal !== "quit").map((h) => h.id));
+  const inWeek = entries.filter((e) => e.date >= first && e.date <= today);
+  const checks = inWeek.filter((e) => ids.has(e.habitId) && !e.skipped && (e.value ?? 0) > 0);
+  const counts = new Map<string, number>();
+  for (const e of checks) counts.set(e.habitId, (counts.get(e.habitId) ?? 0) + 1);
+  const topId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const top = topId ? { name: active.find((h) => h.id === topId[0])!.name, count: topId[1] } : null;
+
   return {
     weekStart: first,
     share: review.total === 0 ? null : review.done / review.total,
@@ -95,11 +107,22 @@ export function weeklySummary(
     best,
     worst,
     weekly,
+    logged: { checks: checks.length, days: new Set(inWeek.map((e) => e.date)).size, top },
   };
 }
 
 export function weeklyMessage(s: WeeklySummary): { title: string; body: string } | null {
   if (s.share === null && s.weekly.length === 0) return null;
+  // Słaby albo rzadko zapisywany tydzień: zamiast procentów i „do poprawy” to, co się udało, i czysta karta
+  if (s.share !== null && (s.logged.days <= 3 || s.share < 0.5)) {
+    const { checks, days, top } = s.logged;
+    if (checks === 0) return { title: "Nowy tydzień od jutra", body: "Czysta karta. Wystarczy jeden nawyk dziennie, żeby ruszyć." };
+    const parts = [`${checks} ${plural(checks, "odhaczenie", "odhaczenia", "odhaczeń")} w ${days} ${plural(days, "dzień", "dni", "dni")}`];
+    if (top && top.count > 1) parts.push(`Najczęściej: ${top.name} ${top.count}×`);
+    for (const w of s.weekly) parts.push(`${w.name} ${w.done}/${w.required}`);
+    parts.push("Od jutra nowy tydzień");
+    return { title: "Twój tydzień", body: parts.join(" · ") };
+  }
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   const parts: string[] = [];
   if (s.share !== null) parts.push(`Idealne dni: ${s.perfectDays} z ${s.daysSoFar}`);
