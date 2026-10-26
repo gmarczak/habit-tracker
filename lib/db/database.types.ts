@@ -61,6 +61,39 @@ export type Database = {
         }
         Relationships: []
       }
+      client_errors: {
+        Row: {
+          created_at: string
+          digest: string | null
+          id: number
+          kind: string
+          message: string
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          digest?: string | null
+          id?: never
+          kind?: string
+          message: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          digest?: string | null
+          id?: never
+          kind?: string
+          message?: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       day_notes: {
         Row: {
           mood: number | null
@@ -548,6 +581,17 @@ export type Database = {
       }
       revoke_api_token: { Args: never; Returns: undefined }
       token_habits: { Args: { p_token: string }; Returns: Json }
+      report_client_error: {
+        Args: {
+          p_digest?: string
+          p_kind?: string
+          p_message: string
+          p_stack?: string
+          p_url?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       set_entry: {
         Args: {
           p_date: string

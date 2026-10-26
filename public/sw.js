@@ -1,40 +1,79 @@
 /* Service worker: powłoka offline + powiadomienia push. Bez zależności, żeby był przewidywalny. */
-const VERSION = "v2-9";
-const SHELL_CACHE = `shell-${VERSION}`;
-const STATIC_CACHE = `static-${VERSION}`;
-const SHELL = [
-  "/", "/review", "/review/week", "/habits", "/stats", "/settings",
-  "/settings/reminders", "/settings/health", "/settings/siri", "/settings/day", "/settings/vacation", "/settings/categories", "/settings/data", "/settings/account",
-  "/manifest.webmanifest", "/icon-192.png",
-];
+const VERSION = "v2-10"; // nowy numer = nowy plik = przeglądarka instaluje nowego workera
 
-// Bez zalogowania strony aplikacji przekierowują do /login — takiej odpowiedzi nie zapisujemy pod ich adresem
-// (Safari odrzuca przekierowaną odpowiedź na nawigację z service workera).
+/*
+ * Trzy cache:
+ * - "shell": strony aplikacji, nadpisywane przy każdej wizycie (do pracy offline),
+ * - "static": pliki z hashem w nazwie (/_next/static) — nie zmieniają się, więc aktualizacja workera ich nie kasuje
+ *   (otwarta strona może jeszcze doczytać swoje pliki, których nowe wdrożenie już nie ma),
+ * - assets-<wersja>: ikony, manifest i fonty bez hasha — odświeżane z każdą wersją.
+ */
+const SHELL_CACHE = "shell";
+const STATIC_CACHE = "static";
+const ASSET_CACHE = `assets-${VERSION}`;
+const STATIC_MAX = 400;
+
+/*
+ * Przy instalacji tylko pliki bez sesji; strony zapisują się przy pierwszej wizycie (nawigacja niżej).
+ * Wcześniej instalacja pobierała naraz 14 stron z ciasteczkami sesji. Safari wysłał je ze starym tokenem
+ * odświeżania, Supabase uznał to za nadużycie („refresh_token_already_used”) i unieważnił sesję: wylogowanie.
+ */
+const PRECACHE = ["/manifest.webmanifest", "/icon-192.png"];
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
-      .open(SHELL_CACHE)
-      .then((cache) =>
-        Promise.allSettled(
-          SHELL.map(async (url) => {
-            const res = await fetch(url, { credentials: "same-origin" });
-            if (res.ok && !res.redirected) await cache.put(url, res);
-          }),
-        ),
-      )
+      .open(ASSET_CACHE)
+      .then((cache) => Promise.allSettled(PRECACHE.map((url) => cache.add(url))))
       .then(() => self.skipWaiting()),
   );
 });
 
+// Bez zalogowania strony aplikacji przekierowują do /login — takiej odpowiedzi nie zapisujemy pod ich adresem
+// (Safari odrzuca przekierowaną odpowiedź na nawigację z service workera).
 const usable = (res) => (res && !res.redirected ? res : undefined);
 
+/** Usuwa najstarsze wpisy, gdy cache przekroczy limit (klucze są w kolejności dodania). */
+async function trim(name, max) {
+  const cache = await caches.open(name);
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - max)).map((k) => cache.delete(k)));
+}
+
+/**
+ * Sprzątanie po poprzedniej wersji. Stare strony („shell-v…”) przechodzą do „shell”, więc offline działa od razu.
+ * Stary cache plików („static-v…”) zostaje na jedną wersję (otwarta strona może z niego jeszcze czytać)
+ * i znika przy następnej aktualizacji.
+ */
+async function migrate() {
+  const shell = await caches.open(SHELL_CACHE);
+  for (const name of await caches.keys()) {
+    if (name === SHELL_CACHE || name === STATIC_CACHE || name === ASSET_CACHE) continue;
+    if (name.startsWith("shell-")) {
+      const old = await caches.open(name);
+      for (const request of await old.keys()) {
+        if (await shell.match(request)) continue;
+        const res = await old.match(request);
+        if (res) await shell.put(request, res);
+      }
+      await caches.delete(name);
+      continue;
+    }
+    if (name.startsWith("static-")) {
+      const old = await caches.open(name);
+      if (!(await old.match("/__retired"))) {
+        await old.put("/__retired", new Response(""));
+        continue;
+      }
+    }
+    await caches.delete(name);
+  }
+  await trim(STATIC_CACHE, STATIC_MAX);
+}
+
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => ![SHELL_CACHE, STATIC_CACHE].includes(k)).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
-  );
+  // Sprzątanie nie może zablokować przejęcia strony: błąd cache = najwyżej zostaje stary wpis
+  event.waitUntil(migrate().catch(() => {}).then(() => self.clients.claim()));
 });
 
 self.addEventListener("fetch", (event) => {
@@ -44,16 +83,20 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return; // Supabase i inne: zawsze sieć (dane są w IndexedDB)
   if (url.pathname.startsWith("/auth/")) return;
 
-  // Pliki z hashem w nazwie: cache-first
-  if (url.pathname.startsWith("/_next/static/") || /\.(?:woff2?|png|svg|ico|webmanifest)$/.test(url.pathname)) {
+  // Pliki z hashem w nazwie (/_next/static) oraz ikony, manifest i fonty: najpierw cache
+  const hashed = url.pathname.startsWith("/_next/static/");
+  if (hashed || /\.(?:woff2?|png|svg|ico|webmanifest)$/.test(url.pathname)) {
+    const name = hashed ? STATIC_CACHE : ASSET_CACHE;
+    // Plik z hashem bywa jeszcze w cache poprzedniej wersji; ikony i manifest tylko z bieżącej (mogły się zmienić)
+    const cached = hashed ? caches.match(request) : caches.open(name).then((c) => c.match(request));
     event.respondWith(
-      caches.match(request).then(
+      cached.then(
         (hit) =>
           hit ||
           fetch(request).then((res) => {
             if (res.ok) {
               const copy = res.clone();
-              caches.open(STATIC_CACHE).then((c) => c.put(request, copy));
+              caches.open(name).then((c) => c.put(request, copy));
             }
             return res;
           }),
