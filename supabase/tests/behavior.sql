@@ -86,7 +86,12 @@ select ingest_metrics('ht_zly', '{"steps": 9000}');                           --
 select ingest_metrics(:'tok', '{"steps": 9000}', current_date + 1);           -- blad: przyszlosc
 select ingest_metrics(:'tok', '[1]');                                         -- blad: nie obiekt
 select count(*) as anon_sees_entries from habit_entries;                     -- 0: anon nie czyta tabel
+select report_client_error('TypeError: x', 'chunk', '/review', 'iPhone');    -- zgloszenie awarii bez sesji
+select report_client_error('   ');                                           -- puste: pomijane
+select report_client_error(repeat('m', 5000), 'hack');                       -- przyciete, nieznany rodzaj = render
+select count(*) from client_errors;                                          -- blad: anon nie czyta zgloszen
 reset role;
+select kind, char_length(message) as len, url from client_errors order by id;
 select h.name, e.entry_date = current_date as today, e.value from habit_entries e join habits h on h.id = e.habit_id
 where h.source is not null order by h.name, e.entry_date;
 select last_used_at is not null as token_used from api_tokens;

@@ -143,6 +143,16 @@ Dlaczego hasło: na iPhonie aplikacja dodana do ekranu głównego ma osobną pam
 
 Wbudowana poczta Supabase wysyła tylko kilka maili na godzinę (błąd 429) i na darmowym planie nie pozwala zmieniać treści maili. Przy większej liczbie użytkowników trzeba podpiąć własny SMTP (Authentication → Emails → SMTP).
 
+**Service worker a sesja.** `public/sw.js` przy instalacji nie pobiera stron aplikacji. Pobieranie kilkunastu stron naraz z ciasteczkami sesji kończyło się w Safari starym tokenem odświeżania; Supabase odrzucał go jako `refresh_token_already_used` („Possible abuse attempt”) i unieważniał całą sesję, czyli wylogowanie. Strony zapisują się do pracy offline przy pierwszej wizycie. Pliki z hashem (`/_next/static`) leżą w cache bez numeru wersji, więc aktualizacja workera nie kasuje plików otwartej strony.
+
+## Awarie w przeglądarce
+
+`app/error.tsx` i `app/global-error.tsx` pokazują ekran „Coś się zacięło” zamiast białej strony Next.js. Gdy nie doczytał się plik aplikacji (`ChunkLoadError`, zwykle po wdrożeniu), strona odświeża się sama, najwyżej raz na minutę. Każda awaria idzie na `POST /api/client-error` (poza `proxy.ts`, bez sesji): do logów Vercela (`[client-error]`, na Hobby żyją godzinę) i do tabeli `client_errors` przez RPC `report_client_error` (limit 60 na godzinę, 30 dni). Podgląd:
+
+```sql
+select created_at, kind, url, message, left(stack, 300) from client_errors order by created_at desc limit 20;
+```
+
 ## Wdrożenie
 
 Produkcja (gm-habit-tracker.vercel.app) wdraża się automatycznie z gałęzi `main` przez integrację Vercel ↔ GitHub; gałęzie i PR-y dostają podglądy. Jeśli push nie uruchamia builda, sprawdź Vercel → Settings → Git (błąd „Project Link not found” naprawia Disconnect + ponowne podłączenie repo).

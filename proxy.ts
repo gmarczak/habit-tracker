@@ -36,5 +36,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Bez proxy: pliki statyczne, service worker i manifest (muszą działać przed zalogowaniem i offline)
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|.*\\.(?:png|svg|ico|webmanifest|woff2?)$).*)"],
+  // oraz zgłoszenia awarii (bez sesji i bez odświeżania tokenu)
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|manifest\\.webmanifest|api/client-error|.*\\.(?:png|svg|ico|webmanifest|woff2?)$).*)"],
 };
